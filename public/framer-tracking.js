@@ -1,6 +1,8 @@
 /* Orion visitor tracking for Framer Custom Code. No PII is collected. */
 (function () {
   'use strict';
+  if (window.__ORION_ANALYTICS_INSTANCE__) return;
+  window.__ORION_ANALYTICS_INSTANCE__ = true;
   var config = window.ORION_ANALYTICS_CONFIG || {};
   var apiBase = String(config.apiBase || '').replace(/\/$/, '');
   var requireConsent = config.requireConsent === true;
