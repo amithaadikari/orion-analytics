@@ -17,11 +17,12 @@ export async function GET(request: Request) {
   const start = url.searchParams.get('start') ? new Date(url.searchParams.get('start') as string) : rangeStart(range);
   const end = url.searchParams.get('end') ? new Date(url.searchParams.get('end') as string) : rangeEnd(range);
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return jsonError('Invalid date range');
-  const [visitorsResult, eventsResult] = await Promise.all([
+  const [visitorsResult, eventsResult, leadsResult] = await Promise.all([
     supabase.from('visitors').select('*').gte('last_seen', start.toISOString()).lte('last_seen', end.toISOString()).order('last_seen', { ascending: false }).limit(10000),
-    supabase.from('events').select('*').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()).order('created_at', { ascending: false }).limit(20000)
+    supabase.from('events').select('*').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()).order('created_at', { ascending: false }).limit(20000),
+    supabase.from('leads').select('id,visitor_id,country,utm_campaign,created_at').gte('created_at', start.toISOString()).lte('created_at', end.toISOString()).order('created_at', { ascending: false }).limit(10000)
   ]);
-  if (visitorsResult.error || eventsResult.error) return jsonError('Unable to load analytics', 500);
+  if (visitorsResult.error || eventsResult.error || leadsResult.error) return jsonError('Unable to load analytics', 500);
   const visitors = ((visitorsResult.data || []) as Visitor[]).filter((row) =>
     (!countryFilter || countryFilter === 'all' || (row.country || 'Unknown') === countryFilter) &&
     (!campaignFilter || campaignFilter === 'all' || (row.utm_campaign || 'Organic') === campaignFilter) &&
@@ -30,8 +31,11 @@ export async function GET(request: Request) {
   const events = ((eventsResult.data || []) as Event[]).filter((row) => !eventFilter || eventFilter === 'all' || row.event_name === eventFilter);
   const telegramIds = new Set(events.filter((event) => event.event_name === 'TelegramClick').map((event) => event.visitor_id));
   const byCountry = countBy(visitors, (row) => row.country || 'Unknown');
+  const byCity = countBy(visitors, (row) => row.city || 'Unknown');
   const byCampaign = countBy(visitors, (row) => row.utm_campaign || 'Organic');
   const byDevice = countBy(visitors, (row) => row.device_type || 'Unknown');
+  const byBrowser = countBy(visitors, (row) => row.browser || 'Unknown');
+  const byReferrer = countBy(visitors, (row) => normalizeReferrer(row.referrer));
   const byDay = dailySeries(visitors, events, start, end);
   const eventCounts = countBy(events, (row) => row.event_name);
   const eventCountMap = Object.fromEntries(eventCounts.map(({ name, value }) => [name, value]));
@@ -44,24 +48,40 @@ export async function GET(request: Request) {
   ]);
   const { data: metaEvents } = await supabase.from('meta_events').select('event_id,event_name,status,sent_at').gte('sent_at', start.toISOString()).lte('sent_at', end.toISOString()).order('sent_at', { ascending: false }).limit(20000);
   const previousClicks = (previousEvents || []).filter((row) => row.event_name === 'TelegramClick').length;
+  const now = Date.now();
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const leads = leadsResult.data || [];
+  const campaigns = byCampaign.map(({ name, value }) => {
+    const ids = new Set(visitors.filter((row) => (row.utm_campaign || 'Organic') === name).map((row) => row.visitor_id));
+    const clicks = events.filter((event) => event.event_name === 'TelegramClick' && ids.has(event.visitor_id)).length;
+    return { name, visitors: value, clicks, conversionRate: value ? Number(((clicks / value) * 100).toFixed(1)) : 0 };
+  });
   const snapshot = {
     range: { start: start.toISOString(), end: end.toISOString() },
     metrics: {
       visitorsToday: visitors.filter((row) => new Date(row.last_seen).toDateString() === new Date().toDateString()).length,
       uniqueVisitors: new Set(visitors.map((row) => row.visitor_id)).size,
+      visitorsOnline: visitors.filter((row) => now - new Date(row.last_seen).getTime() <= 5 * 60_000).length,
       telegramClicks: eventCountMap.TelegramClick || 0,
       conversionRate: visitors.length ? Number(((telegramIds.size / visitors.length) * 100).toFixed(1)) : 0,
+      leadsToday: leads.filter((row) => new Date(row.created_at).getTime() >= todayStart.getTime()).length,
       returningVisitors: visitors.filter((row) => row.first_seen && new Date(row.first_seen).getTime() < new Date(row.last_seen).getTime() - 60_000).length,
       topCountry: byCountry[0]?.name || '—', topCampaign: byCampaign[0]?.name || 'Organic'
     },
     comparison: { visitors: percentChange(visitors.length, (previousVisitors || []).length), telegramClicks: percentChange(eventCountMap.TelegramClick || 0, previousClicks) },
     meta: { browserEvents: events.filter((event) => ['PageView', 'ViewContent', 'Lead', 'SupportClick', 'Purchase'].includes(event.event_name)).length, serverEvents: (metaEvents || []).length, successful: (metaEvents || []).filter((event) => event.status === 'sent').length, failed: (metaEvents || []).filter((event) => event.status === 'failed').length, lastSync: metaEvents?.[0]?.sent_at || null, eventIds: (metaEvents || []).slice(0, 10).map((event) => event.event_id) },
     funnel: { visitors: visitors.length, viewContent: eventCountMap.ViewContent || 0, telegramClicks: eventCountMap.TelegramClick || 0 },
-    charts: { byDay, byCountry: byCountry.slice(0, 8), byCampaign: byCampaign.slice(0, 8), byDevice },
+    charts: { byDay, byCountry: byCountry.slice(0, 8), byCity: byCity.slice(0, 8), byCampaign: byCampaign.slice(0, 8), byDevice, byBrowser, byReferrer: byReferrer.slice(0, 8) },
+    campaigns: campaigns.slice(0, 20),
     events: events.slice(0, 120).map((event) => ({ ...event, label: EVENT_LABELS[event.event_name] || event.event_name })),
     visitors: visitors.slice(0, 120).map((visitor) => ({ ...visitor, telegram_clicked: telegramIds.has(visitor.visitor_id) }))
   };
   return Response.json(snapshot, { headers: { 'Cache-Control': 'private, no-store' } });
+}
+
+function normalizeReferrer(value?: string | null) {
+  if (!value) return 'Direct';
+  try { return new URL(value).hostname.replace(/^www\./, ''); } catch { return value.slice(0, 60); }
 }
 
 function percentChange(current: number, previous: number) {
