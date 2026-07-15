@@ -54,7 +54,8 @@
       var label = text(target.textContent || '', 120) || '';
       var href = target.getAttribute('href') || '';
       var isSupport = /support|contact|help/i.test(label);
-      var isTelegram = !isSupport && /telegram|t\.me/i.test(href + ' ' + label);
+      var isTrackedJoin = Boolean(config.joinEndpoint) && href.indexOf(String(config.joinEndpoint)) === 0;
+      var isTelegram = !isSupport && (isTrackedJoin || /telegram|t\.me/i.test(href + ' ' + label));
       if (isTelegram) { var id = event('TelegramClick', { label: label, href: href }); if (config.joinEndpoint && state) { try { var join = new URL(config.joinEndpoint); var latest = safeGet(latestTouchKey) || safeGet(firstTouchKey) || {}; join.searchParams.set('visitor_id', state.visitor_id); join.searchParams.set('session_id', state.session_id); join.searchParams.set('event_id', id || uuid('tg')); join.searchParams.set('page_url', location.href); Object.keys(latest).forEach(function (key) { if (latest[key]) join.searchParams.set(key, latest[key]); }); if (cookie('_fbp')) join.searchParams.set('fbp', cookie('_fbp')); if (cookie('_fbc')) join.searchParams.set('fbc', cookie('_fbc')); target.setAttribute('href', join.toString()); } catch (_) {} } pixel('Lead', { content_name: 'Official Telegram' }, id); if (!config.joinEndpoint) send('/api/meta/conversion', { event_name: 'Lead', event_id: id, event_source_url: location.href, visitor_id: state.visitor_id, fbp: cookie('_fbp'), fbc: cookie('_fbc'), metadata: { label: label } }); }
       else if (isSupport) { var supportId = event('SupportClick', { label: label, href: href }); pixel('Contact', { content_name: 'Support' }, supportId); send('/api/meta/conversion', { event_name: 'Contact', event_id: supportId, event_source_url: location.href, visitor_id: state.visitor_id, fbp: cookie('_fbp'), fbc: cookie('_fbc') }); }
     }, true);
