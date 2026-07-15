@@ -1,0 +1,11 @@
+.DS_Store
+tsconfig.tsbuildinfo
+.env
+.env.local
+.env.*.local
+node_modules
+.nextnode_modules
+.next
+.env*
+!.env.example
+coverage

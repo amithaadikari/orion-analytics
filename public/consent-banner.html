@@ -1,0 +1,17 @@
+<div id="orion-consent" hidden role="dialog" aria-live="polite" aria-label="Analytics consent">
+  <p>We use privacy-respecting analytics to understand anonymous visits and improve Orion.</p>
+  <button type="button" data-consent="accept">Allow analytics</button>
+  <button type="button" data-consent="deny">Decline</button>
+</div>
+<script>
+  (function () {
+    var banner = document.getElementById('orion-consent');
+    if (!banner || localStorage.getItem('orion_consent')) return;
+    banner.hidden = false;
+    banner.addEventListener('click', function (event) {
+      var button = event.target.closest('[data-consent]'); if (!button) return;
+      window.OrionAnalytics && window.OrionAnalytics.consent(button.dataset.consent === 'accept');
+      banner.remove();
+    });
+  }());
+</script>
