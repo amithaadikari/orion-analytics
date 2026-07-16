@@ -30,6 +30,8 @@ create table if not exists public.licenses (
 create table if not exists public.client_payments (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references public.clients(id) on delete cascade,
+  license_id uuid references public.licenses(id) on delete set null,
+  plan text not null default 'Basic' check (plan in ('Basic','Premium','Lifetime')),
   method text not null check (method in ('Crypto','Bank Transfer','Card','PayPal','Wise','Skrill','Cash','Other')),
   status text not null default 'Pending' check (status in ('Pending','Paid','Failed','Refunded','Disputed','Manually verified')),
   amount numeric(12,2) not null default 0 check (amount >= 0),
@@ -55,6 +57,8 @@ create index if not exists clients_status_idx on public.clients(status);
 create index if not exists licenses_client_idx on public.licenses(client_id);
 create index if not exists licenses_status_idx on public.licenses(status);
 create index if not exists client_payments_client_idx on public.client_payments(client_id);
+create index if not exists client_payments_license_idx on public.client_payments(license_id);
+create index if not exists client_payments_plan_idx on public.client_payments(plan);
 create index if not exists client_payments_date_idx on public.client_payments(payment_date desc);
 create index if not exists client_activity_client_idx on public.client_activity(client_id, created_at desc);
 
