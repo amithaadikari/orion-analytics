@@ -15,7 +15,8 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
   RATE_LIMIT_WINDOW_SECONDS: z.coerce.number().int().positive().default(60),
   DATA_RETENTION_DAYS: z.coerce.number().int().positive().default(365),
-  NEXT_PUBLIC_ANALYTICS_ENABLED: z.enum(['true', 'false']).default('true')
+  NEXT_PUBLIC_ANALYTICS_ENABLED: z.enum(['true', 'false']).default('true'),
+  CLIENT_PORTAL_URL: z.string().url().refine((value) => value.startsWith('https://'), 'Client portal URL must use HTTPS').default('https://app.orionscalper.com')
 });
 
 let cached: z.infer<typeof envSchema> | null = null;
