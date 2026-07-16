@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     const linkError = await validatePaymentLink(db, parsed.data);
     if (linkError) return jsonError(linkError);
   }
-  const payload = clean(parsed.data); const { data, error } = await db.from(table).insert(payload).select('*').single();
+  const payload = normalizeLicenseStatus(resource, clean(parsed.data)); const { data, error } = await db.from(table).insert(payload).select('*').single();
   if (error) return jsonError(error.message, 400);
   const clientId = resource === 'client' ? data.id : data.client_id;
   await db.from('client_activity').insert({ client_id: clientId, action, details: describe(resource, data), actor_email: auth.admin!.email });
@@ -85,7 +85,8 @@ export async function PATCH(request: Request) {
     const linkError = await validatePaymentLink(db, complete.data);
     if (linkError) return jsonError(linkError);
   }
-  const { data, error } = await db.from(tables[resource]).update(clean(parsed.data)).eq('id', body.id).select('*').single(); if (error) return jsonError(error.message, 400);
+  const payload = normalizeLicenseStatus(resource, clean(parsed.data));
+  const { data, error } = await db.from(tables[resource]).update(payload).eq('id', body.id).select('*').single(); if (error) return jsonError(error.message, 400);
   const clientId = resource === 'client' ? data.id : data.client_id; await db.from('client_activity').insert({ client_id: clientId, action: `${resource[0].toUpperCase()}${resource.slice(1)} updated`, details: describe(resource, data), actor_email: auth.admin!.email });
   return Response.json(data);
 }
@@ -115,6 +116,11 @@ export async function DELETE(request: Request) {
 }
 
 function clean<T extends Record<string, unknown>>(value: T) { return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, item === '' ? null : item])); }
+function normalizeLicenseStatus(resource: string, value: Record<string, unknown>) {
+  if (resource !== 'license' || typeof value.expires_at !== 'string') return value;
+  const expiresAt = new Date(`${value.expires_at.slice(0, 10)}T23:59:59.999Z`);
+  return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() < Date.now() ? { ...value, status: 'Expired' } : value;
+}
 function describe(resource: string, data: Record<string, unknown>) { if (resource === 'payment') return `${data.status} · ${data.currency} ${data.amount} · ${data.method}`; if (resource === 'license') return `${data.license_key} · ${data.platform} · ${data.status}`; return `${data.full_name} · ${data.plan} · ${data.status}`; }
 
 async function validatePaymentLink(db: ReturnType<typeof createSupabaseAdminClient>, payment: { client_id?: string; license_id?: string | null; plan?: string }) {
