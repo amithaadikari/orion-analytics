@@ -1,10 +1,12 @@
 import { metaSchema } from '@/lib/validation';
-import { corsHeaders, jsonError, optionsResponse, readJson, sanitizeUrl } from '@/lib/security';
+import { corsHeaders, jsonError, optionsResponse, readJson, requireTrackingOrigin, sanitizeUrl } from '@/lib/security';
 import { rateLimit } from '@/lib/rate-limit';
 import { sendMetaEvent } from '@/lib/meta';
 import { getEnv } from '@/lib/env';
 
 export async function POST(request: Request) {
+  const internal = request.headers.get('x-orion-internal-secret') === getEnv().CONVERSION_INTERNAL_SECRET;
+  const denied = internal ? null : requireTrackingOrigin(request); if (denied) return denied;
   const limit = rateLimit(request, 'meta');
   if (!limit.allowed) return jsonError('Too many requests', 429);
   try {

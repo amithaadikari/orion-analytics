@@ -1,9 +1,10 @@
 import { visitorSchema } from '@/lib/validation';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import { corsHeaders, geoFromRequest, jsonError, optionsResponse, readJson, sanitizeString } from '@/lib/security';
+import { corsHeaders, geoFromRequest, jsonError, optionsResponse, readJson, requireTrackingOrigin, sanitizeString } from '@/lib/security';
 import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
+  const denied = requireTrackingOrigin(request); if (denied) return denied;
   const limit = rateLimit(request, 'visitor');
   if (!limit.allowed) return jsonError('Too many requests', 429);
   try {

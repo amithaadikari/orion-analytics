@@ -1,9 +1,10 @@
 import { eventSchema } from '@/lib/validation';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import { corsHeaders, jsonError, optionsResponse, readJson, sanitizeUrl } from '@/lib/security';
+import { corsHeaders, jsonError, optionsResponse, readJson, requireTrackingOrigin, sanitizeUrl } from '@/lib/security';
 import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: Request) {
+  const denied = requireTrackingOrigin(request); if (denied) return denied;
   const limit = rateLimit(request, 'event');
   if (!limit.allowed) return jsonError('Too many requests', 429);
   try {

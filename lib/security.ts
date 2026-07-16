@@ -32,7 +32,7 @@ export async function readJson(request: Request, maxBytes = 32_000) {
 }
 
 export function corsHeaders(request: Request) {
-  const allowed = getEnv().TRACKING_ALLOWED_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean);
+  const allowed = allowedTrackingOrigins();
   const origin = request.headers.get('origin');
   const headers: Record<string, string> = { Vary: 'Origin' };
   if (origin && allowed.includes(origin)) {
@@ -44,4 +44,21 @@ export function corsHeaders(request: Request) {
   return headers;
 }
 
-export function optionsResponse(request: Request) { return new Response(null, { status: 204, headers: corsHeaders(request) }); }
+export function allowedTrackingOrigins() {
+  return getEnv().TRACKING_ALLOWED_ORIGINS.split(',').map((value) => value.trim().replace(/\/$/, '')).filter(Boolean);
+}
+
+export function isAllowedTrackingOrigin(request: Request) {
+  const origin = request.headers.get('origin')?.replace(/\/$/, '');
+  return Boolean(origin && allowedTrackingOrigins().includes(origin));
+}
+
+export function requireTrackingOrigin(request: Request) {
+  if (isAllowedTrackingOrigin(request)) return null;
+  return Response.json({ error: 'Origin not allowed' }, { status: 403, headers: { 'Cache-Control': 'no-store', Vary: 'Origin' } });
+}
+
+export function optionsResponse(request: Request) {
+  const denied = requireTrackingOrigin(request);
+  return denied || new Response(null, { status: 204, headers: corsHeaders(request) });
+}
