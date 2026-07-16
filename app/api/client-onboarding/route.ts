@@ -21,7 +21,10 @@ export async function POST(request: Request) {
 
   const portalUrl = getEnv().CLIENT_PORTAL_URL.replace(/\/$/, '');
   const { data: invitation, error: inviteError } = await db.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${portalUrl}/auth/callback?next=/reset-password`,
+    // Admin invitations establish their session in the browser. Sending them
+    // directly to the password form preserves that session; the recovery
+    // callback is reserved for resetPasswordForEmail's PKCE flow.
+    redirectTo: `${portalUrl}/reset-password`,
     data: { full_name: client.full_name, client_id: client.id, plan: client.plan }
   });
   if (inviteError || !invitation.user) {
