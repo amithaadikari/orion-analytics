@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { requireAdminApi } from '@/lib/auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { jsonError } from '@/lib/security';
+import { sendPaymentReceipt } from '@/lib/receipt-email';
 
 const clientSchema = z.object({
   full_name: z.string().trim().min(2).max(120), email: z.string().trim().email().or(z.literal('')).optional(),
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
   if (error) return jsonError(error.message, 400);
   const clientId = resource === 'client' ? data.id : data.client_id;
   await db.from('client_activity').insert({ client_id: clientId, action, details: describe(resource, data), actor_email: auth.admin!.email });
+  if (resource === 'payment') await sendPaymentReceipt(data).catch(() => undefined);
   return Response.json(data, { status: 201 });
 }
 
@@ -89,6 +91,7 @@ export async function PATCH(request: Request) {
   const payload = normalizeLicenseStatus(resource, clean(parsed.data));
   const { data, error } = await db.from(tables[resource]).update(payload).eq('id', body.id).select('*').single(); if (error) return jsonError(error.message, 400);
   const clientId = resource === 'client' ? data.id : data.client_id; await db.from('client_activity').insert({ client_id: clientId, action: `${resource[0].toUpperCase()}${resource.slice(1)} updated`, details: describe(resource, data), actor_email: auth.admin!.email });
+  if (resource === 'payment') await sendPaymentReceipt(data).catch(() => undefined);
   return Response.json(data);
 }
 
