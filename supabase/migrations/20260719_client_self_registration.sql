@@ -16,7 +16,6 @@ security definer
 set search_path = public
 as $$
 declare
-  requested text;
   linked_client uuid;
 begin
   linked_client := nullif(new.raw_user_meta_data ->> 'client_id', '')::uuid;
@@ -29,18 +28,15 @@ begin
     return new;
   end if;
 
-  requested := coalesce(new.raw_user_meta_data ->> 'requested_plan', 'Free');
-  if requested not in ('Free','Basic','Premium','Lifetime') then requested := 'Free'; end if;
-
   insert into public.clients (auth_user_id, full_name, email, country, plan, status, notes)
   values (
     new.id,
     coalesce(nullif(trim(new.raw_user_meta_data ->> 'full_name'), ''), split_part(new.email, '@', 1)),
     new.email,
     nullif(trim(new.raw_user_meta_data ->> 'country'), ''),
-    requested,
-    case when requested = 'Free' then 'Active' else 'Pending' end,
-    case when requested = 'Free' then 'Self-registered free account' else 'Self-registered; paid plan requires admin approval' end
+    'Free',
+    'Active',
+    'Self-registered free account'
   )
   on conflict (auth_user_id) do nothing;
   return new;
