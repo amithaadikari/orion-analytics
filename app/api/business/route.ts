@@ -129,5 +129,6 @@ async function validatePaymentLink(db: ReturnType<typeof createSupabaseAdminClie
   const { data: license, error } = await db.from('licenses').select('client_id,plan').eq('id', payment.license_id).single();
   if (error || !license) return 'Selected license does not exist';
   if (license.client_id !== payment.client_id) return 'Selected license does not belong to this client';
+  if (payment.plan && license.plan !== payment.plan) return 'Payment plan must match the selected license plan';
   return null;
 }
