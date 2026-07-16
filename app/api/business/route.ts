@@ -7,7 +7,7 @@ const clientSchema = z.object({
   full_name: z.string().trim().min(2).max(120), email: z.string().trim().email().or(z.literal('')).optional(),
   telegram_username: z.string().trim().max(80).optional(), phone: z.string().trim().max(40).optional(), country: z.string().trim().max(80).optional(),
   auth_user_id: z.preprocess((value) => value === '' ? null : value, z.string().uuid().nullable().optional()),
-  plan: z.enum(['Basic', 'Premium', 'Lifetime']), status: z.enum(['Active', 'Expired', 'Suspended']), notes: z.string().trim().max(2000).optional()
+  plan: z.enum(['Free', 'Basic', 'Premium', 'Lifetime']), status: z.enum(['Pending', 'Active', 'Expired', 'Suspended']), notes: z.string().trim().max(2000).optional()
 });
 const licenseSchema = z.object({ client_id: z.string().uuid(), license_key: z.string().trim().min(8).max(120), platform: z.enum(['MT4', 'MT5']), account_number: z.string().trim().max(80).optional(), plan: z.enum(['Basic', 'Premium', 'Lifetime']), status: z.enum(['Active', 'Expired', 'Suspended']), expires_at: z.string().nullable().optional() });
 const optionalUuid = z.preprocess((value) => value === '' ? null : value, z.string().uuid().nullable().optional());
