@@ -17,3 +17,12 @@ export async function requireAdminApi() {
   const { data: admin } = await supabase.from('admins').select('id, role, email').eq('user_id', user.id).maybeSingle();
   return { supabase, user, admin: admin && ['admin', 'analyst'].includes(admin.role) ? admin : null };
 }
+
+export async function requireClient() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/client-login');
+  const { data: client } = await supabase.from('clients').select('id,full_name,email,telegram_username,phone,country,plan,status,created_at').eq('auth_user_id', user.id).maybeSingle();
+  if (!client) redirect('/client-login?error=not-linked');
+  return { supabase, user, client };
+}
