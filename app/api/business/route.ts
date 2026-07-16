@@ -66,5 +66,29 @@ export async function PATCH(request: Request) {
   return Response.json(data);
 }
 
+export async function DELETE(request: Request) {
+  const auth = await session(true); if (!auth) return jsonError('Admin access required', 403);
+  const body = await request.json().catch(() => null);
+  const resource = body?.resource as 'client' | 'license' | 'payment';
+  const id = z.string().uuid().safeParse(body?.id);
+  if (!id.success || !['client', 'license', 'payment'].includes(resource)) return jsonError('Invalid delete request');
+  const tables = { client: 'clients', license: 'licenses', payment: 'client_payments' } as const;
+  const db = createSupabaseAdminClient();
+  const { data: existing, error: findError } = await db.from(tables[resource]).select('*').eq('id', id.data).single();
+  if (findError || !existing) return jsonError('Record not found', 404);
+  const clientId = resource === 'client' ? existing.id : existing.client_id;
+  if (resource !== 'client') {
+    await db.from('client_activity').insert({
+      client_id: clientId,
+      action: `${resource[0].toUpperCase()}${resource.slice(1)} deleted`,
+      details: describe(resource, existing),
+      actor_email: auth.admin!.email
+    });
+  }
+  const { error } = await db.from(tables[resource]).delete().eq('id', id.data);
+  if (error) return jsonError(error.message, 400);
+  return Response.json({ ok: true });
+}
+
 function clean<T extends Record<string, unknown>>(value: T) { return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, item === '' ? null : item])); }
 function describe(resource: string, data: Record<string, unknown>) { if (resource === 'payment') return `${data.status} · ${data.currency} ${data.amount} · ${data.method}`; if (resource === 'license') return `${data.license_key} · ${data.platform} · ${data.status}`; return `${data.full_name} · ${data.plan} · ${data.status}`; }
