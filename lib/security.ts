@@ -12,6 +12,15 @@ export function sanitizeUrl(value: unknown) {
   } catch { return null; }
 }
 
+export function sanitizeTrackingUrl(value: unknown) {
+  const safe = sanitizeUrl(value);
+  if (!safe) return null;
+  const url = new URL(safe);
+  ['visitor_id', 'session_id', 'source_event_id', 'fbp', 'fbc', 'tracking_consent'].forEach((key) => url.searchParams.delete(key));
+  url.hash = '';
+  return url.toString();
+}
+
 export function geoFromRequest(request: Request) {
   return {
     country: clean(request.headers.get('x-vercel-ip-country') || request.headers.get('cf-ipcountry'), 3),
@@ -50,7 +59,9 @@ export function allowedTrackingOrigins() {
 
 export function isAllowedTrackingOrigin(request: Request) {
   const origin = request.headers.get('origin')?.replace(/\/$/, '');
-  return Boolean(origin && allowedTrackingOrigins().includes(origin));
+  let requestOrigin = '';
+  try { requestOrigin = new URL(request.url).origin; } catch {}
+  return Boolean(origin && (origin === requestOrigin || allowedTrackingOrigins().includes(origin)));
 }
 
 export function requireTrackingOrigin(request: Request) {

@@ -33,6 +33,7 @@
   function send(path, payload) { if (disabled || !apiBase || !hasConsent()) return; try { fetch(apiBase + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), keepalive: true, credentials: 'omit' }).catch(function () {}); } catch (_) {} }
   function pixel(name, data, eventId) { if (typeof window.fbq !== 'function' || !hasConsent()) return; try { window.fbq('track', name, data || {}, { eventID: eventId }); } catch (_) {} }
   function event(name, metadata) { if (disabled || !hasConsent()) return; var eventId = uuid('evt'); send('/api/track/event', { visitor_id: state.visitor_id, session_id: state.session_id, event_name: name, event_id: eventId, page_url: location.href, fbp: cookie('_fbp'), fbc: cookie('_fbc'), metadata: metadata || {} }); return eventId; }
+  function funnelEvent(name, plan) { if (disabled || !hasConsent() || !state) return; var eventId = uuid('funnel'); send('/api/track/funnel', { visitor_id: state.visitor_id, session_id: state.session_id, event_name: name, event_id: eventId, page_url: location.href, plan: plan || null, fbp: cookie('_fbp'), fbc: cookie('_fbc'), metadata: { surface: 'public_site', plan: plan || null } }); return eventId; }
   function boot() {
     if (!hasConsent() || state) return;
     state = safeGet(storageKey) || { visitor_id: uuid('v') };
@@ -53,6 +54,23 @@
       if (!target) return;
       var label = text(target.textContent || '', 120) || '';
       var href = target.getAttribute('href') || '';
+      try {
+        var purchaseUrl = new URL(href, location.href);
+        var purchasePlan = /^(basic|premium|lifetime)$/.test(purchaseUrl.searchParams.get('plan') || '') ? purchaseUrl.searchParams.get('plan') : '';
+        if (purchaseUrl.hostname === 'app.orionscalper.com' && purchaseUrl.pathname === '/client-register' && state && !disabled && hasConsent()) {
+          var selectionId = purchasePlan ? funnelEvent('PlanSelected', purchasePlan) : uuid('handoff');
+          var handoff = new URLSearchParams();
+          handoff.set('tracking', 'enabled');
+          handoff.set('visitor_id', state.visitor_id);
+          handoff.set('session_id', state.session_id);
+          handoff.set('source_event_id', selectionId || uuid('funnel'));
+          if (cookie('_fbp')) handoff.set('fbp', cookie('_fbp'));
+          if (cookie('_fbc')) handoff.set('fbc', cookie('_fbc'));
+          purchaseUrl.hash = handoff.toString();
+          href = purchaseUrl.toString();
+          target.setAttribute('href', href);
+        }
+      } catch (_) {}
       var isSupport = /support|contact|help/i.test(label);
       var isTrackedJoin = Boolean(config.joinEndpoint) && href.indexOf(String(config.joinEndpoint)) === 0;
       var isTelegram = !isSupport && (isTrackedJoin || /telegram|t\.me/i.test(href + ' ' + label));

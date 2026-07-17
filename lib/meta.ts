@@ -3,7 +3,7 @@ import { getEnv } from '@/lib/env';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 
 export type MetaEventInput = {
-  eventName: 'PageView' | 'ViewContent' | 'Lead' | 'Contact' | 'Purchase';
+  eventName: 'PageView' | 'ViewContent' | 'Lead' | 'Contact' | 'InitiateCheckout' | 'CompleteRegistration' | 'Purchase';
   eventId: string;
   eventSourceUrl?: string | null;
   userAgent?: string | null;

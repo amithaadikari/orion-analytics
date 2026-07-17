@@ -28,7 +28,14 @@ export async function GET(request: Request) {
     (!campaignFilter || campaignFilter === 'all' || (row.utm_campaign || 'Organic') === campaignFilter) &&
     (!deviceFilter || deviceFilter === 'all' || (row.device_type || 'Unknown') === deviceFilter)
   );
-  const events = ((eventsResult.data || []) as Event[]).filter((row) => !eventFilter || eventFilter === 'all' || row.event_name === eventFilter);
+  const normalizedEvents = ((eventsResult.data || []) as Event[]).map((row) => {
+    const funnelEvent = typeof row.metadata?.funnel_event === 'string' ? row.metadata.funnel_event : null;
+    return funnelEvent ? { ...row, stored_event_name: row.event_name, event_name: funnelEvent } : row;
+  });
+  const selectedVisitorIds = new Set(visitors.map((row) => row.visitor_id));
+  const funnelEvents = normalizedEvents.filter((row) => selectedVisitorIds.has(row.visitor_id));
+  const uniqueStage = (name: string) => new Set(funnelEvents.filter((row) => row.event_name === name).map((row) => row.visitor_id)).size;
+  const events = normalizedEvents.filter((row) => !eventFilter || eventFilter === 'all' || row.event_name === eventFilter);
   const telegramIds = new Set(events.filter((event) => event.event_name === 'TelegramClick').map((event) => event.visitor_id));
   const byCountry = countBy(visitors, (row) => row.country || 'Unknown');
   const byCity = countBy(visitors, (row) => row.city || 'Unknown');
@@ -69,8 +76,8 @@ export async function GET(request: Request) {
       topCountry: byCountry[0]?.name || '—', topCampaign: byCampaign[0]?.name || 'Organic'
     },
     comparison: { visitors: percentChange(visitors.length, (previousVisitors || []).length), telegramClicks: percentChange(eventCountMap.TelegramClick || 0, previousClicks) },
-    meta: { browserEvents: events.filter((event) => ['PageView', 'ViewContent', 'Lead', 'SupportClick', 'Purchase'].includes(event.event_name)).length, serverEvents: (metaEvents || []).length, successful: (metaEvents || []).filter((event) => event.status === 'sent').length, failed: (metaEvents || []).filter((event) => event.status === 'failed').length, lastSync: metaEvents?.[0]?.sent_at || null, eventIds: (metaEvents || []).slice(0, 10).map((event) => event.event_id) },
-    funnel: { visitors: visitors.length, viewContent: eventCountMap.ViewContent || 0, telegramClicks: eventCountMap.TelegramClick || 0 },
+    meta: { browserEvents: events.filter((event) => ['PageView', 'ViewContent', 'Lead', 'SupportClick', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'Purchase'].includes(event.event_name)).length, serverEvents: (metaEvents || []).length, successful: (metaEvents || []).filter((event) => event.status === 'sent').length, failed: (metaEvents || []).filter((event) => event.status === 'failed').length, lastSync: metaEvents?.[0]?.sent_at || null, eventIds: (metaEvents || []).slice(0, 10).map((event) => event.event_id) },
+    funnel: { visitors: selectedVisitorIds.size, viewContent: uniqueStage('ViewContent'), planSelected: uniqueStage('PlanSelected'), registrationStarted: uniqueStage('RegistrationStarted'), registrationCompleted: uniqueStage('RegistrationCompleted'), checkoutStarted: uniqueStage('CheckoutStarted'), telegramClicks: uniqueStage('TelegramClick') },
     charts: { byDay, byCountry: byCountry.slice(0, 8), byCity: byCity.slice(0, 8), byCampaign: byCampaign.slice(0, 8), byDevice, byBrowser, byReferrer: byReferrer.slice(0, 8) },
     campaigns: campaigns.slice(0, 20),
     events: events.slice(0, 120).map((event) => ({ ...event, label: EVENT_LABELS[event.event_name] || event.event_name })),

@@ -1,5 +1,6 @@
 export const EVENT_LABELS: Record<string, string> = {
-  PageView: 'Page views', ViewContent: 'ViewContent', TelegramClick: 'Telegram clicks', SupportClick: 'Support clicks', Lead: 'Leads', Purchase: 'Purchases'
+  PageView: 'Page views', ViewContent: 'ViewContent', TelegramClick: 'Telegram clicks', SupportClick: 'Support clicks', Lead: 'Leads', Purchase: 'Purchases',
+  PlanSelected: 'Plan selected', RegistrationStarted: 'Registration started', RegistrationCompleted: 'Registration completed', CheckoutStarted: 'Checkout started'
 };
 
 export function rangeStart(range: string) {

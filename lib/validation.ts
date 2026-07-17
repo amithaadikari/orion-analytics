@@ -15,9 +15,21 @@ export const visitorSchema = z.object({
 });
 
 export const eventSchema = z.object({
-  visitor_id: id, session_id: id.optional().nullable(), event_name: z.enum(['PageView', 'ViewContent', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']),
+  visitor_id: id, session_id: id.optional().nullable(), event_name: z.enum(['PageView', 'ViewContent', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted']),
   event_id: id, page_url: optionalText(2000), metadata: z.record(z.unknown()).optional().default({}),
   fbp: optionalText(250), fbc: optionalText(250)
+});
+
+export const funnelEventSchema = z.object({
+  visitor_id: id,
+  session_id: id.optional().nullable(),
+  event_id: id,
+  event_name: z.enum(['PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted']),
+  page_url: optionalText(2000),
+  plan: z.enum(['basic', 'premium', 'lifetime']).optional().nullable(),
+  metadata: z.record(z.unknown()).optional().default({}),
+  fbp: optionalText(250),
+  fbc: optionalText(250)
 });
 
 export const sessionSchema = z.object({
@@ -26,7 +38,7 @@ export const sessionSchema = z.object({
 });
 
 export const metaSchema = z.object({
-  event_name: z.enum(['PageView', 'ViewContent', 'Lead', 'Contact', 'Purchase']), event_id: id,
+  event_name: z.enum(['PageView', 'ViewContent', 'Lead', 'Contact', 'InitiateCheckout', 'CompleteRegistration', 'Purchase']), event_id: id,
   event_source_url: optionalText(2000), visitor_id: id.optional(), fbp: optionalText(250), fbc: optionalText(250),
   metadata: z.record(z.unknown()).optional()
 });
