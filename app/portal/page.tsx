@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { requireClient } from '@/lib/auth';
+import ClientPortalInsights from '@/components/client-portal-insights';
 import PortalTopbar from '@/components/portal-topbar';
 import RegistrationTracker from '@/components/registration-tracker';
 import { countryFlag } from '@/lib/country';
@@ -49,6 +50,8 @@ export default async function PortalPage() {
           <PortalMetric icon="▣" label="Recorded payments" value={payments?.length || 0} tone="green" />
           <PortalMetric icon={countryFlag(client.country)} label="Registered country" value={client.country || 'Not set'} tone="cyan" />
         </div>
+
+        <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} />
 
         <div className="portal-grid">
           <PortalPanel title="Your licenses" eyebrow="Software access" marker="01">

@@ -3,6 +3,7 @@ import { IBM_Plex_Mono, Sora } from 'next/font/google';
 import './globals.css';
 import './v2.css';
 import './orion-royal.css';
+import './orion-command.css';
 
 const display = Sora({
   variable: '--font-display',

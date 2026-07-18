@@ -35,7 +35,10 @@ export async function GET(request: Request) {
   const selectedVisitorIds = new Set(visitors.map((row) => row.visitor_id));
   const funnelEvents = normalizedEvents.filter((row) => selectedVisitorIds.has(row.visitor_id));
   const uniqueStage = (name: string) => new Set(funnelEvents.filter((row) => row.event_name === name).map((row) => row.visitor_id)).size;
-  const events = normalizedEvents.filter((row) => !eventFilter || eventFilter === 'all' || row.event_name === eventFilter);
+  const events = normalizedEvents.filter((row) =>
+    selectedVisitorIds.has(row.visitor_id) &&
+    (!eventFilter || eventFilter === 'all' || row.event_name === eventFilter)
+  );
   const telegramIds = new Set(events.filter((event) => event.event_name === 'TelegramClick').map((event) => event.visitor_id));
   const byCountry = countBy(visitors, (row) => row.country || 'Unknown');
   const byCity = countBy(visitors, (row) => row.city || 'Unknown');
@@ -50,14 +53,20 @@ export async function GET(request: Request) {
   const previousStart = new Date(start.getTime() - periodMs);
   const previousEnd = new Date(start.getTime() - 1);
   const [{ data: previousVisitors }, { data: previousEvents }] = await Promise.all([
-    supabase.from('visitors').select('visitor_id').gte('last_seen', previousStart.toISOString()).lte('last_seen', previousEnd.toISOString()).limit(10000),
-    supabase.from('events').select('event_name').gte('created_at', previousStart.toISOString()).lte('created_at', previousEnd.toISOString()).limit(20000)
+    supabase.from('visitors').select('visitor_id,country,utm_campaign,device_type').gte('last_seen', previousStart.toISOString()).lte('last_seen', previousEnd.toISOString()).limit(10000),
+    supabase.from('events').select('event_name,visitor_id').gte('created_at', previousStart.toISOString()).lte('created_at', previousEnd.toISOString()).limit(20000)
   ]);
   const { data: metaEvents } = await supabase.from('meta_events').select('event_id,event_name,status,sent_at').gte('sent_at', start.toISOString()).lte('sent_at', end.toISOString()).order('sent_at', { ascending: false }).limit(20000);
-  const previousClicks = (previousEvents || []).filter((row) => row.event_name === 'TelegramClick').length;
+  const filteredPreviousVisitors = ((previousVisitors || []) as Visitor[]).filter((row) =>
+    (!countryFilter || countryFilter === 'all' || (row.country || 'Unknown') === countryFilter) &&
+    (!campaignFilter || campaignFilter === 'all' || (row.utm_campaign || 'Organic') === campaignFilter) &&
+    (!deviceFilter || deviceFilter === 'all' || (row.device_type || 'Unknown') === deviceFilter)
+  );
+  const previousVisitorIds = new Set(filteredPreviousVisitors.map((row) => row.visitor_id));
+  const previousClicks = (previousEvents || []).filter((row) => row.event_name === 'TelegramClick' && previousVisitorIds.has(row.visitor_id)).length;
   const now = Date.now();
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-  const leads = leadsResult.data || [];
+  const leads = (leadsResult.data || []).filter((row) => selectedVisitorIds.has(row.visitor_id));
   const campaigns = byCampaign.map(({ name, value }) => {
     const ids = new Set(visitors.filter((row) => (row.utm_campaign || 'Organic') === name).map((row) => row.visitor_id));
     const clicks = events.filter((event) => event.event_name === 'TelegramClick' && ids.has(event.visitor_id)).length;
@@ -73,9 +82,10 @@ export async function GET(request: Request) {
       conversionRate: visitors.length ? Number(((telegramIds.size / visitors.length) * 100).toFixed(1)) : 0,
       leadsToday: leads.filter((row) => new Date(row.created_at).getTime() >= todayStart.getTime()).length,
       returningVisitors: visitors.filter((row) => row.first_seen && new Date(row.first_seen).getTime() < new Date(row.last_seen).getTime() - 60_000).length,
+      eventsInView: events.length,
       topCountry: byCountry[0]?.name || '—', topCampaign: byCampaign[0]?.name || 'Organic'
     },
-    comparison: { visitors: percentChange(visitors.length, (previousVisitors || []).length), telegramClicks: percentChange(eventCountMap.TelegramClick || 0, previousClicks) },
+    comparison: { visitors: percentChange(visitors.length, filteredPreviousVisitors.length), telegramClicks: percentChange(eventCountMap.TelegramClick || 0, previousClicks) },
     meta: { browserEvents: events.filter((event) => ['PageView', 'ViewContent', 'Lead', 'SupportClick', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'Purchase'].includes(event.event_name)).length, serverEvents: (metaEvents || []).length, successful: (metaEvents || []).filter((event) => event.status === 'sent').length, failed: (metaEvents || []).filter((event) => event.status === 'failed').length, lastSync: metaEvents?.[0]?.sent_at || null, eventIds: (metaEvents || []).slice(0, 10).map((event) => event.event_id) },
     funnel: { visitors: selectedVisitorIds.size, viewContent: uniqueStage('ViewContent'), planSelected: uniqueStage('PlanSelected'), registrationStarted: uniqueStage('RegistrationStarted'), registrationCompleted: uniqueStage('RegistrationCompleted'), checkoutStarted: uniqueStage('CheckoutStarted'), telegramClicks: uniqueStage('TelegramClick') },
     charts: { byDay, byCountry: byCountry.slice(0, 8), byCity: byCity.slice(0, 8), byCampaign: byCampaign.slice(0, 8), byDevice, byBrowser, byReferrer: byReferrer.slice(0, 8) },
