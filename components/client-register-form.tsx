@@ -1,6 +1,6 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
@@ -56,6 +56,21 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
     params.set('plan', plan);
     window.history.replaceState(null, '', `${window.location.pathname}?${params}`);
     void trackFunnelEvent('PlanSelected', plan);
+  }
+
+  function movePlan(event: KeyboardEvent<HTMLButtonElement>, current: PlanKey) {
+    const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const index = planKeys.indexOf(current);
+    const nextIndex = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? planKeys.length - 1
+        : (index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + planKeys.length) % planKeys.length;
+    const nextPlan = planKeys[nextIndex];
+    choosePlan(nextPlan);
+    requestAnimationFrame(() => document.getElementById(`registration-plan-${nextPlan}`)?.focus());
   }
 
   function markStarted() {
@@ -114,42 +129,115 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
 
   if (sent) {
     return (
-      <div className="auth-message registration-confirmation">
+      <div className="auth-message auth-confirmation registration-confirmation" role="status" aria-live="polite">
+        <span className="auth-confirmation-icon" aria-hidden="true">✓</span>
         <strong>Confirm your email</strong>
         <p>We sent a secure confirmation link to {email}. Open it to activate your free Orion account and continue to {selected ? `your ${selected.name} order review` : 'the client portal'}.</p>
-        <Link href={authLink('/client-login', selectedPlan, next)}>Return to sign in</Link>
+        <Link href={authLink('/client-login', selectedPlan, next)}>Return to sign in <span aria-hidden="true">→</span></Link>
       </div>
     );
   }
 
   return (
     <div className="register-flow">
-      <form className="login-form register-form" onSubmit={submit} onFocusCapture={markStarted}>
-        <label>Full name<input required minLength={2} maxLength={120} autoComplete="name" value={fullName} onChange={(event) => setFullName(event.target.value)} /></label>
-        <label>Email<input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-        <label className="wide">Country<select required autoComplete="country-name" value={country} onChange={(event) => setCountry(event.target.value)}><option value="" disabled>Select your country</option>{countryOptions.map(({ code, name }) => <option key={code} value={name}>{countryFlag(code)} {name}</option>)}</select></label>
-        <label>Password<input type="password" required minLength={10} autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} /></label>
-        <label>Confirm password<input type="password" required minLength={10} autoComplete="new-password" value={confirm} onChange={(event) => setConfirm(event.target.value)} /></label>
-        <p className="registration-notice">Your account starts on the Free plan. Your selected paid edition is a purchase preference only until payment and the matching license are verified.</p>
-        {error && <p className="form-error">{error}</p>}
-        <button className="primary-button" disabled={loading}>{loading ? 'Creating account…' : selected ? `Create account for ${selected.name}` : 'Create free Orion account'}<span>↗</span></button>
-        <div className="auth-form-link"><Link href={authLink('/client-login', selectedPlan, next)}>Already registered? Sign in</Link></div>
+      <form className="login-form register-form orion-auth-form" onSubmit={submit} onFocusCapture={markStarted} aria-busy={loading}>
+        <label className="auth-field" htmlFor="register-name">
+          <span className="auth-field-label">Full name</span>
+          <span className="auth-input-shell">
+            <span className="auth-input-icon" aria-hidden="true">◎</span>
+            <input
+              id="register-name"
+              required
+              minLength={2}
+              maxLength={120}
+              autoComplete="name"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+            />
+          </span>
+        </label>
+        <label className="auth-field" htmlFor="register-email">
+          <span className="auth-field-label">Email address</span>
+          <span className="auth-input-shell">
+            <span className="auth-input-icon" aria-hidden="true">@</span>
+            <input
+              id="register-email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </span>
+        </label>
+        <label className="wide auth-field" htmlFor="register-country">
+          <span className="auth-field-label">Country</span>
+          <span className="auth-input-shell auth-select-shell">
+            <span className="auth-input-icon" aria-hidden="true">◇</span>
+            <select id="register-country" required autoComplete="country-name" value={country} onChange={(event) => setCountry(event.target.value)}>
+              <option value="" disabled>Select your country</option>
+              {countryOptions.map(({ code, name }) => <option key={code} value={name}>{countryFlag(code)} {name}</option>)}
+            </select>
+          </span>
+        </label>
+        <label className="auth-field" htmlFor="register-password">
+          <span className="auth-field-label">Password</span>
+          <span className="auth-input-shell">
+            <span className="auth-input-icon" aria-hidden="true">⌁</span>
+            <input
+              id="register-password"
+              type="password"
+              required
+              minLength={10}
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </span>
+        </label>
+        <label className="auth-field" htmlFor="register-confirm-password">
+          <span className="auth-field-label">Confirm password</span>
+          <span className="auth-input-shell">
+            <span className="auth-input-icon" aria-hidden="true">⌁</span>
+            <input
+              id="register-confirm-password"
+              type="password"
+              required
+              minLength={10}
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(event) => setConfirm(event.target.value)}
+            />
+          </span>
+        </label>
+        <p className="registration-notice auth-notice"><span aria-hidden="true">◇</span>Your account starts on the Free plan. Your selected paid edition is a purchase preference only until payment and the matching license are verified.</p>
+        <div className="auth-form-status" aria-live="polite">
+          {error && <p className="form-error" role="alert">{error}</p>}
+        </div>
+        <button className="primary-button auth-submit" type="submit" disabled={loading}>
+          <span>{loading ? 'Creating account…' : selected ? `Create account for ${selected.name}` : 'Create free Orion account'}</span>
+          <span className="auth-submit-icon" aria-hidden="true">↗</span>
+        </button>
+        <div className="auth-form-link auth-form-backlink"><Link href={authLink('/client-login', selectedPlan, next)}>Already registered? Sign in <span aria-hidden="true">→</span></Link></div>
       </form>
 
-      <aside className="register-plan-panel" aria-labelledby="selected-plan-title">
-        <p className="eyebrow">Your selected edition</p>
+      <aside className="register-plan-panel orion-register-plan" aria-labelledby="selected-plan-title">
+        <div className="orion-register-plan-heading">
+          <span className="orion-register-plan-icon" aria-hidden="true">✦</span>
+          <div><p className="eyebrow">Your selected edition</p><p>Choose the access level that fits your trading setup.</p></div>
+        </div>
         <div className="register-plan-picker" role="radiogroup" aria-label="Choose an Orion edition">
           {planKeys.map((key) => (
-            <button key={key} type="button" role="radio" aria-checked={selectedPlan === key} className={selectedPlan === key ? 'active' : ''} onClick={() => choosePlan(key)} disabled={loading}>
-              <span>{plans[key].name}</span><strong>{plans[key].priceLabel}</strong>
+            <button id={`registration-plan-${key}`} key={key} type="button" role="radio" aria-checked={selectedPlan === key} tabIndex={selectedPlan === key || (!selectedPlan && key === planKeys[0]) ? 0 : -1} className={selectedPlan === key ? 'active' : ''} onClick={() => choosePlan(key)} onKeyDown={(event) => movePlan(event, key)} disabled={loading}>
+              <span>{plans[key].name}</span><strong>{plans[key].priceLabel}</strong><small>{plans[key].license}</small>
             </button>
           ))}
         </div>
         {selected ? (
-          <div className="register-plan-summary">
+          <div className="register-plan-summary" aria-live="polite">
             <div><span><small>ORION V5</small><strong id="selected-plan-title">{selected.name}</strong></span><b>{selected.priceLabel}<small> USD</small></b></div>
             <p>{selected.description}</p>
-            <ul>{selected.highlights.map((highlight) => <li key={highlight}>✓ {highlight}</li>)}</ul>
+            <ul>{selected.highlights.map((highlight) => <li key={highlight}><span aria-hidden="true">✓</span>{highlight}</li>)}</ul>
             <dl><div><dt>License</dt><dd>{selected.license}</dd></div><div><dt>Account access</dt><dd>1 registered MT5 live account</dd></div></dl>
           </div>
         ) : (
@@ -158,7 +246,7 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
             <p>You can create a Free account now or choose an edition above. No payment is taken on this page.</p>
           </div>
         )}
-        <p className="register-plan-security">No payment is collected during registration. You will review the edition and official payment guidance after signing in.</p>
+        <p className="register-plan-security"><span aria-hidden="true">◇</span>No payment is collected during registration. You will review the edition and official payment guidance after signing in.</p>
       </aside>
     </div>
   );

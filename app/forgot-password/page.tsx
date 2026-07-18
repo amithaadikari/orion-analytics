@@ -1,2 +1,16 @@
 import ForgotPasswordForm from '@/components/forgot-password-form';
-export default function ForgotPasswordPage(){return <main className="auth-shell client-auth"><div className="auth-card"><div className="brand"><span className="brand-mark">✦</span><span>ORION <em>CLIENT</em></span></div><p className="eyebrow">Account recovery</p><h1>Reset your password.</h1><p className="auth-subtitle">Enter the email connected to your Orion client account.</p><ForgotPasswordForm/><p className="legal-note">For your security, the page shows the same confirmation whether or not an account exists.</p></div></main>}
+import AuthLayout from '@/components/auth-layout';
+
+export default function ForgotPasswordPage() {
+  return (
+    <AuthLayout
+      kind="client"
+      eyebrow="Account recovery"
+      title="Recover your access."
+      subtitle="Enter the email connected to your Orion client account and we will send a secure reset link."
+      footer="For your security, the page shows the same confirmation whether or not an account exists."
+    >
+      <ForgotPasswordForm />
+    </AuthLayout>
+  );
+}

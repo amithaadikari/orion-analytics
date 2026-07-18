@@ -1,3 +1,19 @@
 import { Suspense } from 'react';
 import ClientLoginForm from '@/components/client-login-form';
-export default function ClientLoginPage(){return <main className="auth-shell client-auth"><div className="auth-card"><div className="brand"><span className="brand-mark">✦</span><span>ORION <em>CLIENT</em></span></div><p className="eyebrow">Secure client portal</p><h1>Your Orion access, all in one place.</h1><p className="auth-subtitle">View your license, account status, payment history, downloads and support resources.</p><Suspense fallback={<div className="muted">Loading secure sign-in…</div>}><ClientLoginForm/></Suspense><p className="legal-note">Your account only provides access to records assigned to your Orion client profile.</p></div></main>}
+import AuthLayout from '@/components/auth-layout';
+
+export default function ClientLoginPage() {
+  return (
+    <AuthLayout
+      kind="client"
+      eyebrow="Secure client portal"
+      title="Welcome back."
+      subtitle="Open your private workspace to manage your Orion license, account status, updates and support."
+      footer="Your account only provides access to records assigned to your Orion client profile."
+    >
+      <Suspense fallback={<div className="auth-loading muted" role="status">Loading secure sign-in…</div>}>
+        <ClientLoginForm />
+      </Suspense>
+    </AuthLayout>
+  );
+}

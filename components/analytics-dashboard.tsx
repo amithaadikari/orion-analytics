@@ -6,6 +6,7 @@ import LogoutButton from '@/components/logout-button';
 import { countryFlag } from '@/lib/country';
 import BusinessDashboard from '@/components/business-dashboard';
 import ReleaseManager from '@/components/release-manager';
+import OrionBrand from '@/components/orion-brand';
 
 type DashboardProps = { admin: { email?: string | null; role?: string | null } | null };
 type Breakdown = { name: string; value: number };
@@ -39,23 +40,105 @@ export default function Dashboard({ admin }: DashboardProps) {
     { label: 'Business', items: ['sales','registrations','clients','licenses','payments','releases','activity'] },
     { label: 'System', items: ['settings'] }
   ];
-  const icons: Record<string,string> = { overview:'◌', visitors:'◉', campaigns:'↗', events:'⌁', meta:'M', sales:'◇', registrations:'＋', clients:'◎', licenses:'⌘', payments:'$', releases:'⬇', activity:'≋', settings:'⚙' };
-  return <main className="dashboard-shell"><header className="dashboard-topbar"><div className="brand"><span className="brand-mark">✦</span><span>ORION <em>ADMIN</em></span></div><div className="topbar-right"><span className="admin-label">{admin?.email} · {admin?.role}</span><LogoutButton /></div></header><div className="dashboard-body"><aside className="sidebar">{nav.map((group)=><div className="nav-group" key={group.label}><p className="sidebar-label">{group.label}</p>{group.items.map((item) => <button key={item} className={tab === item ? 'sidebar-link active' : 'sidebar-link'} onClick={() => setTab(item)}><span>{icons[item]}</span>{item[0].toUpperCase() + item.slice(1)}</button>)}</div>)}<div className="sidebar-footer"><span className="status-dot" /> Orion systems healthy</div></aside><section className="dashboard-content"><div className="content-heading"><div><p className="eyebrow">{heading[0]}</p><h1>{heading[1]}</h1><p className="muted">{heading[2]}</p></div>{!isBusiness && tab !== 'settings' && tab !== 'meta' && <div className="date-filter"><span>Trend window</span><select value={range} onChange={(event) => setRange(event.target.value)}><option value="today">Day</option><option value="7d">Week</option><option value="30d">Month</option><option value="yesterday">Yesterday</option><option value="custom">Custom range</option></select>{range === 'custom' && <><input type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} /><input type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} /></>}</div>}</div>{tab === 'releases' ? <ReleaseManager canWrite={admin?.role === 'admin'} /> : isBusiness ? <BusinessDashboard section={tab} canWrite={admin?.role === 'admin'} /> : <>{loading && <div className="loading-bar" />}{tab === 'settings' ? <SettingsPanel /> : tab === 'meta' ? <MetaPanel meta={snapshot.meta} /> : <><div className="filter-row"><Filter label="Country" value={country} options={countries} onChange={setCountry} /><Filter label="Campaign" value={campaign} options={campaigns} onChange={setCampaign} /><Filter label="Device" value={device} options={snapshot.charts.byDevice.map((row) => row.name)} onChange={setDevice} /><Filter label="Event" value={eventFilter} options={['PageView', 'ViewContent', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']} onChange={setEventFilter} /></div><div className="metric-grid v2"><Metric label="Visitors" value={metric('uniqueVisitors')} detail={changeLabel(snapshot.comparison.visitors)} /><Metric label="Visitors online" value={metric('visitorsOnline')} detail="Active in last 5 minutes" positive /><Metric label="Telegram clicks" value={metric('telegramClicks')} detail={changeLabel(snapshot.comparison.telegramClicks)} positive /><Metric label="Conversion rate" value={`${metric('conversionRate')}%`} detail="Unique visitor → click" positive /><Metric label="Leads today" value={metric('leadsToday')} detail="Recorded lead rows" /></div>{tab === 'overview' && <Overview snapshot={snapshot} />}{tab === 'visitors' && <VisitorTable rows={snapshot.visitors} />}{tab === 'campaigns' && <CampaignTable rows={snapshot.campaigns} />}{tab === 'events' && <EventTable rows={snapshot.events} />}</>}</>}</section></div></main>;
+  const icons: Record<string,string> = { overview:'✦', visitors:'◉', campaigns:'↗', events:'⌁', meta:'M', sales:'◇', registrations:'＋', clients:'◎', licenses:'⌘', payments:'$', releases:'⬇', activity:'≋', settings:'⚙' };
+  return (
+    <main className="dashboard-shell command-center-shell">
+      <header className="dashboard-topbar command-topbar" aria-label="Orion Royal command bar">
+        <div className="command-brand-lockup">
+          <OrionBrand context="ADMIN" className="command-brand" />
+          <span className="command-surface-name">Royal command</span>
+        </div>
+        <div className="topbar-right command-topbar-actions">
+          <span className="admin-label command-admin-identity">
+            <span className="command-admin-email">{admin?.email || 'Orion administrator'}</span>
+            <span className="command-admin-role"> · {admin?.role || 'viewer'}</span>
+          </span>
+          <LogoutButton />
+        </div>
+      </header>
+
+      <div className="dashboard-body command-center-layout">
+        <aside className="sidebar command-sidebar" role="navigation" aria-label="Orion command center sections">
+          {nav.map((group) => {
+              const groupId = `command-nav-${group.label.toLowerCase()}`;
+              return (
+                <section className="nav-group command-nav-group" aria-labelledby={groupId} key={group.label}>
+                  <h2 className="sidebar-label command-nav-label" id={groupId}>{group.label}</h2>
+                  {group.items.map((item) => {
+                    const label = item[0].toUpperCase() + item.slice(1);
+                    const active = tab === item;
+                    return (
+                      <button
+                        key={item}
+                        type="button"
+                        className={active ? 'sidebar-link command-nav-item active' : 'sidebar-link command-nav-item'}
+                        aria-current={active ? 'page' : undefined}
+                        aria-controls="dashboard-command-content"
+                        onClick={() => setTab(item)}
+                      >
+                        <span className="command-nav-icon" aria-hidden="true">{icons[item]}</span>
+                        <strong className="command-nav-text">{label}</strong>
+                      </button>
+                    );
+                  })}
+                </section>
+              );
+            })}
+          <div className="sidebar-footer command-sidebar-status" role="status"><span className="status-dot" aria-hidden="true" /> Orion systems healthy</div>
+        </aside>
+
+        <section
+          className="dashboard-content command-content"
+          id="dashboard-command-content"
+          aria-labelledby="dashboard-command-title"
+          aria-busy={!isBusiness && loading}
+        >
+          <header className="content-heading command-page-heading">
+            <div className="command-heading-copy">
+              <p className="eyebrow command-section-kicker">{heading[0]}</p>
+              <h1 id="dashboard-command-title">{heading[1]}</h1>
+              <p className="muted command-section-summary">{heading[2]}</p>
+            </div>
+            {!isBusiness && tab !== 'settings' && tab !== 'meta' && (
+              <div className="date-filter command-date-filter" role="group" aria-label="Analytics trend window">
+                <label htmlFor="command-trend-window">Trend window</label>
+                <select id="command-trend-window" value={range} onChange={(event) => setRange(event.target.value)}>
+                  <option value="today">Day</option>
+                  <option value="7d">Week</option>
+                  <option value="30d">Month</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="custom">Custom range</option>
+                </select>
+                {range === 'custom' && (
+                  <div className="command-custom-range">
+                    <input aria-label="Custom range start date" type="date" value={customStart} onChange={(event) => setCustomStart(event.target.value)} />
+                    <input aria-label="Custom range end date" type="date" value={customEnd} onChange={(event) => setCustomEnd(event.target.value)} />
+                  </div>
+                )}
+              </div>
+            )}
+          </header>
+
+          {tab === 'releases' ? <ReleaseManager canWrite={admin?.role === 'admin'} /> : isBusiness ? <BusinessDashboard section={tab} canWrite={admin?.role === 'admin'} /> : <>{loading && <div className="loading-bar command-loading-bar" role="status" aria-label="Refreshing dashboard intelligence" />}{tab === 'settings' ? <SettingsPanel /> : tab === 'meta' ? <MetaPanel meta={snapshot.meta} /> : <><div className="filter-row"><Filter label="Country" value={country} options={countries} onChange={setCountry} /><Filter label="Campaign" value={campaign} options={campaigns} onChange={setCampaign} /><Filter label="Device" value={device} options={snapshot.charts.byDevice.map((row) => row.name)} onChange={setDevice} /><Filter label="Event" value={eventFilter} options={['PageView', 'ViewContent', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']} onChange={setEventFilter} /></div><div className="metric-grid v2"><Metric label="Visitors" value={metric('uniqueVisitors')} detail={changeLabel(snapshot.comparison.visitors)} /><Metric label="Visitors online" value={metric('visitorsOnline')} detail="Active in last 5 minutes" positive /><Metric label="Telegram clicks" value={metric('telegramClicks')} detail={changeLabel(snapshot.comparison.telegramClicks)} positive /><Metric label="Conversion rate" value={`${metric('conversionRate')}%`} detail="Unique visitor → click" positive /><Metric label="Leads today" value={metric('leadsToday')} detail="Recorded lead rows" /></div>{tab === 'overview' && <Overview snapshot={snapshot} />}{tab === 'visitors' && <VisitorTable rows={snapshot.visitors} />}{tab === 'campaigns' && <CampaignTable rows={snapshot.campaigns} />}{tab === 'events' && <EventTable rows={snapshot.events} />}</>}</>}
+        </section>
+      </div>
+    </main>
+  );
 }
 
 function analyticsIcon(label:string){if(label.includes('online'))return '●';if(label.includes('Telegram'))return '↗';if(label.includes('Conversion'))return '◈';if(label.includes('Lead'))return '✦';return '◎'}
 function Metric({ label, value, detail, positive }: { label: string; value: number | string; detail: string; positive?: boolean }) { return <article className="metric-card"><span className="metric-icon" aria-hidden="true">{analyticsIcon(label)}</span><p>{label}</p><strong className={positive ? 'positive' : ''}>{value}</strong><small>{detail}</small></article>; }
 function Filter({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (value: string) => void }) { return <label className="filter"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}><option value="all">All</option>{options.map((option) => <option key={option} value={option}>{label==='Country'?`${countryFlag(option)} ${option}`:option}</option>)}</select></label>; }
 function Overview({ snapshot }: { snapshot: Snapshot }) { return <>
-  <div className="overview-grid"><TrendPanel data={snapshot.charts.byDay} /><article className="panel funnel-panel"><div className="panel-heading"><div><p className="eyebrow">Conversion funnel</p><h2>Visitor → checkout</h2></div></div><FunnelStep label="Landing-page visitors" value={snapshot.funnel.visitors} width={100} color="#3b82f6" /><FunnelStep label="Plan selected" value={snapshot.funnel.planSelected || 0} width={snapshot.funnel.visitors ? (snapshot.funnel.planSelected || 0) / snapshot.funnel.visitors * 100 : 0} color="#e3bb4f" /><FunnelStep label="Registration started" value={snapshot.funnel.registrationStarted || 0} width={snapshot.funnel.visitors ? (snapshot.funnel.registrationStarted || 0) / snapshot.funnel.visitors * 100 : 0} color="#926bff" /><FunnelStep label="Registration completed" value={snapshot.funnel.registrationCompleted || 0} width={snapshot.funnel.visitors ? (snapshot.funnel.registrationCompleted || 0) / snapshot.funnel.visitors * 100 : 0} color="#4f8cff" /><FunnelStep label="Checkout started" value={snapshot.funnel.checkoutStarted || 0} width={snapshot.funnel.visitors ? (snapshot.funnel.checkoutStarted || 0) / snapshot.funnel.visitors * 100 : 0} color="#35d56f" /></article></div>
-  <div className="insight-grid"><BreakdownPanel title="Countries" eyebrow="Geography" data={snapshot.charts.byCountry} color="#3b82f6" /><BreakdownPanel title="Cities" eyebrow="Top markets" data={snapshot.charts.byCity} color="#926bff" /><DonutPanel title="Devices" data={snapshot.charts.byDevice} /><BreakdownPanel title="Browsers" eyebrow="Technology" data={snapshot.charts.byBrowser} color="#35d56f" /></div>
+  <div className="overview-grid"><TrendPanel data={snapshot.charts.byDay} /><article className="panel funnel-panel"><div className="panel-heading"><div><p className="eyebrow">Conversion funnel</p><h2>Visitor → checkout</h2></div></div><FunnelStep label="Landing-page visitors" value={snapshot.funnel.visitors} width={100} color="#3b82f6" /><FunnelStep label="Plan selected" value={snapshot.funnel.planSelected || 0} width={snapshot.funnel.visitors ? (snapshot.funnel.planSelected || 0) / snapshot.funnel.visitors * 100 : 0} color="#e3bb4f" /><FunnelStep label="Registration started" value={snapshot.funnel.registrationStarted || 0} width={snapshot.funnel.visitors ? (snapshot.funnel.registrationStarted || 0) / snapshot.funnel.visitors * 100 : 0} color="#22d3ee" /><FunnelStep label="Registration completed" value={snapshot.funnel.registrationCompleted || 0} width={snapshot.funnel.visitors ? (snapshot.funnel.registrationCompleted || 0) / snapshot.funnel.visitors * 100 : 0} color="#14b8a6" /><FunnelStep label="Checkout started" value={snapshot.funnel.checkoutStarted || 0} width={snapshot.funnel.visitors ? (snapshot.funnel.checkoutStarted || 0) / snapshot.funnel.visitors * 100 : 0} color="#35d56f" /></article></div>
+  <div className="insight-grid"><BreakdownPanel title="Countries" eyebrow="Geography" data={snapshot.charts.byCountry} color="#3b82f6" /><BreakdownPanel title="Cities" eyebrow="Top markets" data={snapshot.charts.byCity} color="#22d3ee" /><DonutPanel title="Devices" data={snapshot.charts.byDevice} /><BreakdownPanel title="Browsers" eyebrow="Technology" data={snapshot.charts.byBrowser} color="#35d56f" /></div>
   <div className="overview-grid lower"><BreakdownPanel title="Top referrers" eyebrow="Acquisition" data={snapshot.charts.byReferrer} color="#e3bb4f" /><article className="panel table-panel"><div className="panel-heading"><div><p className="eyebrow">Live activity</p><h2>Latest visitor signals</h2></div><span className="live-pill"><i /> Live</span></div><EventTable rows={snapshot.events.slice(0, 8)} /></article></div>
   <CampaignTable rows={snapshot.campaigns.slice(0, 8)} compact />
 </> }
 
 function TrendPanel({ data }: { data: any[] }) { return <article className="panel chart-panel"><div className="panel-heading"><div><p className="eyebrow">Visitor trend</p><h2>Visitors and Telegram clicks</h2></div><span className="legend"><i className="blue-dot" /> Visitors <i className="green-dot" /> Clicks</span></div><div className="chart-wrap"><ResponsiveContainer width="100%" height="100%"><AreaChart data={data}><defs><linearGradient id="visitorFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity={0.38} /><stop offset="100%" stopColor="#3b82f6" stopOpacity={0} /></linearGradient></defs><CartesianGrid stroke="rgba(255,255,255,.055)" vertical={false} /><XAxis dataKey="date" stroke="#686b73" tickLine={false} axisLine={false} /><YAxis stroke="#686b73" tickLine={false} axisLine={false} allowDecimals={false} /><Tooltip contentStyle={{ background: 'rgba(5,5,5,.94)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, color: '#fff', boxShadow: '0 18px 50px rgba(0,0,0,.55)', backdropFilter: 'blur(18px)' }} cursor={{ stroke: 'rgba(255,255,255,.12)' }} /><Area type="monotone" dataKey="visitors" stroke="#3b82f6" fill="url(#visitorFill)" strokeWidth={2} /><Area type="monotone" dataKey="clicks" stroke="#35d56f" fill="transparent" strokeWidth={2} /></AreaChart></ResponsiveContainer></div></article>; }
 function BreakdownPanel({ title, eyebrow, data, color }: { title: string; eyebrow: string; data: Breakdown[]; color: string }) { const max = data[0]?.value || 1; return <article className="panel breakdown-panel"><div className="panel-heading"><div><p className="eyebrow">{eyebrow}</p><h2>{title}</h2></div></div><div className="rank-list">{data.slice(0, 6).map((row, index) => <div className="rank-row" key={row.name}><span className="rank">{String(index + 1).padStart(2, '0')}</span><div><div><span>{title==='Countries'?`${countryFlag(row.name)} ${row.name}`:row.name}</span><strong>{row.value}</strong></div><i><b style={{ width: `${row.value / max * 100}%`, background: color }} /></i></div></div>)}{!data.length && <p className="empty-state">No data in this period.</p>}</div></article>; }
-function DonutPanel({ title, data }: { title: string; data: Breakdown[] }) { const colors = ['#3b82f6', '#35d56f', '#e3bb4f', '#926bff']; return <article className="panel breakdown-panel"><p className="eyebrow">Audience</p><h2>{title}</h2><div className="donut-layout"><div className="donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} dataKey="value" nameKey="name" innerRadius={46} outerRadius={68} paddingAngle={3}>{data.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip contentStyle={{ background: 'rgba(5,5,5,.94)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, color: '#fff', boxShadow: '0 18px 50px rgba(0,0,0,.55)' }} /></PieChart></ResponsiveContainer></div><div className="mini-legend">{data.slice(0, 4).map((row, index) => <span key={row.name}><i style={{ background: colors[index % colors.length] }} />{row.name}<b>{row.value}</b></span>)}</div></div></article>; }
+function DonutPanel({ title, data }: { title: string; data: Breakdown[] }) { const colors = ['#e3bb4f', '#22d3ee', '#35d56f', '#f2a52b']; return <article className="panel breakdown-panel"><p className="eyebrow">Audience</p><h2>{title}</h2><div className="donut-layout"><div className="donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={data} dataKey="value" nameKey="name" innerRadius={46} outerRadius={68} paddingAngle={3}>{data.map((row, index) => <Cell key={row.name} fill={colors[index % colors.length]} />)}</Pie><Tooltip contentStyle={{ background: 'rgba(5,5,5,.94)', border: '1px solid rgba(255,255,255,.14)', borderRadius: 14, color: '#fff', boxShadow: '0 18px 50px rgba(0,0,0,.55)' }} /></PieChart></ResponsiveContainer></div><div className="mini-legend">{data.slice(0, 4).map((row, index) => <span key={row.name}><i style={{ background: colors[index % colors.length] }} />{row.name}<b>{row.value}</b></span>)}</div></div></article>; }
 function FunnelStep({ label, value, width, color }: { label: string; value: number; width: number; color: string }) { return <div className="funnel-step"><div><span>{label}</span><strong>{value}</strong></div><div className="funnel-track"><i style={{ width: `${Math.max(3, Math.min(100, width))}%`, background: color }} /></div></div>; }
 function EventTable({ rows }: { rows: any[] }) { return <div className="data-table"><div className="table-head"><span>Event</span><span>Visitor</span><span>Time</span></div>{rows.length ? rows.map((row) => <div className="table-row" key={row.event_id}><span><b className="event-icon">{row.event_name === 'TelegramClick' || row.event_name === 'Lead' ? '↗' : '•'}</b>{row.label || row.event_name}</span><code>{String(row.visitor_id).slice(0, 12)}…</code><time>{new Date(row.created_at).toLocaleString()}</time></div>) : <p className="empty-state">No events in this period.</p>}</div>; }
 function VisitorTable({ rows }: { rows: any[] }) { return <article className="panel table-panel full"><div className="panel-heading"><div><p className="eyebrow">Anonymous audience</p><h2>Visitors</h2></div></div><div className="data-table"><div className="table-head visitor-head"><span>Visitor</span><span>Location</span><span>Device</span><span>Campaign</span><span>Telegram</span><span>Last visit</span></div>{rows.map((row) => <div className="table-row visitor-row" key={row.visitor_id}><code>{String(row.visitor_id).slice(0, 16)}…</code><span>{countryFlag(row.country)} {row.city || '—'}{row.country ? `, ${row.country}` : ''}</span><span>{row.device_type || '—'}</span><span>{row.utm_campaign || 'Organic'}</span><span className={row.telegram_clicked ? 'positive' : 'muted'}>{row.telegram_clicked ? 'Clicked' : '—'}</span><time>{new Date(row.last_seen).toLocaleString()}</time></div>)}</div></article>; }

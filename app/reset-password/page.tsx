@@ -1,2 +1,15 @@
 import ResetPasswordForm from '@/components/reset-password-form';
-export default function ResetPasswordPage(){return <main className="auth-shell client-auth"><div className="auth-card"><div className="brand"><span className="brand-mark">✦</span><span>ORION <em>CLIENT</em></span></div><p className="eyebrow">Secure password update</p><h1>Choose a new password.</h1><p className="auth-subtitle">Use a unique password with at least 10 characters.</p><ResetPasswordForm/></div></main>}
+import AuthLayout from '@/components/auth-layout';
+
+export default function ResetPasswordPage() {
+  return (
+    <AuthLayout
+      kind="client"
+      eyebrow="Secure password update"
+      title="Create a new password."
+      subtitle="Choose a unique password with at least 10 characters to secure your Orion account."
+    >
+      <ResetPasswordForm />
+    </AuthLayout>
+  );
+}
