@@ -1,0 +1,87 @@
+import { z } from 'zod';
+import { getPortalSession } from '@/lib/portal-session';
+import { rateLimit } from '@/lib/rate-limit';
+import { jsonError, readJson } from '@/lib/security';
+import { createSupabaseAdminClient } from '@/lib/supabase/server';
+
+const limitSchema = z.coerce.number().int().min(1).max(100).default(30);
+const updateSchema = z.object({
+  id: z.string().uuid().optional(),
+  all: z.literal(true).optional(),
+  read: z.boolean().default(true),
+}).superRefine((value, context) => {
+  if (!value.id && !value.all) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Choose a notification or mark all notifications.' });
+  if (value.id && value.all) context.addIssue({ code: z.ZodIssueCode.custom, message: 'Update one notification or all notifications, not both.' });
+});
+
+export async function GET(request: Request) {
+  const { user, client } = await getPortalSession();
+  if (!user) return jsonError('Authentication required', 401);
+  if (!client) return jsonError('A linked client account is required', 403);
+
+  const url = new URL(request.url);
+  const limit = limitSchema.safeParse(url.searchParams.get('limit') || undefined);
+  if (!limit.success) return jsonError('Invalid notification limit');
+
+  const db = createSupabaseAdminClient();
+  const [rowsResult, unreadResult] = await Promise.all([
+    db.from('client_notifications')
+      .select('id,kind,title,message,href,read_at,created_at')
+      .eq('client_id', client.id)
+      .order('created_at', { ascending: false })
+      .limit(limit.data),
+    db.from('client_notifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', client.id)
+      .is('read_at', null),
+  ]);
+  if (rowsResult.error || unreadResult.error) return jsonError('Notifications are temporarily unavailable', 500);
+
+  const notifications = (rowsResult.data || []).map((row) => ({
+    ...row,
+    href: safeInternalHref(row.href),
+  }));
+  return Response.json({ notifications, unreadCount: Number(unreadResult.count || 0) }, {
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
+}
+
+export async function PATCH(request: Request) {
+  const { user, client } = await getPortalSession();
+  if (!user) return jsonError('Authentication required', 401);
+  if (!client) return jsonError('A linked client account is required', 403);
+  if (!rateLimit(request, `portal-notifications:${user.id}`).allowed) return jsonError('Too many notification updates', 429);
+
+  let body: unknown;
+  try { body = await readJson(request, 4_000); } catch { return jsonError('Invalid notification update'); }
+  const parsed = updateSchema.safeParse(body);
+  if (!parsed.success) return jsonError(parsed.error.issues[0]?.message || 'Invalid notification update');
+
+  const db = createSupabaseAdminClient();
+  const readAt = parsed.data.read ? new Date().toISOString() : null;
+  let query = db.from('client_notifications').update({ read_at: readAt }).eq('client_id', client.id);
+  if (parsed.data.id) query = query.eq('id', parsed.data.id);
+  else query = parsed.data.read ? query.is('read_at', null) : query.not('read_at', 'is', null);
+  const { data, error } = await query.select('id,read_at');
+  if (error) return jsonError('Unable to update notifications', 500);
+  if (parsed.data.id && !data?.length) return jsonError('Notification not found', 404);
+
+  const { count, error: countError } = await db.from('client_notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('client_id', client.id)
+    .is('read_at', null);
+  return Response.json({ updated: data?.length || 0, ...(countError ? {} : { unreadCount: Number(count || 0) }) }, {
+    headers: { 'Cache-Control': 'private, no-store' },
+  });
+}
+
+function safeInternalHref(value: unknown) {
+  if (typeof value !== 'string' || !value.startsWith('/') || value.startsWith('//')) return null;
+  try {
+    const url = new URL(value, 'https://portal.invalid');
+    if (url.origin !== 'https://portal.invalid') return null;
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return null;
+  }
+}

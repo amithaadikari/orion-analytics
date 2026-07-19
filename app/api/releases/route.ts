@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { requireAdminApi } from '@/lib/auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { approvedProductDownloadUrl } from '@/lib/download-security';
 import { jsonError } from '@/lib/security';
 
 const releaseSchema = z.object({
@@ -10,7 +11,7 @@ const releaseSchema = z.object({
   platform: z.enum(['MT4', 'MT5', 'Both']),
   download_url: z.preprocess(
     (value) => value === '' ? null : value,
-    z.string().url().refine((value) => value.startsWith('https://'), 'Download URL must use HTTPS').nullable().optional()
+    z.string().url().refine((value) => value.startsWith('https://'), 'Download URL must use HTTPS').refine((value) => Boolean(approvedProductDownloadUrl(value)), 'Download host is not in the protected PRODUCT_DOWNLOAD_HOSTS allow-list').nullable().optional()
   ),
   published: z.boolean()
 });

@@ -1,0 +1,565 @@
+.center {
+  position: relative;
+  isolation: isolate;
+  margin-top: 12px;
+  padding: clamp(20px, 3vw, 30px);
+  overflow: hidden;
+  color: #edf2f2;
+  border: 1px solid rgba(66, 217, 255, .14);
+  border-radius: 12px;
+  background: radial-gradient(circle at 90% 0, rgba(66, 217, 255, .08), transparent 18rem), linear-gradient(150deg, rgba(8, 11, 11, .97), rgba(1, 3, 3, .99));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .035), 0 24px 65px rgba(0, 0, 0, .23);
+}
+
+.center::before {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: -36%;
+  width: 36%;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(66, 217, 255, .3), #42d9ff, rgba(57, 242, 138, .22), transparent);
+  box-shadow: 0 0 15px rgba(66, 217, 255, .14);
+  animation: ticketDataFlow 8s cubic-bezier(.45, 0, .2, 1) infinite;
+}
+
+.center > * {
+  position: relative;
+  z-index: 1;
+}
+
+.header,
+.headerActions,
+.threadHeader,
+.manage,
+.error,
+.reply > div,
+.messages li > div {
+  display: flex;
+  align-items: center;
+}
+
+.header {
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.header p,
+.threadHeader p {
+  margin: 0;
+  color: #42d9ff;
+  font: 600 9px/1.2 var(--font-mono, monospace);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.header h2 {
+  margin: 8px 0 7px;
+  font-size: clamp(20px, 2.4vw, 29px);
+  letter-spacing: -.045em;
+}
+
+.header > div:first-child > span,
+.threadHeader span,
+.empty p,
+.error p {
+  color: #78868a;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.headerActions {
+  flex: none;
+  gap: 8px;
+}
+
+.headerActions strong {
+  position: relative;
+  display: grid;
+  min-width: 66px;
+  min-height: 54px;
+  place-items: center;
+  align-content: center;
+  color: #7ce8ff;
+  border: 1px solid rgba(66, 217, 255, .2);
+  border-radius: 9px;
+  background: rgba(66, 217, 255, .04);
+  font: 600 18px/1 var(--font-mono, monospace);
+}
+
+.headerActions strong::after {
+  position: absolute;
+  inset: -4px;
+  content: "";
+  pointer-events: none;
+  border: 1px solid rgba(66, 217, 255, .13);
+  border-radius: 12px;
+  animation: ticketCountPulse 4s ease-in-out infinite;
+}
+
+.headerActions small {
+  margin-top: 5px;
+  color: #78868a;
+  font-size: 9px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.header button,
+.newTicket button,
+.manage button,
+.reply button {
+  min-height: 38px;
+  padding: 0 13px;
+  color: #071010;
+  border: 1px solid #42d9ff;
+  border-radius: 8px;
+  background: #42d9ff;
+  font: 600 9px/1 var(--font-mono, monospace);
+  cursor: pointer;
+}
+
+.header button:last-child {
+  min-width: 38px;
+  padding: 0;
+  color: #cbd5d7;
+  border-color: rgba(255, 255, 255, .1);
+  background: rgba(255, 255, 255, .035);
+}
+
+button:disabled:is(.header button, .newTicket button, .manage button, .reply button) {
+  cursor: wait;
+  opacity: .5;
+}
+
+.liveRegion {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.error {
+  margin-top: 17px;
+  padding: 12px;
+  gap: 10px;
+  color: #ff9baa;
+  border: 1px solid rgba(255, 86, 109, .2);
+  border-radius: 8px;
+  background: rgba(255, 86, 109, .04);
+}
+
+.error p { margin: 0; }
+
+.newTicket {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  margin-top: 20px;
+  padding: 18px;
+  gap: 13px;
+  border: 1px solid rgba(66, 217, 255, .16);
+  border-radius: 10px;
+  background: rgba(66, 217, 255, .025);
+  animation: ticketIn .38s cubic-bezier(.2, .75, .24, 1) both;
+}
+
+.newTicket::before {
+  position: absolute;
+  top: 0;
+  left: -32%;
+  width: 32%;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(124, 232, 255, .8), transparent);
+  box-shadow: 0 0 10px rgba(66, 217, 255, .22);
+  animation: ticketFormScan 5.4s ease-in-out infinite;
+}
+
+.newTicket > div {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(140px, .7fr) minmax(120px, .55fr);
+  gap: 9px;
+}
+
+.newTicket label,
+.manage label,
+.reply label {
+  display: grid;
+  gap: 7px;
+  color: #849195;
+  font: 600 9px/1.3 var(--font-mono, monospace);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.newTicket input,
+.newTicket select,
+.newTicket textarea,
+.manage select,
+.reply textarea {
+  width: 100%;
+  color: #e8eeee;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 8px;
+  outline: 0;
+  background: rgba(1, 4, 4, .76);
+  font: 10px/1.5 var(--font-display, sans-serif);
+}
+
+.newTicket input,
+.newTicket select,
+.manage select { min-height: 40px; padding: 0 11px; }
+.newTicket textarea,
+.reply textarea { padding: 11px; resize: vertical; }
+
+.newTicket input:focus,
+.newTicket select:focus,
+.newTicket textarea:focus,
+.manage select:focus,
+.reply textarea:focus {
+  border-color: rgba(66, 217, 255, .55);
+  box-shadow: 0 0 0 3px rgba(66, 217, 255, .07);
+}
+
+.newTicket > button {
+  justify-self: end;
+}
+
+.newTicket button span,
+.reply button span { margin-left: 10px; }
+
+.workspace {
+  display: grid;
+  min-height: 540px;
+  margin-top: 22px;
+  grid-template-columns: minmax(230px, .38fr) minmax(0, 1fr);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .01);
+}
+
+.ticketList {
+  display: grid;
+  align-content: start;
+  border-right: 1px solid rgba(255, 255, 255, .07);
+  background: rgba(0, 0, 0, .18);
+}
+
+.ticketList button {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  padding: 16px;
+  gap: 7px;
+  color: inherit;
+  border: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .055);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ticketList button:hover,
+.ticketList .selected {
+  background: linear-gradient(90deg, rgba(66, 217, 255, .055), transparent);
+}
+
+.ticketList .selected::before {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 2px;
+  content: "";
+  background: #42d9ff;
+  box-shadow: 0 0 12px rgba(66, 217, 255, .6);
+  animation: ticketSelectedPulse 3s ease-in-out infinite;
+}
+
+.ticketList .selected::after {
+  position: absolute;
+  right: 10px;
+  bottom: 0;
+  left: 10px;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(66, 217, 255, .42), transparent);
+  background-size: 200% 100%;
+  animation: ticketSelectedFlow 3.6s linear infinite;
+}
+
+.ticketList button > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #738085;
+  font: 9px/1.3 var(--font-mono, monospace);
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.ticketList i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #42d9ff;
+  box-shadow: 0 0 10px rgba(66, 217, 255, .7);
+}
+
+.ticketList .selected i:not([data-status="closed"]) {
+  animation: ticketStatusPulse 2.8s ease-in-out infinite;
+}
+
+.center [data-status="waiting"] { color: #f4ca72 !important; }
+.center i[data-status="waiting"] { background: #f6c453; box-shadow: 0 0 10px rgba(246, 196, 83, .65); }
+.center [data-status="closed"] { color: #829095 !important; }
+.center i[data-status="closed"] { background: #687579; box-shadow: none; }
+
+.ticketList strong {
+  overflow: hidden;
+  color: #dce4e6;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticketList small,
+.ticketList time {
+  color: #687579;
+  font-size: 9px;
+}
+
+.ticketList b {
+  justify-self: start;
+  color: #7ce8ff;
+  font: 600 9px/1.3 var(--font-mono, monospace);
+  text-transform: uppercase;
+}
+
+.thread {
+  display: flex;
+  min-width: 0;
+  padding: clamp(18px, 2.5vw, 28px);
+  flex-direction: column;
+}
+
+.threadHeader {
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid rgba(255, 255, 255, .065);
+}
+
+.threadHeader h3 {
+  margin: 7px 0 5px;
+  color: #edf2f2;
+  font-size: 18px;
+}
+
+.threadHeader > b {
+  flex: none;
+  color: #7ce8ff;
+  font: 600 9px/1.3 var(--font-mono, monospace);
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.manage {
+  margin-top: 12px;
+  padding: 11px;
+  justify-content: flex-end;
+  gap: 8px;
+  border: 1px solid rgba(246, 196, 83, .1);
+  border-radius: 8px;
+  background: rgba(246, 196, 83, .02);
+}
+
+.manage label { grid-template-columns: auto 140px; align-items: center; }
+.manage button { color: #170f01; border-color: #f6c453; background: #f6c453; }
+
+.messages {
+  display: grid;
+  margin: 20px 0;
+  padding: 0;
+  gap: 10px;
+  list-style: none;
+}
+
+.messages li {
+  width: min(82%, 680px);
+  padding: 13px 15px;
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 10px 10px 10px 3px;
+  background: rgba(255, 255, 255, .025);
+  animation: ticketIn .34s ease both;
+}
+
+.messages .clientMessage {
+  justify-self: end;
+  border-color: rgba(66, 217, 255, .14);
+  border-radius: 10px 10px 3px 10px;
+  background: rgba(66, 217, 255, .035);
+}
+
+.messages li > div { justify-content: space-between; gap: 15px; }
+.messages strong { color: #aab8bc; font-size: 9px; }
+.messages time { color: #5f6c70; font: 9px/1.3 var(--font-mono, monospace); }
+.messages p { margin: 9px 0 0; color: #c3cdcf; font-size: 10px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.reply {
+  display: grid;
+  margin-top: auto;
+  padding-top: 18px;
+  gap: 8px;
+  border-top: 1px solid rgba(255, 255, 255, .065);
+}
+
+.reply > div { justify-content: flex-end; gap: 8px; }
+.reply .closeButton { margin-right: auto; color: #ff9baa; border-color: rgba(255, 86, 109, .2); background: rgba(255, 86, 109, .04); }
+
+.closed {
+  position: relative;
+  margin: auto 0 0;
+  padding: 14px;
+  color: #7d898d;
+  border: 1px dashed rgba(255, 255, 255, .09);
+  border-radius: 8px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.closed::after {
+  position: absolute;
+  right: 18%;
+  bottom: 0;
+  left: 18%;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(57, 242, 138, .45), transparent);
+  animation: ticketClosedIn .65s ease both;
+}
+
+.loading {
+  display: grid;
+  margin-top: 22px;
+  grid-template-columns: .4fr 1fr;
+  gap: 8px;
+}
+
+.loading span {
+  min-height: 300px;
+  border: 1px solid rgba(255, 255, 255, .055);
+  border-radius: 9px;
+  background: linear-gradient(100deg, rgba(255, 255, 255, .02), rgba(66, 217, 255, .055), rgba(255, 255, 255, .02));
+  background-size: 200% 100%;
+  animation: ticketLoading 1.2s linear infinite;
+}
+
+.loading p { grid-column: 1 / -1; margin: 5px 0; color: #657276; font-size: 9px; }
+
+.empty {
+  display: grid;
+  min-height: 250px;
+  margin-top: 22px;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+  border: 1px dashed rgba(66, 217, 255, .14);
+  border-radius: 9px;
+  background: rgba(66, 217, 255, .015);
+}
+
+.empty > span { color: #7ce8ff; font-size: 24px; }
+.empty strong { margin-top: 10px; }
+.empty p { max-width: 48ch; margin: 7px 0 0; }
+
+@keyframes ticketIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ticketLoading {
+  to { background-position: -200% 0; }
+}
+
+@keyframes ticketDataFlow {
+  0%, 12% { opacity: 0; transform: translateX(0); }
+  20%, 74% { opacity: .75; }
+  86%, 100% { opacity: 0; transform: translateX(380%); }
+}
+
+@keyframes ticketFormScan {
+  0%, 18% { opacity: 0; transform: translateX(0); }
+  28%, 68% { opacity: .75; }
+  80%, 100% { opacity: 0; transform: translateX(410%); }
+}
+
+@keyframes ticketCountPulse {
+  0%, 100% { opacity: .28; transform: scale(.98); }
+  50% { opacity: .8; transform: scale(1.02); }
+}
+
+@keyframes ticketSelectedPulse {
+  0%, 100% { opacity: .62; box-shadow: 0 0 7px rgba(66, 217, 255, .28); }
+  50% { opacity: 1; box-shadow: 0 0 15px rgba(66, 217, 255, .62); }
+}
+
+@keyframes ticketSelectedFlow {
+  to { background-position: -200% 0; }
+}
+
+@keyframes ticketStatusPulse {
+  0%, 100% { opacity: .58; transform: scale(.88); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes ticketClosedIn {
+  from { opacity: 0; transform: scaleX(.12); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+@media (max-width: 860px) {
+  .header { align-items: flex-start; flex-direction: column; }
+  .headerActions { width: 100%; flex-wrap: wrap; }
+  .headerActions strong { margin-right: auto; }
+  .newTicket > div { grid-template-columns: 1fr; }
+  .workspace { grid-template-columns: 1fr; }
+  .ticketList { max-height: 300px; overflow: auto; border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+  .manage { align-items: stretch; flex-direction: column; }
+  .manage label { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 560px) {
+  .messages li { width: 94%; }
+  .reply > div { align-items: stretch; flex-direction: column-reverse; }
+  .reply .closeButton { width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .newTicket,
+  .messages li,
+  .loading span,
+  .center::before,
+  .headerActions strong::after,
+  .newTicket::before,
+  .ticketList .selected::before,
+  .ticketList .selected::after,
+  .ticketList .selected i:not([data-status="closed"]),
+  .closed::after {
+    animation: none !important;
+  }
+
+  .center::before,
+  .newTicket::before,
+  .ticketList .selected::after {
+    display: none;
+  }
+}

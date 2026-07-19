@@ -28,7 +28,7 @@ Open `http://localhost:3000/login`. Create an email/password user in Supabase Au
 ## Supabase setup
 
 1. Create a Supabase project.
-2. Run `supabase/migrations/20260715_orion_analytics.sql` in the SQL editor.
+2. Run the files in `supabase/migrations` in timestamp order. Existing projects should apply the latest `20260724_orion_command_suite.sql` migration before enabling the new Action Center, Revenue Intelligence, Client 360, notification, support, and protected-download features.
 3. Enable email/password in Authentication → Providers.
 4. Create the first admin user, copy its Auth UUID, and insert it into `public.admins` with role `admin`.
 5. Put the project URL, anon key and service-role key in `.env.local` / Vercel Environment Variables.
@@ -62,7 +62,7 @@ The script stores only an anonymous visitor ID, session ID, campaign attribution
 ## Vercel deployment
 
 1. Import the `analytics` directory as the Vercel project root.
-2. Add every variable in `.env.example` for Preview and Production. Use a strong random `IP_HASH_SALT`.
+2. Add every variable in `.env.example` for Preview and Production. Use a strong random `IP_HASH_SALT`. Set `PRODUCT_DOWNLOAD_HOSTS` to the exact comma-separated hostnames that may serve Orion release files; protected downloads reject every other host and redirect.
 3. Set the production domain in the Framer script's `apiBase`.
 4. Add the analytics domain to any Framer CSP or security policy you use.
 5. Protect preview deployments or use a separate Supabase project; never use production service credentials in an unprotected preview.

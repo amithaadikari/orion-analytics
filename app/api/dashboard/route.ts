@@ -1,4 +1,5 @@
 import { requireAdminApi } from '@/lib/auth';
+import { buildCountryDeviceHeatmap, buildDailyConversionHeatmap, CONVERSION_STAGES } from '@/lib/advanced-analytics';
 import { EVENT_LABELS, rangeEnd, rangeStart } from '@/lib/utils';
 import { jsonError } from '@/lib/security';
 
@@ -39,15 +40,15 @@ export async function GET(request: Request) {
     selectedVisitorIds.has(row.visitor_id) &&
     (!eventFilter || eventFilter === 'all' || row.event_name === eventFilter)
   );
-  const telegramIds = new Set(events.filter((event) => event.event_name === 'TelegramClick').map((event) => event.visitor_id));
+  const telegramIds = new Set(funnelEvents.filter((event) => event.event_name === 'TelegramClick').map((event) => event.visitor_id));
   const byCountry = countBy(visitors, (row) => row.country || 'Unknown');
   const byCity = countBy(visitors, (row) => row.city || 'Unknown');
   const byCampaign = countBy(visitors, (row) => row.utm_campaign || 'Organic');
   const byDevice = countBy(visitors, (row) => row.device_type || 'Unknown');
   const byBrowser = countBy(visitors, (row) => row.browser || 'Unknown');
   const byReferrer = countBy(visitors, (row) => normalizeReferrer(row.referrer));
-  const byDay = dailySeries(visitors, events, start, end);
-  const eventCounts = countBy(events, (row) => row.event_name);
+  const byDay = dailySeries(visitors, funnelEvents, start, end);
+  const eventCounts = countBy(funnelEvents, (row) => row.event_name);
   const eventCountMap = Object.fromEntries(eventCounts.map(({ name, value }) => [name, value]));
   const periodMs = Math.max(86_400_000, end.getTime() - start.getTime());
   const previousStart = new Date(start.getTime() - periodMs);
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
   const leads = (leadsResult.data || []).filter((row) => selectedVisitorIds.has(row.visitor_id));
   const campaigns = byCampaign.map(({ name, value }) => {
     const ids = new Set(visitors.filter((row) => (row.utm_campaign || 'Organic') === name).map((row) => row.visitor_id));
-    const clicks = events.filter((event) => event.event_name === 'TelegramClick' && ids.has(event.visitor_id)).length;
+    const clicks = funnelEvents.filter((event) => event.event_name === 'TelegramClick' && ids.has(event.visitor_id)).length;
     return { name, visitors: value, clicks, conversionRate: value ? Number(((clicks / value) * 100).toFixed(1)) : 0 };
   });
   const snapshot = {
@@ -86,9 +87,16 @@ export async function GET(request: Request) {
       topCountry: byCountry[0]?.name || '—', topCampaign: byCampaign[0]?.name || 'Organic'
     },
     comparison: { visitors: percentChange(visitors.length, filteredPreviousVisitors.length), telegramClicks: percentChange(eventCountMap.TelegramClick || 0, previousClicks) },
-    meta: { browserEvents: events.filter((event) => ['PageView', 'ViewContent', 'Lead', 'SupportClick', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'Purchase'].includes(event.event_name)).length, serverEvents: (metaEvents || []).length, successful: (metaEvents || []).filter((event) => event.status === 'sent').length, failed: (metaEvents || []).filter((event) => event.status === 'failed').length, lastSync: metaEvents?.[0]?.sent_at || null, eventIds: (metaEvents || []).slice(0, 10).map((event) => event.event_id) },
+    meta: { browserEvents: funnelEvents.filter((event) => ['PageView', 'ViewContent', 'Lead', 'SupportClick', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'Purchase'].includes(event.event_name)).length, serverEvents: (metaEvents || []).length, successful: (metaEvents || []).filter((event) => event.status === 'sent').length, failed: (metaEvents || []).filter((event) => event.status === 'failed').length, lastSync: metaEvents?.[0]?.sent_at || null, eventIds: (metaEvents || []).slice(0, 10).map((event) => event.event_id) },
     funnel: { visitors: selectedVisitorIds.size, viewContent: uniqueStage('ViewContent'), planSelected: uniqueStage('PlanSelected'), registrationStarted: uniqueStage('RegistrationStarted'), registrationCompleted: uniqueStage('RegistrationCompleted'), checkoutStarted: uniqueStage('CheckoutStarted'), telegramClicks: uniqueStage('TelegramClick') },
     charts: { byDay, byCountry: byCountry.slice(0, 8), byCity: byCity.slice(0, 8), byCampaign: byCampaign.slice(0, 8), byDevice, byBrowser, byReferrer: byReferrer.slice(0, 8) },
+    heatmaps: {
+      countryDevice: buildCountryDeviceHeatmap(visitors),
+      dailyConversion: buildDailyConversionHeatmap(visitors, funnelEvents),
+      countries: byCountry,
+      devices: byDevice.map((row) => row.name),
+      stages: CONVERSION_STAGES,
+    },
     campaigns: campaigns.slice(0, 20),
     events: events.slice(0, 120).map((event) => ({ ...event, label: EVENT_LABELS[event.event_name] || event.event_name })),
     visitors: visitors.slice(0, 120).map((visitor) => ({ ...visitor, telegram_clicked: telegramIds.has(visitor.visitor_id) }))

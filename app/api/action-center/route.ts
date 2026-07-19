@@ -40,7 +40,7 @@ export async function GET() {
   const expiryStart = new Date(todayUtc).toISOString();
   const expiryEnd = new Date(todayUtc + 31 * 86_400_000 - 1).toISOString();
 
-  const [
+  let [
     pendingRegistrationCount,
     pendingRegistrationRows,
     freeRegistrationCount,
@@ -52,10 +52,10 @@ export async function GET() {
     suspendedClientCount,
     suspendedClientRows,
   ] = await Promise.all([
-    db.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'Pending'),
-    db.from('clients').select('id,full_name,country,plan,status,created_at').eq('status', 'Pending').order('created_at', { ascending: true }).limit(8),
-    db.from('clients').select('id', { count: 'exact', head: true }).eq('plan', 'Free').not('auth_user_id', 'is', null).neq('status', 'Pending'),
-    db.from('clients').select('id,full_name,country,plan,status,created_at').eq('plan', 'Free').not('auth_user_id', 'is', null).neq('status', 'Pending').order('created_at', { ascending: false }).limit(8),
+    db.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'Pending').is('reviewed_at', null),
+    db.from('clients').select('id,full_name,country,plan,status,created_at').eq('status', 'Pending').is('reviewed_at', null).order('created_at', { ascending: true }).limit(8),
+    db.from('clients').select('id', { count: 'exact', head: true }).eq('plan', 'Free').not('auth_user_id', 'is', null).neq('status', 'Pending').is('reviewed_at', null),
+    db.from('clients').select('id,full_name,country,plan,status,created_at').eq('plan', 'Free').not('auth_user_id', 'is', null).neq('status', 'Pending').is('reviewed_at', null).order('created_at', { ascending: false }).limit(8),
     db.from('client_payments').select('id', { count: 'exact', head: true }).eq('status', 'Pending'),
     db.from('client_payments').select('id,client_id,plan,method,amount,currency,payment_date,created_at').eq('status', 'Pending').order('created_at', { ascending: true }).limit(8),
     db.from('licenses').select('id', { count: 'exact', head: true }).eq('status', 'Active').gte('expires_at', expiryStart).lte('expires_at', expiryEnd),
@@ -63,6 +63,17 @@ export async function GET() {
     db.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'Suspended'),
     db.from('clients').select('id,full_name,country,plan,status,created_at').eq('status', 'Suspended').order('created_at', { ascending: false }).limit(8),
   ]);
+
+  const reviewSchemaMissing = [pendingRegistrationCount, pendingRegistrationRows, freeRegistrationCount, freeRegistrationRows]
+    .some((result) => result.error?.message.includes('reviewed_at'));
+  if (reviewSchemaMissing) {
+    [pendingRegistrationCount, pendingRegistrationRows, freeRegistrationCount, freeRegistrationRows] = await Promise.all([
+      db.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'Pending'),
+      db.from('clients').select('id,full_name,country,plan,status,created_at').eq('status', 'Pending').order('created_at', { ascending: true }).limit(8),
+      db.from('clients').select('id', { count: 'exact', head: true }).eq('plan', 'Free').not('auth_user_id', 'is', null).neq('status', 'Pending'),
+      db.from('clients').select('id,full_name,country,plan,status,created_at').eq('plan', 'Free').not('auth_user_id', 'is', null).neq('status', 'Pending').order('created_at', { ascending: false }).limit(8),
+    ]);
+  }
 
   const results = [pendingRegistrationCount, pendingRegistrationRows, freeRegistrationCount, freeRegistrationRows, pendingPaymentCount, pendingPaymentRows, expiringLicenseCount, expiringLicenseRows, suspendedClientCount, suspendedClientRows];
   if (results.some((result) => result.error)) return jsonError('Unable to load the action center', 500);

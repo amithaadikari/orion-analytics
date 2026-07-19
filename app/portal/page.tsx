@@ -1,8 +1,10 @@
 import Link from 'next/link';
 import { requireClient } from '@/lib/auth';
 import ClientPortalInsights from '@/components/client-portal-insights';
+import PortalNotificationCenter from '@/components/portal-notification-center';
 import PortalTopbar from '@/components/portal-topbar';
 import RegistrationTracker from '@/components/registration-tracker';
+import SupportTicketCenter from '@/components/support-ticket-center';
 import { countryFlag } from '@/lib/country';
 import { checkoutPath, normalizePlan, plans } from '@/lib/plans';
 
@@ -14,7 +16,7 @@ export default async function PortalPage() {
   const selected = selectedPlan ? plans[selectedPlan] : null;
   const [{ data: licenses }, { data: payments }, { data: releases }] = await Promise.all([
     supabase.from('licenses').select('id,license_key,platform,account_number,plan,status,issued_at,expires_at').eq('client_id', client.id).order('created_at', { ascending: false }),
-    supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id').eq('client_id', client.id).order('created_at', { ascending: false }),
+    supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number').eq('client_id', client.id).order('created_at', { ascending: false }),
     supabase.from('product_releases').select('id,version,title,release_notes,platform,download_url,released_at').eq('published', true).order('released_at', { ascending: false }),
   ]);
 
@@ -53,8 +55,10 @@ export default async function PortalPage() {
 
         <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} />
 
+        <PortalNotificationCenter />
+
         <div className="portal-grid">
-          <PortalPanel title="Your licenses" eyebrow="Software access" marker="01">
+          <PortalPanel title="Your licenses" eyebrow="Software access" marker="01" anchorId="licenses">
             <div className="portal-records">{licenses?.map((license) => <LicenseRecord key={license.id} license={license} />) || null}{!licenses?.length && <Empty text="No license has been assigned yet." />}</div>
           </PortalPanel>
           <PortalPanel title="Downloads & updates" eyebrow="Licensed releases" marker="02">
@@ -62,16 +66,16 @@ export default async function PortalPage() {
               {releases?.map((release) => (
                 <article className="release-record" key={release.id}>
                   <div><strong>{release.title}</strong><span>Version {release.version} · {release.platform}</span><p>{release.release_notes || 'Orion product update.'}</p></div>
-                  {release.download_url ? <a href={release.download_url} rel="noopener noreferrer" aria-label={`Download ${release.title}, version ${release.version}`}>Download <span aria-hidden="true">↓</span></a> : <span className="muted">Coming soon</span>}
+                  {release.download_url ? <a href={`/api/downloads/${release.id}`} aria-label={`Securely download ${release.title}, version ${release.version}`}>Secure download <span aria-hidden="true">↓</span></a> : <span className="muted">Coming soon</span>}
                 </article>
               ))}
               {!releases?.length && <Empty text="Downloads become available after an active license is assigned." />}
             </div>
           </PortalPanel>
-          <PortalPanel title="Payment history" eyebrow="Transactions" marker="03" wide>
+          <PortalPanel title="Payment history" eyebrow="Transactions" marker="03" anchorId="payments" wide>
             {payments?.length ? <div className="portal-table" role="table" aria-label="Payment history">
-              <div className="portal-table-head" role="row"><span role="columnheader">Date</span><span role="columnheader">Plan</span><span role="columnheader">Method</span><span role="columnheader">Amount</span><span role="columnheader">Status</span></div>
-              {payments.map((payment) => <div className="portal-table-row" role="row" key={payment.id}><span role="cell" data-label="Date">{payment.payment_date ? new Date(`${payment.payment_date}T00:00:00`).toLocaleDateString() : '—'}</span><strong role="cell" data-label="Plan">{payment.plan}</strong><span role="cell" data-label="Method">{payment.method}</span><span role="cell" data-label="Amount">{payment.currency} {Number(payment.amount).toLocaleString()}</span><span className={`payment-status ${payment.status.toLowerCase().replace(/\s+/g, '-')}`} role="cell" data-label="Status">{payment.status}</span></div>)}
+              <div className="portal-table-head portal-table-head--documents" role="row"><span role="columnheader">Date</span><span role="columnheader">Plan</span><span role="columnheader">Method</span><span role="columnheader">Amount</span><span role="columnheader">Status</span><span role="columnheader">Documents</span></div>
+              {payments.map((payment) => <div className="portal-table-row portal-table-row--documents" role="row" key={payment.id}><span role="cell" data-label="Date">{payment.payment_date ? new Date(`${payment.payment_date}T00:00:00`).toLocaleDateString() : '—'}</span><strong role="cell" data-label="Plan">{payment.plan}</strong><span role="cell" data-label="Method">{payment.method}</span><span role="cell" data-label="Amount">{payment.currency} {Number(payment.amount).toLocaleString()}</span><span className={`payment-status ${payment.status.toLowerCase().replace(/\s+/g, '-')}`} role="cell" data-label="Status">{payment.status}</span><span className="portal-document-links" role="cell" data-label="Documents"><Link href={`/invoice/${payment.id}`}>Invoice</Link>{payment.receipt_number && <Link href={`/receipt/${payment.id}`}>Receipt</Link>}</span></div>)}
             </div> : <Empty text="No payment history yet." />}
           </PortalPanel>
           <PortalPanel title="Your activation path" eyebrow="Setup & official support" marker="04" wide>
@@ -82,6 +86,8 @@ export default async function PortalPage() {
             </div>
           </PortalPanel>
         </div>
+
+        <SupportTicketCenter />
       </section>
       {user.user_metadata?.registration_source === 'orion_client_portal' && <RegistrationTracker plan={selectedPlan} />}
     </main>
@@ -92,9 +98,9 @@ function PortalMetric({ icon, label, value, tone }: { icon: string; label: strin
   return <article className={`portal-metric portal-metric-${tone}`}><span aria-hidden="true">{icon}</span><div><small>{label}</small><strong>{value}</strong></div></article>;
 }
 
-function PortalPanel({ title, eyebrow, marker, wide = false, children }: { title: string; eyebrow: string; marker: string; wide?: boolean; children: React.ReactNode }) {
+function PortalPanel({ title, eyebrow, marker, anchorId, wide = false, children }: { title: string; eyebrow: string; marker: string; anchorId?: string; wide?: boolean; children: React.ReactNode }) {
   const headingId = `portal-panel-${marker}`;
-  return <section className={`portal-panel ${wide ? 'wide' : ''}`} aria-labelledby={headingId}><header className="portal-panel-heading"><div><p className="eyebrow">{eyebrow}</p><h2 id={headingId}>{title}</h2></div><span aria-hidden="true">{marker}</span></header>{children}</section>;
+  return <section className={`portal-panel ${wide ? 'wide' : ''}`} id={anchorId} aria-labelledby={headingId}><header className="portal-panel-heading"><div><p className="eyebrow">{eyebrow}</p><h2 id={headingId}>{title}</h2></div><span aria-hidden="true">{marker}</span></header>{children}</section>;
 }
 
 function LicenseRecord({ license }: { license: { license_key: string; platform: string; account_number?: string; plan: string; status: string; issued_at: string; expires_at?: string } }) {

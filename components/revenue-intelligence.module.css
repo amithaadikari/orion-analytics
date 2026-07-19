@@ -1,0 +1,993 @@
+.shell {
+  --gold: #f6c453;
+  --gold-bright: #ffe39a;
+  --cyan: #42d9ff;
+  --green: #39f28a;
+  --red: #ff7188;
+  --orange: #ffad58;
+  --text: #f5f8f8;
+  --muted: #87969c;
+  --line: rgba(246, 196, 83, .13);
+  display: grid;
+  margin-top: 12px;
+  gap: 14px;
+  color: var(--text);
+}
+
+.header,
+.panel,
+.methodology {
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(circle at 95% 0, rgba(246, 196, 83, .055), transparent 19rem),
+    linear-gradient(150deg, rgba(8, 11, 11, .96), rgba(1, 3, 3, .99));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .035), 0 24px 70px rgba(0, 0, 0, .26);
+}
+
+.header {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  min-height: 166px;
+  padding: clamp(24px, 4vw, 42px);
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  overflow: hidden;
+  border-top: 2px solid rgba(246, 196, 83, .5);
+  border-radius: 14px;
+}
+
+.header::after {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  left: -34%;
+  width: 34%;
+  height: 2px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--gold), var(--cyan), transparent);
+  box-shadow: 0 0 18px rgba(246, 196, 83, .16);
+  animation: revenue-header-flow 7.8s cubic-bezier(.45, 0, .2, 1) infinite;
+}
+
+.header > * {
+  position: relative;
+  z-index: 1;
+}
+
+.header > div {
+  display: grid;
+  max-width: 760px;
+  gap: 8px;
+}
+
+.header p,
+.panelHeading p {
+  margin: 0;
+  color: var(--gold);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.header h2 {
+  margin: 0;
+  font-size: clamp(30px, 5vw, 52px);
+  line-height: .98;
+  letter-spacing: -.055em;
+}
+
+.header > div > span,
+.sectionNote {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.header button,
+.goalForm button,
+.addGoalForm button,
+.errorState button {
+  min-height: 42px;
+  padding: 10px 14px;
+  color: #160f02;
+  border: 1px solid var(--gold-bright);
+  border-radius: 7px;
+  background: linear-gradient(120deg, #c99325, var(--gold) 58%, var(--gold-bright));
+  font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.header button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.header button:disabled,
+.goalForm button:disabled,
+.addGoalForm button:disabled {
+  cursor: wait;
+  opacity: .58;
+}
+
+.header button:disabled span {
+  animation: revenue-refresh 1s linear infinite;
+}
+
+.methodology {
+  padding: 16px 20px;
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.methodology summary {
+  color: var(--gold-bright);
+  font: 700 9px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.methodology ol {
+  display: grid;
+  margin: 14px 0 0;
+  padding-left: 19px;
+  gap: 8px;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.primaryGrid {
+  display: grid;
+  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  gap: 14px;
+}
+
+.panel {
+  position: relative;
+  isolation: isolate;
+  min-width: 0;
+  padding: clamp(20px, 3vw, 30px);
+  border-radius: 13px;
+}
+
+.panel::before {
+  position: absolute;
+  top: 0;
+  right: 16px;
+  left: 16px;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(246, 196, 83, .28), rgba(66, 217, 255, .16), transparent);
+  background-size: 220% 100%;
+  opacity: .5;
+  animation: revenue-panel-flow 8.4s linear infinite;
+}
+
+.panelHeading {
+  display: flex;
+  margin-bottom: 22px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.panelHeading h3 {
+  margin: 6px 0 0;
+  font-size: clamp(20px, 2.4vw, 27px);
+  letter-spacing: -.04em;
+}
+
+.panelHeading > span {
+  flex: none;
+  padding: 6px 8px;
+  color: var(--muted);
+  border: 1px solid rgba(246, 196, 83, .14);
+  border-radius: 999px;
+  background: rgba(246, 196, 83, .035);
+  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.mrrCurrencies {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.mrrCard {
+  display: grid;
+  min-height: 126px;
+  padding: 18px;
+  align-content: end;
+  gap: 7px;
+  border: 1px solid rgba(66, 217, 255, .14);
+  border-radius: 9px;
+  background: radial-gradient(circle at 100% 0, rgba(66, 217, 255, .08), transparent 8rem), rgba(255, 255, 255, .015);
+  animation: revenue-card-in .5s cubic-bezier(.2, .75, .24, 1) both;
+}
+
+.mrrCard:nth-child(2) { animation-delay: .06s; }
+.mrrCard:nth-child(3) { animation-delay: .12s; }
+.mrrCard:nth-child(4) { animation-delay: .18s; }
+
+.mrrCard > span,
+.goalCopy > span,
+.goalForm label > span,
+.addGoalForm label > span,
+.exceptionCard > span {
+  color: var(--muted);
+  font: 600 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.mrrCard strong {
+  color: var(--cyan);
+  font: 700 clamp(19px, 2vw, 27px)/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
+.mrrCard small,
+.goalCopy small {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.mrrAudit {
+  display: grid;
+  margin: 16px 0 0;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.mrrAudit div {
+  display: grid;
+  padding: 10px;
+  gap: 5px;
+  border-top: 1px solid rgba(246, 196, 83, .1);
+}
+
+.mrrAudit dt {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.mrrAudit dd {
+  margin: 0;
+  color: var(--gold-bright);
+  font: 700 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.goalGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.goalCard {
+  display: grid;
+  padding: 16px;
+  grid-template-columns: 88px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  border: 1px solid rgba(57, 242, 138, .12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .014);
+  animation: revenue-card-in .52s cubic-bezier(.2, .75, .24, 1) both;
+}
+
+.goalCard:nth-child(2) { animation-delay: .07s; }
+.goalCard:nth-child(3) { animation-delay: .14s; }
+
+.goalRing {
+  --goal-progress: 0%;
+  position: relative;
+  display: grid;
+  width: 82px;
+  height: 82px;
+  place-content: center;
+  text-align: center;
+  border-radius: 50%;
+  background: conic-gradient(var(--green) var(--goal-progress), rgba(57, 242, 138, .09) 0);
+  animation: revenue-goal-reveal .72s cubic-bezier(.2, .8, .2, 1) both;
+}
+
+.goalRing::before {
+  position: absolute;
+  inset: 7px;
+  content: "";
+  border: 1px solid rgba(57, 242, 138, .1);
+  border-radius: 50%;
+  background: #040707;
+}
+
+.goalRing::after {
+  position: absolute;
+  inset: -4px;
+  content: "";
+  pointer-events: none;
+  border: 1px dashed rgba(57, 242, 138, .19);
+  border-radius: 50%;
+  animation: revenue-goal-orbit 18s linear infinite;
+}
+
+.goalRing span,
+.goalRing small {
+  position: relative;
+  z-index: 1;
+}
+
+.goalRing span {
+  color: var(--green);
+  font: 700 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.goalRing small {
+  margin-top: 4px;
+  color: var(--muted);
+  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.goalCopy {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.goalCopy strong {
+  color: var(--text);
+  font: 700 16px/1.15 ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+
+.goalForm {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: end;
+  gap: 7px;
+}
+
+.goalForm label,
+.addGoalForm label {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 5px;
+}
+
+.goalForm input,
+.addGoalForm input {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 7px;
+  outline: 0;
+  background: rgba(0, 0, 0, .42);
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.goalForm input:focus,
+.addGoalForm input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(246, 196, 83, .08);
+}
+
+.addGoalForm {
+  display: grid;
+  margin-top: 12px;
+  padding: 14px;
+  grid-template-columns: minmax(170px, 1fr) minmax(90px, .45fr) minmax(140px, .7fr) auto;
+  align-items: end;
+  gap: 10px;
+  border: 1px dashed rgba(246, 196, 83, .17);
+  border-radius: 9px;
+}
+
+.addGoalForm > div {
+  display: grid;
+  gap: 4px;
+}
+
+.addGoalForm > div strong {
+  font-size: 11px;
+}
+
+.addGoalForm > div span,
+.goalStatus {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.goalStatus {
+  margin: 10px 2px 0;
+  animation: revenue-status-in .48s ease both;
+}
+
+.sectionNote {
+  margin: -10px 0 20px;
+}
+
+.calendarScroller {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.calendarMonths {
+  display: grid;
+  min-width: min-content;
+  grid-template-columns: repeat(4, minmax(290px, 1fr));
+  gap: 10px;
+}
+
+.calendarMonth {
+  width: 100%;
+  min-width: 290px;
+  padding: 13px;
+  border: 1px solid rgba(246, 196, 83, .09);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .012);
+}
+
+.calendarMonth > header,
+.trendHeading {
+  display: flex;
+  margin-bottom: 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.calendarMonth h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.calendarMonth > header span {
+  color: var(--muted);
+  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+}
+
+.weekdays,
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.weekdays {
+  margin-bottom: 4px;
+}
+
+.weekdays span {
+  color: #667579;
+  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-align: center;
+}
+
+.blankDay,
+.calendarDay {
+  min-height: 58px;
+  border-radius: 5px;
+}
+
+.calendarDay {
+  display: flex;
+  min-width: 0;
+  padding: 5px;
+  flex-direction: column;
+  gap: 3px;
+  border: 1px solid rgba(255, 255, 255, .045);
+  background: rgba(0, 0, 0, .28);
+}
+
+.calendarDay > time {
+  color: var(--muted);
+  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.outsideWindow {
+  opacity: .28;
+}
+
+.today {
+  border-color: rgba(66, 217, 255, .28);
+  box-shadow: inset 0 0 0 1px rgba(66, 217, 255, .07);
+}
+
+.hasRenewal {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(246, 196, 83, .3);
+  background: rgba(246, 196, 83, .04);
+}
+
+.hasRenewal::after {
+  position: absolute;
+  z-index: 0;
+  right: 2px;
+  left: 2px;
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 227, 154, .8), transparent);
+  box-shadow: 0 0 7px rgba(246, 196, 83, .25);
+  animation: revenue-license-scan 4.8s ease-in-out infinite;
+}
+
+.hasRenewal > * {
+  position: relative;
+  z-index: 1;
+}
+
+.renewalChip {
+  display: grid;
+  min-width: 0;
+  padding: 3px;
+  gap: 2px;
+  overflow: hidden;
+  border-left: 2px solid var(--gold);
+  background: rgba(246, 196, 83, .04);
+}
+
+.renewalChip strong,
+.renewalChip small,
+.moreRenewals {
+  overflow: hidden;
+  font-size: 6px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.renewalChip small,
+.moreRenewals {
+  color: var(--muted);
+}
+
+.exceptionKpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.exceptionCard {
+  position: relative;
+  display: grid;
+  min-height: 150px;
+  padding: 18px;
+  align-content: end;
+  gap: 5px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-top: 2px solid currentColor;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .012);
+}
+
+.statusRefunded { color: var(--orange); }
+.statusFailed { color: var(--red); }
+.statusDisputed { color: var(--gold-bright); }
+
+.exceptionCard > strong {
+  font: 700 34px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.exceptionCard > small,
+.exceptionCard > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.exceptionCard ul {
+  display: flex;
+  margin: 8px 0 0;
+  padding: 0;
+  flex-wrap: wrap;
+  gap: 5px;
+  list-style: none;
+}
+
+.exceptionCard li {
+  padding: 4px 6px;
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 5px;
+  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.trendRegion {
+  margin-top: 12px;
+  padding: 16px;
+  border: 1px solid rgba(246, 196, 83, .08);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, .22);
+}
+
+.trendHeading > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.trendHeading strong {
+  font-size: 12px;
+}
+
+.trendHeading span,
+.legend span {
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.refundedLegend,
+.refundedBar { background: var(--orange); }
+.failedLegend,
+.failedBar { background: var(--red); }
+.disputedLegend,
+.disputedBar { background: var(--gold-bright); }
+
+.trendChart {
+  display: grid;
+  height: 190px;
+  margin: 20px 0 0;
+  padding: 0;
+  grid-template-columns: repeat(13, minmax(34px, 1fr));
+  gap: 6px;
+  list-style: none;
+}
+
+.trendChart li {
+  display: grid;
+  min-width: 0;
+  grid-template-rows: 1fr auto auto;
+  align-items: end;
+  gap: 4px;
+  text-align: center;
+}
+
+.trendPlot {
+  display: flex;
+  height: 130px;
+  align-items: end;
+  justify-content: center;
+  gap: 2px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  background: repeating-linear-gradient(to top, transparent 0 31px, rgba(255, 255, 255, .035) 32px);
+}
+
+.trendPlot i {
+  width: min(7px, 28%);
+  height: var(--trend-height);
+  min-height: 0;
+  border-radius: 3px 3px 0 0;
+  opacity: .8;
+  transform-origin: center bottom;
+  animation: revenue-bar-grow .72s cubic-bezier(.2, .75, .24, 1) both;
+}
+
+.trendChart li:nth-child(2) .trendPlot i { animation-delay: .03s; }
+.trendChart li:nth-child(3) .trendPlot i { animation-delay: .06s; }
+.trendChart li:nth-child(4) .trendPlot i { animation-delay: .09s; }
+.trendChart li:nth-child(5) .trendPlot i { animation-delay: .12s; }
+.trendChart li:nth-child(6) .trendPlot i { animation-delay: .15s; }
+.trendChart li:nth-child(7) .trendPlot i { animation-delay: .18s; }
+.trendChart li:nth-child(8) .trendPlot i { animation-delay: .21s; }
+.trendChart li:nth-child(9) .trendPlot i { animation-delay: .24s; }
+.trendChart li:nth-child(10) .trendPlot i { animation-delay: .27s; }
+.trendChart li:nth-child(11) .trendPlot i { animation-delay: .3s; }
+.trendChart li:nth-child(12) .trendPlot i { animation-delay: .33s; }
+.trendChart li:nth-child(13) .trendPlot i { animation-delay: .36s; }
+
+.trendChart li > strong {
+  font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.trendChart time {
+  color: var(--muted);
+  font: 500 6px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  white-space: nowrap;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid rgba(246, 196, 83, .09);
+  border-radius: 9px;
+}
+
+.tableWrap table {
+  width: 100%;
+  min-width: 920px;
+  border-collapse: collapse;
+}
+
+.tableWrap caption {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tableWrap th,
+.tableWrap td {
+  padding: 13px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .055);
+  text-align: left;
+}
+
+.tableWrap thead th {
+  color: var(--muted);
+  background: rgba(246, 196, 83, .025);
+  font: 600 9px/1.3 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.tableWrap tbody th {
+  color: var(--gold-bright);
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tableWrap td {
+  color: var(--text);
+  font: 600 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.tableWrap td span,
+.tableWrap td small {
+  display: block;
+}
+
+.tableWrap td small {
+  margin-top: 3px;
+  color: var(--green);
+}
+
+.emptyState,
+.errorState {
+  display: flex;
+  min-height: 104px;
+  padding: 18px;
+  align-items: center;
+  gap: 12px;
+  border: 1px dashed rgba(246, 196, 83, .14);
+  border-radius: 9px;
+}
+
+.emptyState > span,
+.errorState > span {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  place-items: center;
+  color: var(--gold);
+  border: 1px solid rgba(246, 196, 83, .2);
+  border-radius: 7px;
+}
+
+.emptyState div,
+.errorState div {
+  display: grid;
+  gap: 5px;
+}
+
+.emptyState strong,
+.errorState strong {
+  font-size: 11px;
+}
+
+.emptyState p,
+.errorState p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.inlineError {
+  display: flex;
+  padding: 11px 13px;
+  align-items: center;
+  gap: 8px;
+  color: #ff9bac;
+  border: 1px solid rgba(255, 113, 136, .18);
+  border-radius: 8px;
+  background: rgba(255, 113, 136, .04);
+  font-size: 9px;
+}
+
+.stateShell .errorState {
+  min-height: 160px;
+  border-style: solid;
+  border-color: rgba(255, 113, 136, .17);
+}
+
+.errorState button {
+  margin-left: auto;
+}
+
+.loadingGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.loadingGrid > span {
+  position: relative;
+  display: grid;
+  min-height: 160px;
+  padding: 20px;
+  gap: 13px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .015);
+}
+
+.loadingGrid > span::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(100deg, transparent, rgba(246, 196, 83, .07), transparent);
+  animation: revenue-shimmer 1.4s linear infinite;
+}
+
+.loadingGrid i {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .055);
+}
+
+.loadingGrid i:nth-child(2) { width: 72%; }
+.loadingGrid i:nth-child(3) { width: 45%; }
+
+@keyframes revenue-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+
+@keyframes revenue-header-flow {
+  0%, 12% { opacity: 0; transform: translateX(0); }
+  20%, 72% { opacity: .82; }
+  84%, 100% { opacity: 0; transform: translateX(395%); }
+}
+
+@keyframes revenue-panel-flow {
+  to { background-position: -220% 0; }
+}
+
+@keyframes revenue-refresh {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes revenue-card-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes revenue-goal-reveal {
+  from { opacity: .35; transform: scale(.88) rotate(-8deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes revenue-goal-orbit {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes revenue-status-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes revenue-license-scan {
+  0%, 16% { top: 4px; opacity: 0; }
+  28%, 68% { opacity: .82; }
+  82%, 100% { top: calc(100% - 4px); opacity: 0; }
+}
+
+@keyframes revenue-bar-grow {
+  from { opacity: .18; transform: scaleY(0); }
+  to { opacity: .8; transform: scaleY(1); }
+}
+
+@media (max-width: 1100px) {
+  .primaryGrid { grid-template-columns: 1fr; }
+  .calendarMonths { grid-template-columns: repeat(4, 300px); }
+}
+
+@media (max-width: 760px) {
+  .header { min-height: 190px; align-items: flex-start; flex-direction: column; }
+  .header button { align-self: stretch; justify-content: center; }
+  .goalGrid,
+  .exceptionKpis,
+  .loadingGrid { grid-template-columns: 1fr; }
+  .addGoalForm { grid-template-columns: 1fr 1fr; }
+  .addGoalForm > div { grid-column: 1 / -1; }
+  .addGoalForm button { min-height: 40px; }
+  .trendRegion { overflow-x: auto; }
+  .trendHeading { align-items: flex-start; flex-direction: column; }
+  .trendChart { min-width: 680px; }
+  .mrrAudit { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 480px) {
+  .panel { padding: 19px 15px; }
+  .panelHeading { align-items: flex-start; flex-direction: column; }
+  .mrrCurrencies { grid-template-columns: 1fr; }
+  .goalCard { grid-template-columns: 74px minmax(0, 1fr); padding: 13px; }
+  .goalRing { width: 70px; height: 70px; }
+  .goalForm { align-items: stretch; flex-direction: column; }
+  .addGoalForm { grid-template-columns: 1fr; }
+  .addGoalForm > div { grid-column: auto; }
+  .exceptionCard { min-height: 130px; }
+  .errorState { align-items: flex-start; flex-direction: column; }
+  .errorState button { width: 100%; margin-left: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loadingGrid > span::after,
+  .header::after,
+  .header button:disabled span,
+  .panel::before,
+  .mrrCard,
+  .goalCard,
+  .goalRing,
+  .goalRing::after,
+  .goalStatus,
+  .hasRenewal::after,
+  .trendPlot i {
+    animation: none !important;
+  }
+
+  .header::after,
+  .panel::before,
+  .hasRenewal::after {
+    display: none;
+  }
+
+  .mrrCard,
+  .goalCard,
+  .goalRing,
+  .goalStatus,
+  .trendPlot i {
+    opacity: 1;
+    transform: none;
+  }
+}

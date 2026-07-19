@@ -17,6 +17,7 @@ const envSchema = z.object({
   DATA_RETENTION_DAYS: z.coerce.number().int().positive().default(365),
   NEXT_PUBLIC_ANALYTICS_ENABLED: z.enum(['true', 'false']).default('true'),
   CLIENT_PORTAL_URL: z.string().url().refine((value) => value.startsWith('https://'), 'Client portal URL must use HTTPS').default('https://app.orionscalper.com'),
+  PRODUCT_DOWNLOAD_HOSTS: z.string().optional().default(''),
   RESEND_API_KEY: z.string().optional().default(''),
   RENEWAL_EMAIL_FROM: z.string().default('Orion Scalper <no-reply@orionscalper.com>'),
   CRON_SECRET: z.string().optional().default('')

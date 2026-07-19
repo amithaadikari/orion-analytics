@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 
 type AdminActionCenterProps = {
   onNavigate: (section: string, filter: string) => void;
@@ -64,6 +64,7 @@ type ActionCenterResponse = {
 };
 
 type QueueCategory = 'registrations' | 'payments' | 'licenses' | 'suspended';
+type QueueAction = 'approve-registration' | 'verify-payment' | 'renew-license' | 'reactivate-client';
 
 type FeedItem = {
   id: string;
@@ -74,6 +75,9 @@ type FeedItem = {
   date?: { dateTime: string; label: string };
   section: string;
   filter: string;
+  action: QueueAction;
+  actionLabel: string;
+  confirmation: string;
 };
 
 const categoryDefinitions = [
@@ -120,9 +124,15 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [unavailable, setUnavailable] = useState(false);
+  const [pendingAction, setPendingAction] = useState<FeedItem | null>(null);
+  const [actionRunning, setActionRunning] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [actionNotice, setActionNotice] = useState('');
+  const [extensionDays, setExtensionDays] = useState<30 | 90 | 365>(30);
   const navigateRef = useRef(onNavigate);
   const countChangeRef = useRef(onQueueCountChange);
   const lastReportedCount = useRef<number | null | undefined>(undefined);
+  const actionConfirmRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     navigateRef.current = onNavigate;
@@ -180,6 +190,62 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
     navigateRef.current(section, filter);
   }, []);
 
+  const prepareAction = useCallback((item: FeedItem) => {
+    setActionError('');
+    setActionNotice('');
+    setExtensionDays(item.category === 'licenses' && item.detail.toLowerCase().includes('premium') ? 90 : 30);
+    setPendingAction(item);
+  }, []);
+
+  useEffect(() => {
+    if (!pendingAction) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    actionConfirmRef.current?.querySelector<HTMLElement>('button:not([disabled]), select:not([disabled])')?.focus();
+    return () => opener?.focus();
+  }, [pendingAction]);
+
+  const handleConfirmKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape' && !actionRunning) {
+      event.preventDefault();
+      setPendingAction(null);
+      return;
+    }
+    if (event.key !== 'Tab') return;
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'));
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }, [actionRunning]);
+
+  const performAction = useCallback(async () => {
+    if (!pendingAction || actionRunning) return;
+    setActionRunning(true);
+    setActionError('');
+    try {
+      const response = await fetch('/api/action-center/actions', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: pendingAction.action,
+          id: pendingAction.id.split(':').slice(1).join(':'),
+          ...(pendingAction.action === 'renew-license' ? { extension_days: extensionDays } : {}),
+        }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(apiError(payload) || 'The action could not be completed.');
+      setActionNotice(isObject(payload) && typeof payload.message === 'string' ? payload.message : 'Action completed.');
+      setPendingAction(null);
+      await load();
+    } catch (reason) {
+      setActionError(reason instanceof Error ? reason.message : 'The action could not be completed.');
+    } finally {
+      setActionRunning(false);
+    }
+  }, [actionRunning, extensionDays, load, pendingAction]);
+
   const feed = useMemo(() => data ? buildPriorityFeed(data.queues) : [], [data]);
 
   if (loading) return <ActionCenterLoading />;
@@ -210,8 +276,11 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
   }
 
   return (
+    <>
     <section className="admin-action-center" aria-labelledby="admin-action-center-title">
       <ActionCenterHeader count={data.counts.total} />
+      {actionNotice && <p className="admin-action-notice" role="status"><span aria-hidden="true">✓</span>{actionNotice}</p>}
+      {actionError && !pendingAction && <p className="admin-action-notice admin-action-notice--error" role="alert"><span aria-hidden="true">!</span>{actionError}</p>}
 
       <div className="admin-action-center-categories" aria-label="Operational review queues">
         {categoryDefinitions.map((category) => {
@@ -253,9 +322,14 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
                   <p>{item.detail}</p>
                   {item.date && <time dateTime={item.date.dateTime}>{item.date.label}</time>}
                 </div>
-                <button type="button" onClick={() => navigate(item.section, item.filter)} aria-label={`Review ${item.categoryLabel.toLowerCase()}: ${item.title}`}>
-                  Review<span aria-hidden="true">↗</span>
-                </button>
+                <span className="admin-action-feed-actions">
+                  <button type="button" onClick={() => navigate(item.section, item.filter)} aria-label={`Open ${item.categoryLabel.toLowerCase()} details for ${item.title}`}>
+                    Details<span aria-hidden="true">↗</span>
+                  </button>
+                  <button className="admin-action-execute" type="button" onClick={() => prepareAction(item)} aria-label={`${item.actionLabel}: ${item.title}`}>
+                    {item.actionLabel}<span aria-hidden="true">→</span>
+                  </button>
+                </span>
               </li>
             ))}
           </ol>
@@ -267,6 +341,23 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
         )}
       </section>
     </section>
+      {pendingAction && (
+        <div className="admin-action-confirm-backdrop" onMouseDown={() => !actionRunning && setPendingAction(null)}>
+          <section ref={actionConfirmRef} className={`admin-action-confirm admin-action-confirm--${pendingAction.category}`} role="dialog" aria-modal="true" aria-labelledby="admin-action-confirm-title" onKeyDown={handleConfirmKeyDown} onMouseDown={(event) => event.stopPropagation()}>
+            <button className="admin-action-confirm-close" type="button" aria-label="Cancel action" onClick={() => setPendingAction(null)} disabled={actionRunning}>×</button>
+            <p className="eyebrow">Safe operational action</p>
+            <h3 id="admin-action-confirm-title">{pendingAction.actionLabel}</h3>
+            <strong>{pendingAction.title}</strong>
+            <p>{pendingAction.confirmation}</p>
+            {pendingAction.action === 'renew-license' && (
+              <label className="admin-action-extension"><span>Renewal period</span><select value={extensionDays} onChange={(event) => setExtensionDays(Number(event.target.value) as 30 | 90 | 365)} disabled={actionRunning}><option value={30}>30 days</option><option value={90}>90 days</option><option value={365}>365 days</option></select></label>
+            )}
+            {actionError && <p className="admin-action-confirm-error" role="alert">{actionError}</p>}
+            <div className="admin-action-confirm-buttons"><button type="button" className="glass-button" onClick={() => setPendingAction(null)} disabled={actionRunning}>Cancel</button><button type="button" className="gold-button" onClick={() => void performAction()} disabled={actionRunning}>{actionRunning ? 'Checking records…' : `Confirm ${pendingAction.actionLabel.toLowerCase()}`}</button></div>
+          </section>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -338,6 +429,9 @@ function registrationFeedItem(item: RegistrationQueueItem): FeedItem {
     date: formattedDate(item.date || item.created_at),
     section: 'registrations',
     filter: 'Needs review',
+    action: 'approve-registration',
+    actionLabel: 'Approve',
+    confirmation: 'Orion will mark a Free registration as reviewed. A paid registration is activated only when a completed payment and matching active license are present.',
   };
 }
 
@@ -354,6 +448,9 @@ function paymentFeedItem(item: PaymentQueueItem): FeedItem {
     date: formattedDate(item.date || item.payment_date || item.created_at),
     section: 'payments',
     filter: 'Pending',
+    action: 'verify-payment',
+    actionLabel: 'Verify',
+    confirmation: 'Orion will mark this pending payment as manually verified, assign the payment date if missing, create its receipt, and refresh eligible access.',
   };
 }
 
@@ -373,6 +470,9 @@ function licenseFeedItem(item: LicenseQueueItem): FeedItem {
     date: formattedDate(item.date) || expiry,
     section: 'licenses',
     filter: 'Expiring soon',
+    action: 'renew-license',
+    actionLabel: 'Renew',
+    confirmation: 'Orion will extend this license from its current expiry date, or from today if it has already expired.',
   };
 }
 
@@ -388,6 +488,9 @@ function suspendedFeedItem(item: SuspendedQueueItem): FeedItem {
     date: formattedDate(item.date || item.created_at),
     section: 'clients',
     filter: 'Suspended',
+    action: 'reactivate-client',
+    actionLabel: 'Reactivate',
+    confirmation: 'Orion will reactivate this account only after confirming a completed payment and a matching active license.',
   };
 }
 

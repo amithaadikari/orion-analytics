@@ -7,17 +7,20 @@ import LogoutButton from '@/components/logout-button';
 import { countryFlag } from '@/lib/country';
 import BusinessDashboard from '@/components/business-dashboard';
 import AdminActionCenter from '@/components/admin-action-center';
+import AdvancedAnalytics, { type AdvancedFilterPatch } from '@/components/advanced-analytics';
+import CommandPalette from '@/components/command-palette';
 import ReleaseManager from '@/components/release-manager';
 import OrionBrand from '@/components/orion-brand';
+import SupportTicketCenter from '@/components/support-ticket-center';
 
 type DashboardProps = { admin: { email?: string | null; role?: string | null } | null };
 type Breakdown = { name: string; value: number };
 type Campaign = { name: string; visitors: number; clicks: number; conversionRate: number };
 type DashboardEvent = { event_id?: string; event_name?: string; label?: string; visitor_id?: string; created_at?: string; country?: string; utm_campaign?: string };
-type Snapshot = { metrics: Record<string, number | string>; comparison: { visitors: number; telegramClicks: number }; meta: { browserEvents: number; serverEvents: number; successful: number; failed: number; lastSync: string | null; eventIds: string[] }; funnel: Record<string, number>; charts: { byDay: any[]; byCountry: Breakdown[]; byCity: Breakdown[]; byCampaign: Breakdown[]; byDevice: Breakdown[]; byBrowser: Breakdown[]; byReferrer: Breakdown[] }; campaigns: Campaign[]; events: DashboardEvent[]; visitors: any[]; range: { start: string; end: string } };
+type Snapshot = { metrics: Record<string, number | string>; comparison: { visitors: number; telegramClicks: number }; meta: { browserEvents: number; serverEvents: number; successful: number; failed: number; lastSync: string | null; eventIds: string[] }; funnel: Record<string, number>; charts: { byDay: any[]; byCountry: Breakdown[]; byCity: Breakdown[]; byCampaign: Breakdown[]; byDevice: Breakdown[]; byBrowser: Breakdown[]; byReferrer: Breakdown[] }; heatmaps: { countryDevice: { country:string; device:string; value:number }[]; dailyConversion: { date:string; stage:string; value:number }[]; countries?: Breakdown[]; devices?: string[]; stages?: string[] }; campaigns: Campaign[]; events: DashboardEvent[]; visitors: any[]; range: { start: string; end: string } };
 type ActionCenterNavigate = (section: string, filter?: string) => void;
 
-const emptySnapshot: Snapshot = { metrics: { visitorsToday: 0, uniqueVisitors: 0, visitorsOnline: 0, telegramClicks: 0, conversionRate: 0, leadsToday: 0, returningVisitors: 0, eventsInView: 0, topCountry: '—', topCampaign: 'Organic' }, comparison: { visitors: 0, telegramClicks: 0 }, meta: { browserEvents: 0, serverEvents: 0, successful: 0, failed: 0, lastSync: null, eventIds: [] }, funnel: { visitors: 0, viewContent: 0, telegramClicks: 0 }, charts: { byDay: [], byCountry: [], byCity: [], byCampaign: [], byDevice: [], byBrowser: [], byReferrer: [] }, campaigns: [], events: [], visitors: [], range: { start: '', end: '' } };
+const emptySnapshot: Snapshot = { metrics: { visitorsToday: 0, uniqueVisitors: 0, visitorsOnline: 0, telegramClicks: 0, conversionRate: 0, leadsToday: 0, returningVisitors: 0, eventsInView: 0, topCountry: '—', topCampaign: 'Organic' }, comparison: { visitors: 0, telegramClicks: 0 }, meta: { browserEvents: 0, serverEvents: 0, successful: 0, failed: 0, lastSync: null, eventIds: [] }, funnel: { visitors: 0, viewContent: 0, telegramClicks: 0 }, charts: { byDay: [], byCountry: [], byCity: [], byCampaign: [], byDevice: [], byBrowser: [], byReferrer: [] }, heatmaps: { countryDevice: [], dailyConversion: [], countries: [], devices: [], stages: [] }, campaigns: [], events: [], visitors: [], range: { start: '', end: '' } };
 
 const royalPalette = {
   gold: '#f6c453',
@@ -65,18 +68,50 @@ export default function Dashboard({ admin }: DashboardProps) {
   const [range, setRange] = useState('7d'); const [customStart, setCustomStart] = useState(''); const [customEnd, setCustomEnd] = useState(''); const [eventFilter, setEventFilter] = useState('all'); const [country, setCountry] = useState('all'); const [campaign, setCampaign] = useState('all'); const [device, setDevice] = useState('all'); const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState(''); const [tab, setTab] = useState('overview');
   const [queueCount, setQueueCount] = useState<number | null>(null);
   const [destinationFilter, setDestinationFilter] = useState<string>();
+  const [destinationSearch, setDestinationSearch] = useState<string>();
   const [businessNavigationKey, setBusinessNavigationKey] = useState(0);
+  const [businessCommand, setBusinessCommand] = useState<{ type:'add-client'|'create-license'|'record-payment'; key:number }>();
   const navigateFromActionCenter = useCallback<ActionCenterNavigate>((section, filter) => {
     setDestinationFilter(filter);
+    setDestinationSearch(undefined);
+    setBusinessCommand(undefined);
     setBusinessNavigationKey((key) => key + 1);
     setTab(section);
   }, []);
   const navigateNormally = useCallback((section: string) => {
     setDestinationFilter(undefined);
+    setDestinationSearch(undefined);
+    setBusinessCommand(undefined);
     setBusinessNavigationKey((key) => key + 1);
     setTab(section);
   }, []);
+  const navigateFromCommand = useCallback((section:string,filter?:string,search?:string)=>{
+    setDestinationFilter(filter);
+    setDestinationSearch(search);
+    setBusinessCommand(undefined);
+    setBusinessNavigationKey((key)=>key+1);
+    setTab(section);
+  },[]);
+  const executeCommand = useCallback((type:'add-client'|'create-license'|'record-payment')=>{
+    const section=type==='add-client'?'clients':type==='create-license'?'licenses':'payments';
+    setDestinationFilter(undefined);
+    setDestinationSearch(undefined);
+    setBusinessCommand({type,key:Date.now()});
+    setBusinessNavigationKey((key)=>key+1);
+    setTab(section);
+  },[]);
   const updateQueueCount = useCallback((count: number | null) => setQueueCount(count), []);
+  const applyAdvancedFilter = useCallback((patch: AdvancedFilterPatch) => {
+    if ('country' in patch) setCountry(patch.country || 'all');
+    if ('campaign' in patch) setCampaign(patch.campaign || 'all');
+    if ('device' in patch) setDevice(patch.device || 'all');
+    if ('event' in patch) setEventFilter(patch.event || 'all');
+    if (patch.date) {
+      setRange('custom');
+      setCustomStart(patch.date);
+      setCustomEnd(patch.date);
+    }
+  }, []);
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError('');
@@ -104,6 +139,7 @@ export default function Dashboard({ admin }: DashboardProps) {
   const changeLabel = (value: number) => `${value >= 0 ? '+' : ''}${value}% vs prior`;
   const businessTabs = ['sales', 'registrations', 'clients', 'licenses', 'payments', 'releases', 'activity'];
   const isBusiness = businessTabs.includes(tab);
+  const isOperationalSurface = isBusiness || tab === 'support';
   const titles: Record<string, [string, string, string]> = {
     sales: ['Business overview', 'Sales command center.', 'Clients, licenses and manually recorded revenue at a glance.'],
     registrations: ['Client onboarding', 'Registration queue.', 'Review new free accounts and clients who still need activation.'],
@@ -111,15 +147,16 @@ export default function Dashboard({ admin }: DashboardProps) {
     licenses: ['License operations', 'License manager.', 'Generate and monitor MT4 and MT5 access.'],
     payments: ['Payment records', 'Manual payments.', 'Store transaction details without connecting a payment gateway.'],
     releases: ['Product delivery', 'Downloads & releases.', 'Publish Orion versions and download links to client portals.'],
-    activity: ['Audit trail', 'Client activity.', 'Every operational change in one chronological timeline.']
+    activity: ['Audit trail', 'Client activity.', 'Every operational change in one chronological timeline.'],
+    support: ['Client care', 'Official support desk.', 'Review secure client tickets, reply, and manage resolution status.']
   };
   const heading = titles[tab] || [tab === 'overview' ? 'Command center' : tab, tab === 'overview' ? 'Marketing performance, live.' : `${tab[0].toUpperCase()}${tab.slice(1)} activity`, 'Orion acquisition, attribution and conversion intelligence.'];
   const nav = [
     { label: 'Analytics', items: ['overview','visitors','campaigns','events','meta'] },
-    { label: 'Business', items: ['sales','registrations','clients','licenses','payments','releases','activity'] },
+    { label: 'Business', items: ['sales','registrations','clients','licenses','payments','releases','activity','support'] },
     { label: 'System', items: ['settings'] }
   ];
-  const icons: Record<string,string> = { overview:'✦', visitors:'◉', campaigns:'↗', events:'⌁', meta:'M', sales:'◇', registrations:'＋', clients:'◎', licenses:'⌘', payments:'$', releases:'⬇', activity:'≋', settings:'⚙' };
+  const icons: Record<string,string> = { overview:'✦', visitors:'◉', campaigns:'↗', events:'⌁', meta:'M', sales:'◇', registrations:'＋', clients:'◎', licenses:'⌘', payments:'$', releases:'⬇', activity:'≋', support:'?', settings:'⚙' };
   return (
     <main className="dashboard-shell command-center-shell">
       <header className="dashboard-topbar command-topbar" aria-label="Orion Royal command bar">
@@ -128,6 +165,7 @@ export default function Dashboard({ admin }: DashboardProps) {
           <span className="command-surface-name">Royal command</span>
         </div>
         <div className="topbar-right command-topbar-actions">
+          <CommandPalette canWrite={admin?.role === 'admin'} onNavigate={navigateFromCommand} onAction={executeCommand} />
           {admin?.role === 'admin' && (
             <button
               type="button"
@@ -182,7 +220,7 @@ export default function Dashboard({ admin }: DashboardProps) {
           className="dashboard-content command-content"
           id="dashboard-command-content"
           aria-labelledby="dashboard-command-title"
-          aria-busy={!isBusiness && loading}
+          aria-busy={!isOperationalSurface && loading}
         >
           <header className="content-heading command-page-heading">
             <div className="command-heading-copy">
@@ -190,7 +228,7 @@ export default function Dashboard({ admin }: DashboardProps) {
               <h1 id="dashboard-command-title">{heading[1]}</h1>
               <p className="muted command-section-summary">{heading[2]}</p>
             </div>
-            {!isBusiness && tab !== 'settings' && tab !== 'meta' && (
+            {!isOperationalSurface && tab !== 'settings' && tab !== 'meta' && (
               <div className="date-filter command-date-filter" role="group" aria-label="Analytics trend window">
                 <label htmlFor="command-trend-window">Trend window</label>
                 <select id="command-trend-window" value={range} onChange={(event) => setRange(event.target.value)}>
@@ -211,7 +249,7 @@ export default function Dashboard({ admin }: DashboardProps) {
           </header>
 
           {!isBusiness && loadError && <div className="command-data-alert" role="alert"><span aria-hidden="true">!</span><p>{loadError}</p><button type="button" className="glass-button" onClick={() => void load()}>Retry</button></div>}
-          {tab === 'releases' ? <ReleaseManager canWrite={admin?.role === 'admin'} /> : isBusiness ? <BusinessDashboard section={tab} canWrite={admin?.role === 'admin'} initialFilter={destinationFilter} navigationKey={businessNavigationKey} /> : <>{loading && <div className="loading-bar command-loading-bar" role="status" aria-label="Refreshing dashboard intelligence" />}{tab === 'settings' ? <SettingsPanel /> : tab === 'meta' ? <MetaPanel meta={snapshot.meta} /> : <><div className="filter-row"><Filter label="Country" value={country} options={countries} onChange={setCountry} /><Filter label="Campaign" value={campaign} options={campaigns} onChange={setCampaign} /><Filter label="Device" value={device} options={snapshot.charts.byDevice.map((row) => row.name)} onChange={setDevice} /><Filter label="Event" value={eventFilter} options={['PageView', 'ViewContent', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']} onChange={setEventFilter} /></div><div className="metric-grid v2"><Metric label="Visitors" value={metric('uniqueVisitors')} detail={changeLabel(snapshot.comparison.visitors)} /><Metric label="Visitors online" value={metric('visitorsOnline')} detail="Active in last 5 minutes" positive /><Metric label="Telegram clicks" value={metric('telegramClicks')} detail={changeLabel(snapshot.comparison.telegramClicks)} positive /><Metric label="Conversion rate" value={`${metric('conversionRate')}%`} detail="Unique visitor → click" positive /><Metric label="Leads today" value={metric('leadsToday')} detail="Recorded lead rows" /></div>{tab === 'overview' && <Overview snapshot={snapshot} showActionCenter={admin?.role === 'admin'} onNavigate={navigateFromActionCenter} onQueueCountChange={updateQueueCount} />}{tab === 'visitors' && <VisitorTable rows={snapshot.visitors} />}{tab === 'campaigns' && <CampaignTable rows={snapshot.campaigns} />}{tab === 'events' && <EventTable rows={snapshot.events} />}</>}</>}
+          {tab === 'releases' ? <ReleaseManager canWrite={admin?.role === 'admin'} /> : tab === 'support' ? <SupportTicketCenter /> : isBusiness ? <BusinessDashboard section={tab} canWrite={admin?.role === 'admin'} initialFilter={destinationFilter} initialSearch={destinationSearch} navigationKey={businessNavigationKey} commandAction={businessCommand} /> : <>{loading && <div className="loading-bar command-loading-bar" role="status" aria-label="Refreshing dashboard intelligence" />}{tab === 'settings' ? <SettingsPanel /> : tab === 'meta' ? <MetaPanel meta={snapshot.meta} /> : <><div className="filter-row"><Filter label="Country" value={country} options={countries} onChange={setCountry} /><Filter label="Campaign" value={campaign} options={campaigns} onChange={setCampaign} /><Filter label="Device" value={device} options={snapshot.charts.byDevice.map((row) => row.name)} onChange={setDevice} /><Filter label="Event" value={eventFilter} options={['PageView', 'ViewContent', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']} onChange={setEventFilter} /></div><div className="metric-grid v2"><Metric label="Visitors" value={metric('uniqueVisitors')} detail={changeLabel(snapshot.comparison.visitors)} /><Metric label="Visitors online" value={metric('visitorsOnline')} detail="Active in last 5 minutes" positive /><Metric label="Telegram clicks" value={metric('telegramClicks')} detail={changeLabel(snapshot.comparison.telegramClicks)} positive /><Metric label="Conversion rate" value={`${metric('conversionRate')}%`} detail="Unique visitor → click" positive /><Metric label="Leads today" value={metric('leadsToday')} detail="Recorded lead rows" /></div>{tab === 'overview' && <><Overview snapshot={snapshot} showActionCenter={admin?.role === 'admin'} onNavigate={navigateFromActionCenter} onQueueCountChange={updateQueueCount} /><AdvancedAnalytics snapshot={snapshot} activeFilters={{ country: country === 'all' ? null : country, campaign: campaign === 'all' ? null : campaign, device: device === 'all' ? null : device, event: eventFilter === 'all' ? null : eventFilter, date: range === 'custom' && customStart === customEnd ? customStart : null }} onFilterChange={applyAdvancedFilter} /></>}{tab === 'visitors' && <VisitorTable rows={snapshot.visitors} />}{tab === 'campaigns' && <CampaignTable rows={snapshot.campaigns} />}{tab === 'events' && <EventTable rows={snapshot.events} />}</>}</>}
         </section>
       </div>
     </main>

@@ -1729,6 +1729,40 @@ textarea {
   justify-self: start;
 }
 
+.portal-table-head--documents,
+.portal-table-row--documents {
+  min-width: 760px;
+  grid-template-columns: .9fr .8fr .9fr 1fr .9fr 1fr;
+}
+
+.portal-document-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.portal-document-links a {
+  color: var(--orion-gold-bright);
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: rgba(246, 196, 83, .38);
+  text-underline-offset: 3px;
+}
+
+.portal-document-links a:hover {
+  color: #fff3c6;
+  text-decoration-color: currentColor;
+}
+
+#licenses,
+#payments,
+#support,
+#notifications {
+  scroll-margin-top: 92px;
+}
+
 .portal-empty {
   color: var(--orion-muted);
 }
