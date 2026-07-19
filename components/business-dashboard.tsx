@@ -8,7 +8,7 @@ import SalesCommandCenter from '@/components/sales-command-center';
 
 type Client = { id:string; auth_user_id?:string; full_name:string; email?:string; telegram_username?:string; phone?:string; country?:string; plan:string; status:string; notes?:string; reviewed_at?:string; reviewed_by?:string; created_at:string };
 type License = { id:string; client_id:string; license_key:string; platform:string; account_number?:string; plan:string; status:string; issued_at:string; expires_at?:string };
-type Payment = { id:string; client_id:string; license_id?:string; receipt_number?:string; receipt_sent_at?:string; plan:string; method:string; status:string; amount:number; currency:string; payment_date?:string; reference_id?:string; notes?:string; created_at:string };
+type Payment = { id:string; client_id:string; license_id?:string; receipt_number?:string; receipt_sent_at?:string; plan:string; method:string; status:string; amount:number; currency:string; payment_date?:string; reference_id?:string; notes?:string; created_at:string; updated_at?:string };
 type Activity = { id:string; client_id:string; action:string; details?:string; actor_email?:string; created_at:string };
 type Resource = 'client'|'license'|'payment';
 type RecordValue = Client|License|Payment;

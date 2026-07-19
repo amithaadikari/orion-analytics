@@ -8,8 +8,9 @@ type RevenueIntelligenceResponse = RevenueIntelligenceSnapshot & {
   canEditGoals: boolean;
 };
 
-type RingStyle = CSSProperties & { '--goal-progress': string };
+type GoalBarStyle = CSSProperties & { '--goal-progress': string };
 type BarStyle = CSSProperties & { '--trend-height': string };
+type GoalFeedback = { kind: 'success' | 'error'; message: string };
 
 const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -18,7 +19,7 @@ export default function RevenueIntelligence() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [savingCurrency, setSavingCurrency] = useState('');
-  const [goalStatus, setGoalStatus] = useState('');
+  const [goalFeedback, setGoalFeedback] = useState<GoalFeedback | null>(null);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -28,9 +29,11 @@ export default function RevenueIntelligence() {
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || 'Unable to load revenue intelligence.');
       setData(payload as RevenueIntelligenceResponse);
+      return true;
     } catch (reason) {
-      if (reason instanceof DOMException && reason.name === 'AbortError') return;
+      if (reason instanceof DOMException && reason.name === 'AbortError') return false;
       setError(reason instanceof Error ? reason.message : 'Unable to load revenue intelligence.');
+      return false;
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -53,8 +56,9 @@ export default function RevenueIntelligence() {
     const currency = String(values.get('currency') || '').trim().toUpperCase();
     const targetAmount = String(values.get('target_amount') || '').trim();
     setSavingCurrency(currency);
-    setGoalStatus('');
+    setGoalFeedback(null);
     try {
+      if (isNewGoal && data.goals.some((goal) => goal.currency === currency)) throw new Error(`${currency} already appears above. Use its Edit target control instead.`);
       const response = await fetch('/api/revenue-intelligence', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -62,11 +66,12 @@ export default function RevenueIntelligence() {
       });
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || 'Unable to save the revenue goal.');
-      await load();
-      setGoalStatus(`${currency} target saved for ${data.monthLabel}.`);
+      const refreshed = await load();
+      if (!refreshed) throw new Error(`${currency} was saved, but the refreshed target could not be confirmed. Refresh the page before editing it again.`);
+      setGoalFeedback({ kind: 'success', message: `${currency} target saved for ${data.monthLabel}.` });
       if (isNewGoal) form.reset();
     } catch (reason) {
-      setGoalStatus(reason instanceof Error ? reason.message : 'Unable to save the revenue goal.');
+      setGoalFeedback({ kind: 'error', message: reason instanceof Error ? reason.message : 'Unable to save the revenue goal.' });
     } finally {
       setSavingCurrency('');
     }
@@ -113,22 +118,7 @@ export default function RevenueIntelligence() {
           </dl>
         </section>
 
-        <section className={`${styles.panel} ${styles.goalsPanel}`} aria-labelledby="revenue-goals-title">
-          <PanelHeading kicker="Monthly targets" title={`${data.monthLabel} goals`} id="revenue-goals-title" badge={data.canEditGoals ? 'Admin editable' : 'Read only'} />
-          {data.goals.length ? <div className={styles.goalGrid}>{data.goals.map((goal) => {
-            const visualProgress = Math.max(0, Math.min(100, goal.progressPercent || 0));
-            const ringStyle: RingStyle = { '--goal-progress': `${visualProgress}%` };
-            return (
-              <article className={styles.goalCard} key={goal.currency}>
-                <div className={styles.goalRing} style={ringStyle} role="img" aria-label={goal.targetAmount ? `${goal.currency} goal is ${formatPercent(goal.progressPercent || 0)} complete` : `${goal.currency} has no revenue target`}><span>{goal.progressPercent === null ? '—' : formatPercent(goal.progressPercent)}</span><small>{goal.currency}</small></div>
-                <div className={styles.goalCopy}><span>Completed revenue</span><strong>{formatAmount(goal.actualAmount, goal.currency)}</strong><small>{goal.targetAmount ? `Target ${formatAmount(goal.targetAmount, goal.currency)}` : 'No target set'}</small></div>
-                {data.canEditGoals && <form className={styles.goalForm} onSubmit={saveGoal}><input type="hidden" name="currency" value={goal.currency} /><label><span>{goal.targetAmount ? 'Update target' : 'Set target'}</span><input name="target_amount" type="number" min="0.01" max="1000000000000" step="0.01" defaultValue={goal.targetAmount ?? ''} required /></label><button type="submit" disabled={Boolean(savingCurrency)}>{savingCurrency === goal.currency ? 'Saving…' : 'Save'}</button></form>}
-              </article>
-            );
-          })}</div> : <EmptyState title="No currency goals yet" detail="Monthly goal cards appear when completed revenue or a saved target exists for a currency." />}
-          {data.canEditGoals && <form className={styles.addGoalForm} data-new-goal="true" onSubmit={saveGoal}><div><strong>Add a currency target</strong><span>Targets remain separate by currency.</span></div><label><span>Currency</span><input name="currency" inputMode="text" minLength={3} maxLength={3} pattern="[A-Za-z]{3}" placeholder="USD" required /></label><label><span>Target amount</span><input name="target_amount" type="number" min="0.01" max="1000000000000" step="0.01" placeholder="5000" required /></label><button type="submit" disabled={Boolean(savingCurrency)}>{savingCurrency ? 'Saving…' : 'Add target'}</button></form>}
-          {goalStatus && <p className={styles.goalStatus} role="status" aria-live="polite">{goalStatus}</p>}
-        </section>
+        <MonthlyGoalsPanel data={data} savingCurrency={savingCurrency} feedback={goalFeedback} onSave={saveGoal} />
       </div>
 
       <section className={`${styles.panel} ${styles.renewalPanel}`} aria-labelledby="revenue-renewals-title">
@@ -157,6 +147,103 @@ export default function RevenueIntelligence() {
       </section>
     </section>
   );
+}
+
+function MonthlyGoalsPanel({ data, savingCurrency, feedback, onSave }: {
+  data: RevenueIntelligenceResponse;
+  savingCurrency: string;
+  feedback: GoalFeedback | null;
+  onSave: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const targetsSet = data.goals.filter((goal) => Boolean(goal.targetAmount)).length;
+  const achieved = data.goals.filter((goal) => Boolean(goal.targetAmount) && (goal.progressPercent || 0) >= 100).length;
+  const timing = monthTiming(data.periodMonth, data.generatedAt);
+  return (
+    <section className={`${styles.panel} ${styles.goalsPanel}`} aria-labelledby="revenue-goals-title">
+      <header className={styles.goalsHeader}>
+        <div><p>Monthly target command</p><h3 id="revenue-goals-title">{data.monthLabel} goals</h3><span>Track each currency separately against calendar pace.</span></div>
+        <span>{data.canEditGoals ? 'Targets editable' : 'Read only'}</span>
+      </header>
+      <dl className={styles.goalSummary}>
+        <div><dt>Currencies tracked</dt><dd>{data.goals.length}</dd></div>
+        <div><dt>Targets set</dt><dd>{targetsSet}</dd></div>
+        <div><dt>Goals achieved</dt><dd>{achieved}</dd></div>
+        <div><dt>UTC month elapsed</dt><dd>{formatPercent(timing.calendarProgress)}</dd></div>
+      </dl>
+      {data.goals.length ? <div className={styles.goalGrid}>{data.goals.map((goal) => <MonthlyGoalCard key={goal.currency} goal={goal} timing={timing} canEdit={data.canEditGoals} saving={savingCurrency === goal.currency} savingAny={Boolean(savingCurrency)} onSave={onSave} />)}</div> : <EmptyState title="No currency goals yet" detail="Monthly goal cards appear when completed revenue or a saved target exists for a currency." />}
+      {data.canEditGoals && (
+        <details className={styles.addGoalDisclosure}>
+          <summary><span aria-hidden="true">＋</span><div><strong>Add a currency target</strong><small>Create a target only for a currency not already shown above.</small></div><b aria-hidden="true">⌄</b></summary>
+          <form className={styles.addGoalForm} data-new-goal="true" onSubmit={onSave}>
+            <label><span>Currency</span><input name="currency" inputMode="text" minLength={3} maxLength={3} pattern="[A-Za-z]{3}" placeholder="USD" required /></label>
+            <label><span>Target amount</span><input name="target_amount" type="number" min="0.01" max="999999999999.99" step="0.01" placeholder="5000" required /></label>
+            <button type="submit" disabled={Boolean(savingCurrency)}>{savingCurrency ? 'Saving…' : 'Add target'}</button>
+          </form>
+        </details>
+      )}
+      {feedback && <p className={`${styles.goalStatus} ${feedback.kind === 'error' ? styles.goalStatusError : styles.goalStatusSuccess}`} role={feedback.kind === 'error' ? 'alert' : 'status'} aria-live="polite">{feedback.message}</p>}
+    </section>
+  );
+}
+
+function MonthlyGoalCard({ goal, timing, canEdit, saving, savingAny, onSave }: {
+  goal: RevenueIntelligenceSnapshot['goals'][number];
+  timing: ReturnType<typeof monthTiming>;
+  canEdit: boolean;
+  saving: boolean;
+  savingAny: boolean;
+  onSave: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  const target = goal.targetAmount || 0;
+  const rawProgress = goal.progressPercent || 0;
+  const visualProgress = Math.max(0, Math.min(100, rawProgress));
+  const remaining = Math.max(0, target - goal.actualAmount);
+  const exceeded = Math.max(0, goal.actualAmount - target);
+  const dailyNeeded = remaining && timing.remainingDays ? remaining / timing.remainingDays : 0;
+  const state = !goal.targetAmount ? 'unset' : rawProgress >= 100 ? 'achieved' : rawProgress >= timing.calendarProgress ? 'pace' : 'behind';
+  const stateLabel = state === 'achieved' ? 'Goal achieved' : state === 'pace' ? 'On calendar pace' : state === 'behind' ? 'Behind calendar pace' : 'Target not set';
+  const barStyle: GoalBarStyle = { '--goal-progress': `${visualProgress}%` };
+  return (
+    <article className={`${styles.goalCard} ${styles[`goal${state[0].toUpperCase()}${state.slice(1)}`]}`} aria-busy={saving}>
+      <header><span>{goal.currency}</span><b>{stateLabel}</b></header>
+      <div className={styles.goalAmounts}><span><small>Completed revenue</small><strong>{formatAmount(goal.actualAmount, goal.currency)}</strong></span><span><small>Monthly target</small><strong>{goal.targetAmount ? formatAmount(goal.targetAmount, goal.currency) : 'Not set'}</strong></span></div>
+      <div className={styles.goalProgress}>
+        <div role="progressbar" aria-label={`${goal.currency} monthly goal progress`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={visualProgress} aria-valuetext={goal.targetAmount ? `${formatPercent(rawProgress)} of target` : 'Target not set'}><i style={barStyle} /></div>
+        <span><strong>{goal.targetAmount ? formatPercent(rawProgress) : '—'}</strong><small>Calendar pace {formatPercent(timing.calendarProgress)}</small></span>
+      </div>
+      <dl className={styles.goalFacts}>
+        <div><dt>{state === 'achieved' ? 'Exceeded by' : 'Remaining'}</dt><dd>{goal.targetAmount ? formatAmount(state === 'achieved' ? exceeded : remaining, goal.currency) : '—'}</dd></div>
+        <div><dt>Daily amount needed</dt><dd>{goal.targetAmount ? state === 'achieved' ? 'Completed' : timing.remainingDays ? formatAmount(dailyNeeded, goal.currency) : 'Month ended' : '—'}</dd></div>
+        <div><dt>Days remaining</dt><dd>{timing.remainingDays}</dd></div>
+      </dl>
+      {canEdit && (
+        <details className={styles.goalEdit}>
+          <summary>{goal.targetAmount ? 'Edit target' : 'Set target'} <span aria-hidden="true">⌄</span></summary>
+          <form className={styles.goalForm} key={`${goal.currency}-${goal.targetAmount ?? 'new'}`} onSubmit={onSave}>
+            <input type="hidden" name="currency" value={goal.currency} />
+            <label><span>Target amount</span><input name="target_amount" type="number" min="0.01" max="999999999999.99" step="0.01" defaultValue={goal.targetAmount ?? ''} required /></label>
+            <button type="submit" disabled={savingAny}>{saving ? 'Saving…' : 'Save target'}</button>
+          </form>
+        </details>
+      )}
+    </article>
+  );
+}
+
+function monthTiming(periodMonth: string, generatedAt: string) {
+  const [year, month] = periodMonth.slice(0, 7).split('-').map(Number);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const generated = new Date(generatedAt);
+  const generatedMonth = generated.getUTCFullYear() * 12 + generated.getUTCMonth();
+  const targetMonth = year * 12 + month - 1;
+  const elapsedDays = generatedMonth < targetMonth ? 0 : generatedMonth > targetMonth ? daysInMonth : Math.max(0, Math.min(daysInMonth, generated.getUTCDate() - 1));
+  const remainingDays = generatedMonth < targetMonth ? daysInMonth : generatedMonth > targetMonth ? 0 : Math.max(0, daysInMonth - elapsedDays);
+  return {
+    daysInMonth,
+    elapsedDays,
+    remainingDays,
+    calendarProgress: daysInMonth ? elapsedDays / daysInMonth * 100 : 0,
+  };
 }
 
 function RevenueHeader({ refreshing, onRefresh }: { refreshing: boolean; onRefresh: () => void }) {

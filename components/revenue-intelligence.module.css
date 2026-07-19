@@ -147,7 +147,7 @@
 
 .primaryGrid {
   display: grid;
-  grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr);
+  grid-template-columns: minmax(280px, .72fr) minmax(0, 1.28fr);
   gap: 14px;
 }
 
@@ -222,7 +222,6 @@
 .mrrCard:nth-child(4) { animation-delay: .18s; }
 
 .mrrCard > span,
-.goalCopy > span,
 .goalForm label > span,
 .addGoalForm label > span,
 .exceptionCard > span {
@@ -238,8 +237,7 @@
   overflow-wrap: anywhere;
 }
 
-.mrrCard small,
-.goalCopy small {
+.mrrCard small {
   color: var(--muted);
   font-size: 9px;
 }
@@ -269,152 +267,132 @@
   font: 700 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+.goalsPanel {
+  background:
+    radial-gradient(circle at 90% 0, rgba(57, 242, 138, .065), transparent 18rem),
+    radial-gradient(circle at 0 80%, rgba(66, 217, 255, .04), transparent 18rem),
+    linear-gradient(150deg, rgba(8, 11, 11, .97), rgba(1, 3, 3, .99));
+}
+
+.goalsHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.goalsHeader p { margin: 0; color: var(--green); font: 700 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .14em; text-transform: uppercase; }
+.goalsHeader h3 { margin: 6px 0 0; font-size: clamp(22px, 2.8vw, 31px); letter-spacing: -.045em; }
+.goalsHeader > div > span { display: block; margin-top: 6px; color: var(--muted); font-size: 10px; }
+.goalsHeader > span { flex: none; padding: 7px 9px; color: var(--green); border: 1px solid rgba(57, 242, 138, .14); border-radius: 999px; background: rgba(57, 242, 138, .035); font: 600 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .07em; text-transform: uppercase; }
+
+.goalSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 18px 0 0;
+}
+
+.goalSummary > div { min-width: 0; padding: 10px; border: 1px solid rgba(255, 255, 255, .055); border-radius: 8px; background: rgba(255, 255, 255, .015); }
+.goalSummary dt { color: #657574; font-size: 7px; }
+.goalSummary dd { overflow: hidden; margin: 6px 0 0; color: #e4ecea; font: 700 14px/1 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
+
 .goalGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 9px;
+  margin-top: 12px;
 }
 
 .goalCard {
+  --goal-state: var(--green);
   display: grid;
-  padding: 16px;
-  grid-template-columns: 88px minmax(0, 1fr);
-  align-items: center;
-  gap: 14px;
-  border: 1px solid rgba(57, 242, 138, .12);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, .014);
+  min-width: 0;
+  padding: 15px;
+  gap: 13px;
+  border: 1px solid color-mix(in srgb, var(--goal-state) 15%, rgba(255, 255, 255, .05));
+  border-radius: 11px;
+  background:
+    radial-gradient(circle at 100% 0, color-mix(in srgb, var(--goal-state) 6%, transparent), transparent 12rem),
+    rgba(255, 255, 255, .012);
   animation: revenue-card-in .52s cubic-bezier(.2, .75, .24, 1) both;
 }
 
 .goalCard:nth-child(2) { animation-delay: .07s; }
 .goalCard:nth-child(3) { animation-delay: .14s; }
+.goalUnset { --goal-state: var(--muted); }
+.goalPace { --goal-state: var(--cyan); }
+.goalBehind { --goal-state: var(--orange); }
+.goalAchieved { --goal-state: var(--green); }
 
-.goalRing {
-  --goal-progress: 0%;
-  position: relative;
+.goalCard > header { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.goalCard > header > span { color: var(--goal-state); font: 800 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .1em; }
+.goalCard > header > b { padding: 5px 7px; color: var(--goal-state); border: 1px solid color-mix(in srgb, var(--goal-state) 18%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--goal-state) 4%, transparent); font: 650 7px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .05em; text-transform: uppercase; }
+
+.goalAmounts {
   display: grid;
-  width: 82px;
-  height: 82px;
-  place-content: center;
-  text-align: center;
-  border-radius: 50%;
-  background: conic-gradient(var(--green) var(--goal-progress), rgba(57, 242, 138, .09) 0);
-  animation: revenue-goal-reveal .72s cubic-bezier(.2, .8, .2, 1) both;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
-.goalRing::before {
-  position: absolute;
-  inset: 7px;
-  content: "";
-  border: 1px solid rgba(57, 242, 138, .1);
-  border-radius: 50%;
-  background: #040707;
-}
+.goalAmounts > span { display: grid; min-width: 0; gap: 5px; }
+.goalAmounts small,
+.goalFacts dt,
+.goalForm label > span,
+.addGoalForm label > span { color: var(--muted); font: 600 7px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .07em; text-transform: uppercase; }
+.goalAmounts strong { overflow: hidden; color: var(--text); font: 700 clamp(14px, 1.7vw, 20px)/1.15 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
+.goalAmounts > span:first-child strong { color: var(--goal-state); }
 
-.goalRing::after {
-  position: absolute;
-  inset: -4px;
-  content: "";
-  pointer-events: none;
-  border: 1px dashed rgba(57, 242, 138, .19);
-  border-radius: 50%;
-  animation: revenue-goal-orbit 18s linear infinite;
-}
+.goalProgress { display: grid; gap: 7px; }
+.goalProgress > div { height: 9px; padding: 2px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--goal-state) 12%, transparent); border-radius: 99px; background: rgba(255, 255, 255, .03); }
+.goalProgress > div i { display: block; width: var(--goal-progress); min-width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, color-mix(in srgb, var(--goal-state) 62%, #1b2422), var(--goal-state)); box-shadow: 0 0 12px color-mix(in srgb, var(--goal-state) 28%, transparent); transform-origin: left center; animation: revenue-goal-fill .8s cubic-bezier(.2, .8, .2, 1) both; }
+.goalProgress > span { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.goalProgress > span strong { color: var(--goal-state); font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.goalProgress > span small { color: #647370; font-size: 7px; }
 
-.goalRing span,
-.goalRing small {
-  position: relative;
-  z-index: 1;
-}
-
-.goalRing span {
-  color: var(--green);
-  font: 700 16px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.goalRing small {
-  margin-top: 4px;
-  color: var(--muted);
-  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.goalCopy {
+.goalFacts {
   display: grid;
-  min-width: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
+  margin: 0;
 }
 
-.goalCopy strong {
-  color: var(--text);
-  font: 700 16px/1.15 ui-monospace, SFMono-Regular, Menlo, monospace;
-  overflow-wrap: anywhere;
-}
+.goalFacts > div { min-width: 0; padding: 9px; border-top: 1px solid rgba(255, 255, 255, .055); }
+.goalFacts dd { overflow: hidden; margin: 5px 0 0; color: #d5ddda; font: 650 9px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
 
-.goalForm {
+.goalEdit { border-top: 1px solid rgba(255, 255, 255, .055); }
+.goalEdit > summary { display: flex; min-height: 34px; align-items: center; justify-content: space-between; color: #9ba7a3; font: 650 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; list-style: none; }
+.goalEdit > summary::-webkit-details-marker,
+.addGoalDisclosure > summary::-webkit-details-marker { display: none; }
+.goalEdit[open] > summary span,
+.addGoalDisclosure[open] > summary > b { transform: rotate(180deg); }
+
+.goalForm,
+.addGoalForm {
   display: flex;
-  grid-column: 1 / -1;
+  padding-top: 9px;
   align-items: end;
   gap: 7px;
 }
 
 .goalForm label,
-.addGoalForm label {
-  display: grid;
-  min-width: 0;
-  flex: 1;
-  gap: 5px;
-}
-
+.addGoalForm label { display: grid; min-width: 0; flex: 1; gap: 5px; }
 .goalForm input,
-.addGoalForm input {
-  width: 100%;
-  min-height: 40px;
-  padding: 8px 10px;
-  color: var(--text);
-  border: 1px solid rgba(255, 255, 255, .11);
-  border-radius: 7px;
-  outline: 0;
-  background: rgba(0, 0, 0, .42);
-  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
+.addGoalForm input { width: 100%; min-height: 40px; padding: 8px 10px; color: var(--text); border: 1px solid rgba(255, 255, 255, .11); border-radius: 7px; outline: 0; background: rgba(0, 0, 0, .42); font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace; }
 .goalForm input:focus,
-.addGoalForm input:focus {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(246, 196, 83, .08);
-}
+.addGoalForm input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(246, 196, 83, .08); }
 
-.addGoalForm {
-  display: grid;
-  margin-top: 12px;
-  padding: 14px;
-  grid-template-columns: minmax(170px, 1fr) minmax(90px, .45fr) minmax(140px, .7fr) auto;
-  align-items: end;
-  gap: 10px;
-  border: 1px dashed rgba(246, 196, 83, .17);
-  border-radius: 9px;
-}
+.addGoalDisclosure { margin-top: 11px; border: 1px dashed rgba(246, 196, 83, .16); border-radius: 9px; background: rgba(246, 196, 83, .012); }
+.addGoalDisclosure > summary { display: grid; min-height: 54px; padding: 9px 12px; grid-template-columns: 25px 1fr auto; align-items: center; gap: 9px; cursor: pointer; list-style: none; }
+.addGoalDisclosure > summary > span { display: grid; width: 25px; height: 25px; place-items: center; color: var(--gold); border: 1px solid rgba(246, 196, 83, .14); border-radius: 7px; }
+.addGoalDisclosure > summary > div { display: grid; gap: 3px; }
+.addGoalDisclosure > summary strong { font-size: 9px; }
+.addGoalDisclosure > summary small { color: var(--muted); font-size: 7px; }
+.addGoalDisclosure > summary > b { color: var(--gold); transition: transform .2s ease; }
+.addGoalForm { padding: 0 12px 12px; }
 
-.addGoalForm > div {
-  display: grid;
-  gap: 4px;
-}
-
-.addGoalForm > div strong {
-  font-size: 11px;
-}
-
-.addGoalForm > div span,
-.goalStatus {
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.goalStatus {
-  margin: 10px 2px 0;
-  animation: revenue-status-in .48s ease both;
-}
+.goalStatus { margin: 10px 2px 0; padding: 9px 11px; border-radius: 8px; font-size: 9px; animation: revenue-status-in .48s ease both; }
+.goalStatusSuccess { color: var(--green); border: 1px solid rgba(57, 242, 138, .13); background: rgba(57, 242, 138, .035); }
+.goalStatusError { color: var(--red); border: 1px solid rgba(255, 113, 136, .15); background: rgba(255, 113, 136, .045); }
 
 .sectionNote {
   margin: -10px 0 20px;
@@ -902,13 +880,9 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes revenue-goal-reveal {
-  from { opacity: .35; transform: scale(.88) rotate(-8deg); }
-  to { opacity: 1; transform: scale(1) rotate(0); }
-}
-
-@keyframes revenue-goal-orbit {
-  to { transform: rotate(360deg); }
+@keyframes revenue-goal-fill {
+  from { opacity: .25; transform: scaleX(.08); }
+  to { opacity: 1; transform: scaleX(1); }
 }
 
 @keyframes revenue-status-in {
@@ -935,11 +909,9 @@
 @media (max-width: 760px) {
   .header { min-height: 190px; align-items: flex-start; flex-direction: column; }
   .header button { align-self: stretch; justify-content: center; }
-  .goalGrid,
   .exceptionKpis,
   .loadingGrid { grid-template-columns: 1fr; }
-  .addGoalForm { grid-template-columns: 1fr 1fr; }
-  .addGoalForm > div { grid-column: 1 / -1; }
+  .goalSummary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .addGoalForm button { min-height: 40px; }
   .trendRegion { overflow-x: auto; }
   .trendHeading { align-items: flex-start; flex-direction: column; }
@@ -950,12 +922,15 @@
 @media (max-width: 480px) {
   .panel { padding: 19px 15px; }
   .panelHeading { align-items: flex-start; flex-direction: column; }
+  .goalsHeader { align-items: flex-start; flex-direction: column; }
   .mrrCurrencies { grid-template-columns: 1fr; }
-  .goalCard { grid-template-columns: 74px minmax(0, 1fr); padding: 13px; }
-  .goalRing { width: 70px; height: 70px; }
-  .goalForm { align-items: stretch; flex-direction: column; }
-  .addGoalForm { grid-template-columns: 1fr; }
-  .addGoalForm > div { grid-column: auto; }
+  .goalCard { padding: 13px; }
+  .goalAmounts,
+  .goalFacts { grid-template-columns: 1fr; }
+  .goalForm,
+  .addGoalForm { align-items: stretch; flex-direction: column; }
+  .goalForm button,
+  .addGoalForm button { min-height: 42px; }
   .exceptionCard { min-height: 130px; }
   .errorState { align-items: flex-start; flex-direction: column; }
   .errorState button { width: 100%; margin-left: 0; }
@@ -968,8 +943,7 @@
   .panel::before,
   .mrrCard,
   .goalCard,
-  .goalRing,
-  .goalRing::after,
+  .goalProgress > div i,
   .goalStatus,
   .hasRenewal::after,
   .trendPlot i {
@@ -984,7 +958,7 @@
 
   .mrrCard,
   .goalCard,
-  .goalRing,
+  .goalProgress > div i,
   .goalStatus,
   .trendPlot i {
     opacity: 1;
