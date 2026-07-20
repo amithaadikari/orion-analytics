@@ -10,6 +10,7 @@ describe('client plan handoff', () => {
 
   it('keeps authentication redirects on approved portal paths', () => {
     expect(safeAuthNext('/checkout?plan=basic')).toBe('/checkout?plan=basic');
+    expect(safeAuthNext('/portal/profile')).toBe('/portal/profile');
     expect(safeAuthNext('/reset-password')).toBe('/reset-password');
     expect(safeAuthNext('//evil.example')).toBe('/portal');
     expect(safeAuthNext('/\\evil.example')).toBe('/portal');

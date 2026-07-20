@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { requireClient } from '@/lib/auth';
 import ClientPortalInsights from '@/components/client-portal-insights';
-import ClientProfileEditor from '@/components/client-profile-editor';
 import ClientProfileSummary from '@/components/client-profile-summary';
 import PortalNotificationCenter from '@/components/portal-notification-center';
 import PortalWorkspaceShell from '@/components/portal-workspace-shell';
@@ -34,7 +33,7 @@ export default async function PortalPage() {
   ]);
 
   return (
-    <PortalWorkspaceShell clientName={client.full_name} clientDisplayName={displayName} clientAvatarKey={profile.avatarKey} clientPlan={client.plan} clientStatus={client.status} initialTheme={initialTheme}>
+    <PortalWorkspaceShell currentView="overview" clientName={client.full_name} clientDisplayName={displayName} clientAvatarKey={profile.avatarKey} clientPlan={client.plan} clientStatus={client.status} initialTheme={initialTheme}>
       <section className="portal-content portal-workspace-content" aria-labelledby="portal-title">
         <div className="portal-overview-view" id="overview" tabIndex={-1}>
           <div className="portal-hero portal-workspace-hero">
@@ -69,15 +68,6 @@ export default async function PortalPage() {
 
           <ClientProfileSummary fullName={client.full_name} country={client.country || null} profile={profile} />
         </div>
-
-        <ClientProfileEditor
-          fullName={client.full_name}
-          email={client.email || null}
-          country={client.country || null}
-          plan={client.plan}
-          status={client.status}
-          initialProfile={profile}
-        />
 
         <PortalWorkspaceSection title="Setup & activation" eyebrow="Your next step" marker="01" anchorId="setup" description="Follow your real account progress and jump directly to the action you need.">
           <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} showHeading={false} />

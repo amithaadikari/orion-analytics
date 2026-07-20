@@ -335,6 +335,61 @@
   background: rgba(var(--portal-accent-rgb), .085);
 }
 
+.portal-profile-page {
+  min-height: calc(100vh - 72px);
+  padding-top: 28px;
+}
+
+.portal-profile-page-nav {
+  display: flex;
+  min-height: 46px;
+  padding: 7px 9px 7px 12px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgba(var(--portal-accent-rgb), .12);
+  border-radius: 11px;
+  background: rgba(var(--portal-accent-rgb), .022);
+}
+
+.portal-profile-page-nav a,
+.portal-profile-page-nav span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 8px;
+}
+
+.portal-profile-page-nav a {
+  min-height: 32px;
+  padding: 0 9px;
+  color: var(--portal-accent-bright);
+  border: 1px solid rgba(var(--portal-accent-rgb), .14);
+  border-radius: 7px;
+  background: rgba(var(--portal-accent-rgb), .035);
+}
+
+.portal-profile-page-nav a:hover {
+  border-color: rgba(var(--portal-accent-rgb), .34);
+  background: rgba(var(--portal-accent-rgb), .075);
+}
+
+.portal-profile-page-nav > span {
+  padding-right: 5px;
+  color: #718084;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.portal-profile-page-nav > span svg {
+  color: var(--orion-green);
+}
+
+.portal-profile-page .client-profile-editor {
+  margin-top: 16px;
+}
+
 .client-profile-editor {
   position: relative;
   margin-top: 30px;
@@ -521,6 +576,9 @@
 }
 
 @media (max-width: 760px) {
+  .portal-profile-page { min-height: 0; padding-top: 19px; }
+  .portal-profile-page-nav { min-height: 52px; }
+  .portal-profile-page-nav a { min-height: 40px; }
   .client-profile-summary-card { padding: 16px; grid-template-columns: 1fr; align-items: stretch; }
   .client-profile-summary-preferences,
   .client-profile-summary-actions { grid-column: auto; grid-row: auto; }
@@ -542,6 +600,8 @@
 }
 
 @media (max-width: 520px) {
+  .portal-profile-page-nav > span { display: none; }
+  .portal-profile-page-nav a { width: 100%; justify-content: center; }
   .client-profile-summary-actions { grid-template-columns: 1fr; }
   .client-profile-summary-actions small { max-width: none; }
   .client-profile-summary-preferences > div { grid-template-columns: 1fr; }

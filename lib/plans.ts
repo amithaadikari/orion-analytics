@@ -54,7 +54,7 @@ export function normalizeTrackingId(value: unknown) {
   return /^[a-zA-Z0-9._:-]{8,180}$/.test(normalized) ? normalized : null;
 }
 
-const allowedAuthDestinations = new Set(['/portal', '/checkout', '/reset-password']);
+const allowedAuthDestinations = new Set(['/portal', '/portal/profile', '/checkout', '/reset-password']);
 
 export function safeAuthNext(value: unknown, fallback = '/portal') {
   if (typeof value !== 'string' || !value.startsWith('/') || value.includes('\\')) return fallback;

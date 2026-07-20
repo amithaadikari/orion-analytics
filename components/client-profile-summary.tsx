@@ -40,7 +40,7 @@ export default function ClientProfileSummary({ fullName, country, profile }: Cli
 
       <div className="client-profile-summary-actions">
         <small><ShieldCheck size={13} aria-hidden="true" />Visible to you and authorized Orion administrators.</small>
-        <Link href="#profile"><PencilLine size={14} aria-hidden="true" />Edit profile</Link>
+        <Link href="/portal/profile"><PencilLine size={14} aria-hidden="true" />Edit profile</Link>
       </div>
     </section>
   );

@@ -31,6 +31,7 @@ const workspaceSections = [
 ] as const;
 
 type PortalWorkspaceShellProps = {
+  currentView: 'overview' | 'profile';
   clientName: string;
   clientDisplayName: string;
   clientAvatarKey: ClientAvatarKey;
@@ -40,12 +41,14 @@ type PortalWorkspaceShellProps = {
   children: ReactNode;
 };
 
-export default function PortalWorkspaceShell({ clientName, clientDisplayName, clientAvatarKey, clientPlan, clientStatus, initialTheme, children }: PortalWorkspaceShellProps) {
+export default function PortalWorkspaceShell({ currentView, clientName, clientDisplayName, clientAvatarKey, clientPlan, clientStatus, initialTheme, children }: PortalWorkspaceShellProps) {
   const [theme, setTheme] = useState<PortalTheme>(initialTheme);
-  const [activeSection, setActiveSection] = useState<(typeof workspaceSections)[number]['id']>('overview');
+  const [activeSection, setActiveSection] = useState<(typeof workspaceSections)[number]['id']>(currentView);
   const sectionVisibility = useRef(new Map<string, number>());
 
   useEffect(() => {
+    setActiveSection(currentView);
+    if (currentView === 'profile') return;
     const sections = workspaceSections
       .map(({ id }) => document.getElementById(id))
       .filter((section): section is HTMLElement => Boolean(section));
@@ -63,7 +66,13 @@ export default function PortalWorkspaceShell({ clientName, clientDisplayName, cl
 
     sections.forEach((section) => observer.observe(section));
     return () => { observer.disconnect(); visibility.clear(); };
-  }, []);
+  }, [currentView]);
+
+  function sectionHref(id: (typeof workspaceSections)[number]['id']) {
+    if (id === 'profile') return '/portal/profile';
+    if (currentView === 'overview') return `#${id}`;
+    return id === 'overview' ? '/portal' : `/portal#${id}`;
+  }
 
   function selectTheme(nextTheme: PortalTheme) {
     setTheme(nextTheme);
@@ -83,10 +92,10 @@ export default function PortalWorkspaceShell({ clientName, clientDisplayName, cl
             <span>{theme === 'gold' ? 'Royal Gold' : 'Aurora Blue'}</span>
             <i aria-hidden="true" />
           </button>
-          <a className="portal-profile-summary" href="#profile" aria-label="Open your Orion profile">
+          <Link className="portal-profile-summary" href="/portal/profile" aria-label="Open your Orion profile">
             <ClientAvatar avatarKey={clientAvatarKey} size="small" />
             <div><small>Client profile</small><strong>{clientDisplayName}</strong></div>
-          </a>
+          </Link>
           <LogoutButton redirectTo="/client-login" />
         </div>
       </header>
@@ -101,11 +110,11 @@ export default function PortalWorkspaceShell({ clientName, clientDisplayName, cl
 
           <nav className="portal-workspace-nav" aria-label="Portal navigation">
             {workspaceSections.map(({ id, label, icon: Icon }) => (
-              <a className={activeSection === id ? 'is-active' : ''} href={`#${id}`} key={id} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? 'location' : undefined}>
+              <Link className={activeSection === id ? 'is-active' : ''} href={sectionHref(id)} key={id} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? (id === 'profile' ? 'page' : 'location') : undefined}>
                 <span aria-hidden="true"><Icon size={16} /></span>
                 <strong>{label}</strong>
                 <i aria-hidden="true" />
-              </a>
+              </Link>
             ))}
           </nav>
 
@@ -117,7 +126,7 @@ export default function PortalWorkspaceShell({ clientName, clientDisplayName, cl
             </div>
           </div>
 
-          <a className="portal-sidebar-support" href="#support"><Headphones size={16} aria-hidden="true" /><span><small>Need help?</small><strong>Open secure support</strong></span><b aria-hidden="true">→</b></a>
+          <Link className="portal-sidebar-support" href={currentView === 'overview' ? '#support' : '/portal#support'}><Headphones size={16} aria-hidden="true" /><span><small>Need help?</small><strong>Open secure support</strong></span><b aria-hidden="true">→</b></Link>
         </aside>
 
         <div className="portal-workspace-main" id="portal-content">{children}</div>
