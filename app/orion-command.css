@@ -3093,3 +3093,820 @@
     display: none;
   }
 }
+
+/* Unified page hierarchy, profile controls, settings and section feedback. */
+
+.command-page-heading h1,
+.command-page-heading--compact h1 {
+  margin: 7px 0 7px;
+  font-family: var(--font-display), Sora, ui-sans-serif, sans-serif;
+  font-size: clamp(24px, 2vw, 32px);
+  font-weight: 650;
+  letter-spacing: -.038em;
+  line-height: 1.12;
+  text-transform: none;
+}
+
+.command-page-heading .command-section-summary,
+.command-page-heading--compact .command-section-summary {
+  max-width: 650px;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.command-section-view {
+  position: relative;
+  min-width: 0;
+}
+
+.command-section-transition {
+  position: absolute;
+  z-index: 12;
+  top: -1px;
+  left: 0;
+  width: min(34vw, 420px);
+  height: 1px;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--orion-cyan), var(--orion-gold-bright), transparent);
+  filter: drop-shadow(0 0 7px rgba(66, 217, 255, .55));
+  animation: command-section-scan .52s cubic-bezier(.22, .72, .2, 1) both;
+}
+
+.command-section-view > .command-page-heading {
+  animation: command-section-enter .3s cubic-bezier(.2, .75, .24, 1) both;
+}
+
+.business-loading {
+  min-height: 92px;
+  padding: 20px;
+  color: var(--orion-muted-strong);
+  border: 1px solid rgba(66, 217, 255, .1);
+  border-radius: 12px;
+  background: linear-gradient(145deg, rgba(66, 217, 255, .025), rgba(246, 196, 83, .018));
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 10px;
+}
+
+.business-loading span {
+  position: relative;
+  width: 27px;
+  height: 27px;
+  flex: 0 0 27px;
+  border: 1px solid rgba(66, 217, 255, .2);
+  border-top-color: var(--orion-cyan);
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 0 18px rgba(66, 217, 255, .12);
+  animation: command-loader-orbit .72s linear infinite;
+}
+
+.command-profile {
+  position: relative;
+  z-index: 32;
+}
+
+.command-profile-trigger {
+  display: grid;
+  min-width: 190px;
+  height: 46px;
+  padding: 4px 9px 4px 5px;
+  grid-template-columns: 36px minmax(0, 1fr) 16px;
+  align-items: center;
+  gap: 9px;
+  color: var(--orion-text);
+  border: 1px solid rgba(255, 255, 255, .085);
+  border-radius: 11px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, .04), rgba(246, 196, 83, .018));
+  text-align: left;
+  transition: border-color .2s ease, background .2s ease, transform .2s ease;
+}
+
+.command-profile-trigger:hover,
+.command-profile-trigger[aria-expanded="true"] {
+  border-color: rgba(246, 196, 83, .23);
+  background: linear-gradient(145deg, rgba(246, 196, 83, .07), rgba(66, 217, 255, .025));
+}
+
+.command-profile-trigger:focus-visible {
+  outline: 2px solid var(--orion-cyan);
+  outline-offset: 2px;
+}
+
+.command-profile-avatar {
+  position: relative;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  color: var(--orion-gold-bright);
+  border: 1px solid rgba(246, 196, 83, .28);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, .13), transparent 38%),
+    linear-gradient(145deg, rgba(246, 196, 83, .14), rgba(66, 217, 255, .07));
+  font-family: var(--font-display), Sora, sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.command-profile-avatar i {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #030606;
+  border-radius: 50%;
+  background: var(--orion-green);
+  box-shadow: 0 0 8px rgba(57, 242, 138, .68);
+}
+
+.command-profile-avatar--large {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 13px;
+  font-size: 12px;
+}
+
+.command-profile-copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.command-profile-copy strong {
+  overflow: hidden;
+  color: var(--orion-text-strong);
+  font-family: var(--font-display), Sora, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-profile-copy small {
+  color: var(--orion-muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.command-profile-chevron {
+  color: var(--orion-muted);
+  transition: transform .2s ease;
+}
+
+.command-profile-trigger[aria-expanded="true"] .command-profile-chevron {
+  transform: rotate(180deg);
+}
+
+.command-profile-menu {
+  position: absolute;
+  top: calc(100% + 11px);
+  right: 0;
+  width: min(310px, calc(100vw - 24px));
+  padding: 10px;
+  overflow: hidden;
+  color: var(--orion-text);
+  border: 1px solid rgba(246, 196, 83, .18);
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 90% 0, rgba(246, 196, 83, .08), transparent 11rem),
+    rgba(2, 6, 6, .98);
+  box-shadow: 0 28px 85px rgba(0, 0, 0, .68), inset 0 1px rgba(255, 255, 255, .05);
+  backdrop-filter: blur(28px) saturate(130%);
+  animation: command-profile-open .2s cubic-bezier(.2, .75, .24, 1) both;
+}
+
+.command-profile-menu > header {
+  display: flex;
+  padding: 9px 8px 15px;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+.command-profile-menu > header > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.command-profile-menu > header strong,
+.command-profile-links strong {
+  font-family: var(--font-display), Sora, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.command-profile-menu > header small {
+  overflow: hidden;
+  color: var(--orion-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.command-profile-menu > header b {
+  width: max-content;
+  margin-top: 3px;
+  padding: 3px 6px;
+  color: var(--orion-green);
+  border: 1px solid rgba(57, 242, 138, .15);
+  border-radius: 20px;
+  background: rgba(57, 242, 138, .045);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.command-profile-links {
+  display: grid;
+  gap: 3px;
+  padding: 8px 0;
+}
+
+.command-profile-links button,
+.command-profile-links a {
+  display: grid;
+  width: 100%;
+  min-height: 50px;
+  padding: 7px 9px;
+  grid-template-columns: 27px 1fr;
+  align-items: center;
+  gap: 8px;
+  color: var(--orion-muted-strong);
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  text-align: left;
+}
+
+.command-profile-links button:hover,
+.command-profile-links button:focus-visible,
+.command-profile-links a:hover,
+.command-profile-links a:focus-visible {
+  color: var(--orion-text-strong);
+  border-color: rgba(66, 217, 255, .12);
+  background: rgba(66, 217, 255, .035);
+  outline: none;
+}
+
+.command-profile-links svg {
+  color: var(--orion-cyan);
+}
+
+.command-profile-links span {
+  display: grid;
+  gap: 3px;
+}
+
+.command-profile-links small {
+  color: var(--orion-muted);
+  font-size: 8px;
+}
+
+.command-profile-menu > footer {
+  padding-top: 9px;
+  border-top: 1px solid rgba(255, 255, 255, .07);
+}
+
+.command-profile-menu > footer .ghost-button {
+  width: 100%;
+  height: 38px;
+  color: #ffb2bb;
+  border-color: rgba(255, 86, 109, .14);
+  background: rgba(255, 86, 109, .035);
+}
+
+.settings-command-grid {
+  display: grid;
+  margin-top: 28px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.settings-command-card {
+  min-width: 0;
+  padding: 22px;
+  border-color: rgba(255, 255, 255, .085);
+  background:
+    radial-gradient(circle at 95% 0, rgba(66, 217, 255, .04), transparent 12rem),
+    linear-gradient(145deg, rgba(9, 14, 14, .96), rgba(2, 5, 5, .98));
+}
+
+.settings-command-card--appearance {
+  border-color: rgba(246, 196, 83, .17);
+  background:
+    radial-gradient(circle at 90% 0, rgba(246, 196, 83, .075), transparent 13rem),
+    linear-gradient(145deg, rgba(12, 12, 9, .96), rgba(2, 5, 5, .98));
+}
+
+.settings-command-card--account {
+  border-color: rgba(66, 217, 255, .15);
+}
+
+.settings-command-card--wide {
+  grid-column: 1 / -1;
+}
+
+.settings-command-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.settings-command-heading > span,
+.settings-installation > summary > span {
+  display: grid;
+  width: 37px;
+  height: 37px;
+  flex: 0 0 37px;
+  place-items: center;
+  color: var(--orion-cyan);
+  border: 1px solid rgba(66, 217, 255, .15);
+  border-radius: 10px;
+  background: rgba(66, 217, 255, .045);
+}
+
+.settings-command-heading h2,
+.settings-installation h2 {
+  margin: 5px 0 0;
+  color: var(--orion-text-strong);
+  font-family: var(--font-display), Sora, sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -.025em;
+}
+
+.settings-command-card > .muted {
+  margin: 17px 0 0;
+  font-size: 11px;
+}
+
+.settings-theme-options {
+  display: grid;
+  margin-top: 19px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-theme-options button {
+  display: grid;
+  min-height: 76px;
+  padding: 10px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  color: var(--orion-muted-strong);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .02);
+  text-align: left;
+}
+
+.settings-theme-options button:hover,
+.settings-theme-options button.is-active {
+  color: var(--orion-text-strong);
+  border-color: rgba(246, 196, 83, .28);
+  background: rgba(246, 196, 83, .04);
+}
+
+.settings-theme-options button:focus-visible {
+  outline: 2px solid var(--orion-cyan);
+  outline-offset: 2px;
+}
+
+.settings-theme-swatch {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .11);
+  border-radius: 9px;
+}
+
+.settings-theme-swatch::after {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 8px;
+  height: 8px;
+  content: "";
+  border-radius: 50%;
+  box-shadow: 0 0 9px currentColor;
+}
+
+.settings-theme-swatch--royal {
+  color: #f6c453;
+  background: radial-gradient(circle at 75% 25%, rgba(246, 196, 83, .2), transparent 45%), #040707;
+}
+
+.settings-theme-swatch--black {
+  color: #68d8ff;
+  background: radial-gradient(circle at 75% 25%, rgba(104, 216, 255, .2), transparent 45%), #000;
+}
+
+.settings-theme-options span {
+  display: grid;
+  gap: 5px;
+}
+
+.settings-theme-options strong {
+  font-size: 11px;
+}
+
+.settings-theme-options small {
+  color: var(--orion-muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.settings-account-identity {
+  display: flex;
+  margin-top: 20px;
+  padding: 13px;
+  align-items: center;
+  gap: 11px;
+  border: 1px solid rgba(66, 217, 255, .09);
+  border-radius: 11px;
+  background: rgba(66, 217, 255, .025);
+}
+
+.settings-account-identity > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  color: var(--orion-gold-bright);
+  border: 1px solid rgba(246, 196, 83, .22);
+  border-radius: 10px;
+  background: rgba(246, 196, 83, .06);
+  font-weight: 700;
+}
+
+.settings-account-identity > div {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.settings-account-identity strong {
+  overflow: hidden;
+  color: var(--orion-text-strong);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-account-identity small {
+  color: var(--orion-muted);
+  font-size: 8px;
+}
+
+.settings-facts {
+  display: grid;
+  margin: 10px 0 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-facts div {
+  display: grid;
+  padding: 10px;
+  gap: 5px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .02);
+}
+
+.settings-facts dt {
+  color: var(--orion-muted);
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 7px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.settings-facts dd {
+  margin: 0;
+  color: var(--orion-text);
+  font-size: 9px;
+}
+
+.settings-card-actions {
+  display: flex;
+  margin-top: 12px;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.settings-card-actions .glass-button {
+  height: 36px;
+  font-size: 9px;
+}
+
+.settings-health-list {
+  display: grid;
+  margin-top: 18px;
+  gap: 6px;
+}
+
+.settings-health-list > span {
+  display: grid;
+  min-height: 48px;
+  padding: 8px 9px;
+  grid-template-columns: 9px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, .055);
+}
+
+.settings-health-list > span:last-child {
+  border-bottom: 0;
+}
+
+.settings-status-indicator {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid color-mix(in srgb, var(--orion-cyan) 55%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--orion-cyan) 18%, transparent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--orion-cyan) 20%, transparent);
+}
+
+.settings-health-list b {
+  color: var(--orion-text);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.settings-health-list small {
+  color: var(--orion-muted);
+  font-size: 8px;
+  text-align: right;
+}
+
+.settings-alert-overview {
+  display: flex;
+  margin-top: 22px;
+  align-items: center;
+  gap: 13px;
+}
+
+.settings-alert-overview strong {
+  color: var(--orion-gold-bright);
+  font-family: var(--font-display), Sora, sans-serif;
+  font-size: 33px;
+  letter-spacing: -.05em;
+}
+
+.settings-alert-overview span {
+  max-width: 170px;
+  color: var(--orion-muted-strong);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.settings-chip-row {
+  display: flex;
+  margin-top: 17px;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.settings-chip-row span {
+  padding: 6px 8px;
+  color: #a8c8c6;
+  border: 1px solid rgba(57, 242, 138, .12);
+  border-radius: 20px;
+  background: rgba(57, 242, 138, .035);
+  font-size: 8px;
+}
+
+.settings-protection-grid {
+  display: grid;
+  margin-top: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.settings-protection-grid span {
+  display: grid;
+  min-height: 112px;
+  padding: 14px;
+  align-content: start;
+  gap: 8px;
+  color: var(--orion-cyan);
+  border: 1px solid rgba(255, 255, 255, .065);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .018);
+}
+
+.settings-protection-grid strong {
+  color: var(--orion-text-strong);
+  font-size: 10px;
+}
+
+.settings-protection-grid small {
+  color: var(--orion-muted);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.settings-installation {
+  padding: 0;
+}
+
+.settings-installation > summary {
+  display: flex;
+  padding: 18px 22px;
+  align-items: center;
+  gap: 11px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.settings-installation > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-installation > summary::after {
+  margin-left: auto;
+  color: var(--orion-muted);
+  content: "+";
+  font-size: 20px;
+  transition: transform .2s ease;
+}
+
+.settings-installation[open] > summary::after {
+  transform: rotate(45deg);
+}
+
+.settings-installation > summary > div {
+  display: grid;
+  gap: 2px;
+}
+
+.settings-installation > summary small {
+  color: var(--orion-muted);
+  font-size: 8px;
+}
+
+.settings-installation .steps {
+  margin: 0;
+  padding: 4px 28px 22px 58px;
+  color: var(--orion-muted-strong);
+  font-size: 10px;
+  line-height: 1.8;
+}
+
+@keyframes command-section-enter {
+  from {
+    opacity: .35;
+    filter: blur(2px);
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
+@keyframes command-section-scan {
+  0% {
+    opacity: 0;
+    transform: translateX(-115%);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(calc(100vw + 115%));
+  }
+}
+
+@keyframes command-profile-open {
+  from {
+    opacity: 0;
+    transform: translateY(-5px) scale(.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes command-loader-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1120px) {
+  .command-profile-trigger {
+    min-width: 46px;
+    width: 46px;
+    padding: 4px;
+    grid-template-columns: 36px;
+  }
+
+  .command-profile-copy,
+  .command-profile-chevron {
+    display: none;
+  }
+}
+
+@media (max-width: 780px) {
+  .command-page-heading h1,
+  .command-page-heading--compact h1 {
+    font-size: clamp(24px, 7vw, 27px);
+  }
+
+  .command-page-heading .command-section-summary,
+  .command-page-heading--compact .command-section-summary {
+    font-size: 11px;
+  }
+
+  .settings-command-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-command-card--wide {
+    grid-column: auto;
+  }
+
+  .settings-protection-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-protection-grid span {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .command-profile-menu {
+    position: fixed;
+    top: 65px;
+    right: 10px;
+  }
+
+  .settings-command-card {
+    padding: 18px;
+  }
+
+  .settings-theme-options,
+  .settings-facts {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-health-list > span {
+    grid-template-columns: 9px 1fr;
+  }
+
+  .settings-health-list small {
+    grid-column: 2;
+    text-align: left;
+  }
+}
+
+@media (max-width: 360px) {
+  .command-brand .orion-brand-wordmark {
+    display: none;
+  }
+
+  .command-brand-lockup {
+    gap: 0;
+  }
+
+  .command-topbar-actions {
+    gap: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .command-section-transition,
+  .command-section-view > .command-page-heading,
+  .command-profile-menu,
+  .business-loading span {
+    animation: none !important;
+    filter: none;
+    transform: none;
+  }
+
+  .command-profile-chevron,
+  .settings-installation > summary::after {
+    transition: none !important;
+  }
+}

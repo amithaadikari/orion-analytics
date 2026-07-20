@@ -11,11 +11,9 @@
   top: 15px;
   right: 16px;
   display: grid;
-  min-width: 150px;
+  min-width: 190px;
   padding: 9px 10px;
-  grid-template-columns: auto minmax(42px, 1fr) auto;
-  align-items: center;
-  gap: 7px;
+  gap: 6px;
   color: #748287;
   border: 1px solid rgba(255, 255, 255, .07);
   border-radius: 9px;
@@ -24,8 +22,7 @@
   backdrop-filter: blur(12px);
 }
 
-.mapLegend span {
-  grid-column: 1 / -1;
+.mapLegend > span {
   color: #b6c2c4;
   font-size: 8px;
   font-weight: 700;
@@ -33,16 +30,48 @@
   text-transform: uppercase;
 }
 
-.mapLegend i {
+.mapLegendSwatches {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
+}
+
+.mapLegendSwatches i {
+  height: 5px;
+  border-radius: 99px;
+}
+
+.mapLegendSwatches i:nth-child(1) { background: #f6c453; }
+.mapLegendSwatches i:nth-child(2) { background: #42d9ff; }
+.mapLegendSwatches i:nth-child(3) { background: #39f28a; }
+.mapLegendSwatches i:nth-child(4) { background: #a78bfa; }
+.mapLegendSwatches i:nth-child(5) { background: #ff9f43; }
+.mapLegendSwatches i:nth-child(6) { background: #ff6b81; }
+
+.mapLegendScale {
+  display: grid;
+  grid-template-columns: auto minmax(48px, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.mapLegendScale small {
+  grid-column: 1 / -1;
+  color: #68777c;
+  font-size: 7px;
+  letter-spacing: .05em;
+}
+
+.mapLegendScale i {
   font-size: 7px;
   font-style: normal;
 }
 
-.mapLegend b {
+.mapLegendScale b {
   height: 5px;
   border-radius: 99px;
-  background: linear-gradient(90deg, #101b1d, #745f26 48%, #f6c453);
-  box-shadow: 0 0 12px rgba(246, 196, 83, .12);
+  background: linear-gradient(90deg, #172124, #728186 52%, #f4f8f8);
+  box-shadow: 0 0 10px rgba(180, 210, 215, .09);
 }
 
 .worldMap {
@@ -73,30 +102,34 @@
 .countryShape,
 .countryShapeActive,
 .countryShapeSelected {
-  stroke: rgba(157, 178, 181, .24);
+  --country-accent: #42d9ff;
+  --country-accent-bright: #b9f2ff;
+  stroke: color-mix(in srgb, var(--country-accent) 19%, rgba(157, 178, 181, .24));
   stroke-width: .6;
   vector-effect: non-scaling-stroke;
-  transition: fill .24s ease, filter .24s ease, stroke .24s ease;
+  transition: fill .24s ease, filter .24s ease, stroke .24s ease, opacity .24s ease;
 }
 
 .countryShape {
-  fill: #10191b;
+  fill: color-mix(in srgb, var(--country-accent) 6%, #10191b);
+  opacity: .78;
 }
 
 .countryShapeActive,
 .countryShapeSelected {
   cursor: pointer;
-  fill: color-mix(in srgb, #f6c453 var(--country-heat), #102123);
-  stroke: color-mix(in srgb, #ffe39a 44%, rgba(66, 217, 255, .32));
+  fill: color-mix(in srgb, var(--country-accent) var(--country-heat), #102123);
+  stroke: color-mix(in srgb, var(--country-accent-bright) 54%, rgba(255, 255, 255, .28));
+  opacity: 1;
 }
 
 .countryShapeActive:hover,
 .countryShapeActive:focus-visible,
 .countryShapeSelected {
-  fill: color-mix(in srgb, #ffe39a var(--country-heat), #173034);
-  stroke: #ffe39a;
+  fill: color-mix(in srgb, var(--country-accent-bright) var(--country-heat), #173034);
+  stroke: var(--country-accent-bright);
   stroke-width: 1.35;
-  filter: drop-shadow(0 0 5px rgba(246, 196, 83, .4));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--country-accent) 52%, transparent));
   outline: none;
 }
 
@@ -166,6 +199,9 @@
 }
 
 .countryRail button {
+  --country-accent: #42d9ff;
+  --country-accent-bright: #b9f2ff;
+  position: relative;
   display: grid;
   min-width: 0;
   min-height: 42px;
@@ -178,13 +214,26 @@
   border-radius: 9px;
   background: rgba(255, 255, 255, .018);
   text-align: left;
+  overflow: hidden;
+}
+
+.countryRail button::before {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  left: 0;
+  width: 2px;
+  content: "";
+  border-radius: 2px;
+  background: var(--country-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--country-accent) 55%, transparent);
 }
 
 .countryRail button:hover,
 .countryRail button[aria-pressed="true"] {
   color: #fff;
-  border-color: rgba(66, 217, 255, .28);
-  background: rgba(66, 217, 255, .045);
+  border-color: color-mix(in srgb, var(--country-accent) 40%, rgba(255, 255, 255, .1));
+  background: color-mix(in srgb, var(--country-accent) 7%, rgba(255, 255, 255, .018));
 }
 
 .countryRail button:focus-visible {
@@ -204,7 +253,7 @@
 }
 
 .countryRail b {
-  color: #42d9ff;
+  color: var(--country-accent-bright);
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 9px;
 }
@@ -225,7 +274,7 @@
 }
 
 @media (max-width: 720px) {
-  .mapLegend { position: static; width: 100%; grid-template-columns: auto minmax(72px, 1fr) auto; }
+  .mapLegend { position: static; width: 100%; }
   .countryRail { max-height: 218px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .marketBeacon text,
   .primaryBeacon text { font-size: 7px; }
@@ -233,4 +282,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .beaconHalo { animation: none; }
+  .countryShape,
+  .countryShapeActive,
+  .countryShapeSelected { transition: none; }
 }

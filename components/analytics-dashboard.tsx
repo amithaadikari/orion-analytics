@@ -1,28 +1,32 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   Activity,
   BadgeDollarSign,
+  BellRing,
   CreditCard,
+  Database,
   Globe2,
   History,
   KeyRound,
   LayoutDashboard,
   LifeBuoy,
+  LockKeyhole,
   Megaphone,
   Moon,
   PackageOpen,
+  Palette,
   Radio,
   Settings2,
+  ShieldCheck,
   Sparkles,
   UserPlus,
   UsersRound,
   type LucideIcon
 } from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import LogoutButton from '@/components/logout-button';
 import { countryFlag } from '@/lib/country';
 import BusinessDashboard from '@/components/business-dashboard';
 import AdminActionCenter from '@/components/admin-action-center';
@@ -31,8 +35,9 @@ import CommandPalette from '@/components/command-palette';
 import ReleaseManager from '@/components/release-manager';
 import OrionBrand from '@/components/orion-brand';
 import SupportTicketCenter from '@/components/support-ticket-center';
+import AdminProfileMenu from '@/components/admin-profile-menu';
 
-type DashboardProps = { admin: { email?: string | null; role?: string | null } | null; initialTheme?: DashboardTheme };
+type DashboardProps = { admin: { email?: string | null; role?: string | null } | null; initialTheme?: DashboardTheme; initialSection?: string };
 type Breakdown = { name: string; value: number };
 type Campaign = { name: string; visitors: number; clicks: number; conversionRate: number };
 type DashboardEvent = { event_id?: string; event_name?: string; label?: string; visitor_id?: string; created_at?: string; country?: string; utm_campaign?: string };
@@ -79,6 +84,12 @@ const navigationItems: Record<string, NavItem> = {
   settings: { label: 'Settings', icon: Settings2 }
 };
 
+const validSections = new Set(Object.keys(navigationItems));
+
+function normalizeSection(section?: string | null) {
+  return section && validSections.has(section) ? section : 'overview';
+}
+
 function numericValue(value: unknown) {
   const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? 0));
   return Number.isFinite(parsed) ? parsed : 0;
@@ -102,50 +113,74 @@ function signalTime(value?: string) {
   return Number.isNaN(date.getTime()) ? 'Time unavailable' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function Dashboard({ admin, initialTheme = 'royal' }: DashboardProps) {
-  const [range, setRange] = useState('7d'); const [customStart, setCustomStart] = useState(''); const [customEnd, setCustomEnd] = useState(''); const [eventFilter, setEventFilter] = useState('all'); const [country, setCountry] = useState('all'); const [campaign, setCampaign] = useState('all'); const [device, setDevice] = useState('all'); const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState(''); const [tab, setTab] = useState('overview');
+export default function Dashboard({ admin, initialTheme = 'royal', initialSection }: DashboardProps) {
+  const [range, setRange] = useState('7d'); const [customStart, setCustomStart] = useState(''); const [customEnd, setCustomEnd] = useState(''); const [eventFilter, setEventFilter] = useState('all'); const [country, setCountry] = useState('all'); const [campaign, setCampaign] = useState('all'); const [device, setDevice] = useState('all'); const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState(''); const [tab, setTab] = useState(() => normalizeSection(initialSection));
   const [theme, setTheme] = useState<DashboardTheme>(initialTheme);
   const [queueCount, setQueueCount] = useState<number | null>(null);
+  const tabRef = useRef(tab);
   const [destinationFilter, setDestinationFilter] = useState<string>();
   const [destinationSearch, setDestinationSearch] = useState<string>();
   const [businessNavigationKey, setBusinessNavigationKey] = useState(0);
   const [businessCommand, setBusinessCommand] = useState<{ type:'add-client'|'create-license'|'record-payment'; key:number }>();
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => {
-      const next: DashboardTheme = current === 'royal' ? 'black' : 'royal';
-      try { document.cookie = `orion-admin-theme=${next}; Path=/dashboard; Max-Age=31536000; SameSite=Lax`; } catch { /* Keep the in-memory preference. */ }
-      return next;
-    });
+  const applyTheme = useCallback((next: DashboardTheme) => {
+    setTheme(next);
+    try { document.cookie = `orion-admin-theme=${next}; Path=/dashboard; Max-Age=31536000; SameSite=Lax`; } catch { /* Keep the in-memory preference. */ }
+  }, []);
+  const toggleTheme = useCallback(() => applyTheme(theme === 'royal' ? 'black' : 'royal'), [applyTheme, theme]);
+  const commitSection = useCallback((section: string, historyMode: 'push' | 'replace' | 'none' = 'push') => {
+    const next = normalizeSection(section);
+    const current = tabRef.current;
+    tabRef.current = next;
+    setTab(next);
+    if (historyMode === 'none' || typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    if (next === 'overview') url.searchParams.delete('section');
+    else url.searchParams.set('section', next);
+    const method = historyMode === 'replace' || current === next ? 'replaceState' : 'pushState';
+    window.history[method]({}, '', `${url.pathname}${url.search}${url.hash}`);
+  }, []);
+  useEffect(() => {
+    const handleHistoryNavigation = () => {
+      setDestinationFilter(undefined);
+      setDestinationSearch(undefined);
+      setBusinessCommand(undefined);
+      setBusinessNavigationKey((key) => key + 1);
+      const next = normalizeSection(new URLSearchParams(window.location.search).get('section'));
+      tabRef.current = next;
+      setTab(next);
+    };
+    window.addEventListener('popstate', handleHistoryNavigation);
+    return () => window.removeEventListener('popstate', handleHistoryNavigation);
   }, []);
   const navigateFromActionCenter = useCallback<ActionCenterNavigate>((section, filter) => {
     setDestinationFilter(filter);
     setDestinationSearch(undefined);
     setBusinessCommand(undefined);
     setBusinessNavigationKey((key) => key + 1);
-    setTab(section);
-  }, []);
+    commitSection(section);
+  }, [commitSection]);
   const navigateNormally = useCallback((section: string) => {
     setDestinationFilter(undefined);
     setDestinationSearch(undefined);
     setBusinessCommand(undefined);
     setBusinessNavigationKey((key) => key + 1);
-    setTab(section);
-  }, []);
+    commitSection(section);
+  }, [commitSection]);
   const navigateFromCommand = useCallback((section:string,filter?:string,search?:string)=>{
     setDestinationFilter(filter);
     setDestinationSearch(search);
     setBusinessCommand(undefined);
     setBusinessNavigationKey((key)=>key+1);
-    setTab(section);
-  },[]);
+    commitSection(section);
+  },[commitSection]);
   const executeCommand = useCallback((type:'add-client'|'create-license'|'record-payment')=>{
     const section=type==='add-client'?'clients':type==='create-license'?'licenses':'payments';
     setDestinationFilter(undefined);
     setDestinationSearch(undefined);
     setBusinessCommand({type,key:Date.now()});
     setBusinessNavigationKey((key)=>key+1);
-    setTab(section);
-  },[]);
+    commitSection(section);
+  },[commitSection]);
   const updateQueueCount = useCallback((count: number | null) => setQueueCount(count), []);
   const applyAdvancedFilter = useCallback((patch: AdvancedFilterPatch) => {
     if ('country' in patch) setCountry(patch.country || 'all');
@@ -188,15 +223,16 @@ export default function Dashboard({ admin, initialTheme = 'royal' }: DashboardPr
   const isOperationalSurface = isBusiness || tab === 'support';
   const titles: Record<string, [string, string, string]> = {
     sales: ['Revenue', 'Sales performance', 'Completed sales, customer mix and payment quality by currency.'],
-    registrations: ['Client onboarding', 'Registration queue.', 'Review new free accounts and clients who still need activation.'],
-    clients: ['Client management', 'Your Orion clients.', 'Profiles, plans, contacts and complete commercial history.'],
-    licenses: ['License operations', 'License manager.', 'Generate and monitor MT4 and MT5 access.'],
-    payments: ['Payment records', 'Manual payments.', 'Store transaction details without connecting a payment gateway.'],
-    releases: ['Product delivery', 'Downloads & releases.', 'Publish Orion versions and download links to client portals.'],
-    activity: ['Audit trail', 'Client activity.', 'Every operational change in one chronological timeline.'],
-    support: ['Client care', 'Official support desk.', 'Review secure client tickets, reply, and manage resolution status.']
+    registrations: ['Client onboarding', 'Registration queue', 'Review new free accounts and clients who still need activation.'],
+    clients: ['Client management', 'Your Orion clients', 'Profiles, plans, contacts and complete commercial history.'],
+    licenses: ['License operations', 'License manager', 'Generate and monitor MT4 and MT5 access.'],
+    payments: ['Payment records', 'Manual payments', 'Store transaction details without connecting a payment gateway.'],
+    releases: ['Product delivery', 'Downloads & releases', 'Publish Orion versions and download links to client portals.'],
+    activity: ['Audit trail', 'Client activity', 'Every operational change in one chronological timeline.'],
+    support: ['Client care', 'Official support desk', 'Review secure client tickets, reply, and manage resolution status.'],
+    settings: ['System', 'Control center settings', 'Appearance, administrator access, alerts, privacy, and connection health.']
   };
-  const heading = titles[tab] || [tab === 'overview' ? 'Command center' : tab, tab === 'overview' ? 'Marketing performance, live.' : `${tab[0].toUpperCase()}${tab.slice(1)} activity`, 'Orion acquisition, attribution and conversion intelligence.'];
+  const heading = titles[tab] || [tab === 'overview' ? 'Command center' : tab, tab === 'overview' ? 'Marketing performance, live' : `${tab[0].toUpperCase()}${tab.slice(1)} activity`, 'Orion acquisition, attribution and conversion intelligence.'];
   const nav = [
     { label: 'Analytics', tone: 'cyan', items: ['overview','visitors','campaigns','events','meta'] },
     { label: 'Revenue', tone: 'green', items: ['sales','payments'] },
@@ -235,11 +271,7 @@ export default function Dashboard({ admin, initialTheme = 'royal' }: DashboardPr
               <span>Queue</span>
             </button>
           )}
-          <span className="admin-label command-admin-identity">
-            <span className="command-admin-email">{admin?.email || 'Orion administrator'}</span>
-            <span className="command-admin-role"> · {admin?.role || 'viewer'}</span>
-          </span>
-          <LogoutButton />
+          <AdminProfileMenu admin={admin} onNavigate={navigateNormally} />
         </div>
       </header>
 
@@ -283,7 +315,9 @@ export default function Dashboard({ admin, initialTheme = 'royal' }: DashboardPr
           aria-labelledby="dashboard-command-title"
           aria-busy={!isOperationalSurface && loading}
         >
-          <header className={`content-heading command-page-heading${tab === 'sales' ? ' command-page-heading--compact' : ''}`}>
+          <div className="command-section-view">
+            <span className="command-section-transition" key={`${tab}-${businessNavigationKey}`} aria-hidden="true" />
+            <header key={`heading-${tab}`} className={`content-heading command-page-heading${tab === 'sales' ? ' command-page-heading--compact' : ''}`}>
             <div className="command-heading-copy">
               <p className="eyebrow command-section-kicker">{heading[0]}</p>
               <h1 id="dashboard-command-title">{heading[1]}</h1>
@@ -307,10 +341,11 @@ export default function Dashboard({ admin, initialTheme = 'royal' }: DashboardPr
                 )}
               </div>
             )}
-          </header>
+            </header>
 
-          {!isBusiness && loadError && <div className="command-data-alert" role="alert"><span aria-hidden="true">!</span><p>{loadError}</p><button type="button" className="glass-button" onClick={() => void load()}>Retry</button></div>}
-          {tab === 'releases' ? <ReleaseManager canWrite={admin?.role === 'admin'} /> : tab === 'support' ? <SupportTicketCenter /> : isBusiness ? <BusinessDashboard section={tab} canWrite={admin?.role === 'admin'} initialFilter={destinationFilter} initialSearch={destinationSearch} navigationKey={businessNavigationKey} commandAction={businessCommand} /> : <>{loading && <div className="loading-bar command-loading-bar" role="status" aria-label="Refreshing dashboard intelligence" />}{tab === 'settings' ? <SettingsPanel /> : tab === 'meta' ? <MetaPanel meta={snapshot.meta} /> : <><div className="filter-row"><Filter label="Country" value={country} options={countries} onChange={setCountry} /><Filter label="Campaign" value={campaign} options={campaigns} onChange={setCampaign} /><Filter label="Device" value={device} options={snapshot.charts.byDevice.map((row) => row.name)} onChange={setDevice} /><Filter label="Event" value={eventFilter} options={['PageView', 'ViewContent', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']} onChange={setEventFilter} /></div><div className="metric-grid v2"><Metric label="Visitors" value={metric('uniqueVisitors')} detail={changeLabel(snapshot.comparison.visitors)} /><Metric label="Visitors online" value={metric('visitorsOnline')} detail="Active in last 5 minutes" positive /><Metric label="Telegram clicks" value={metric('telegramClicks')} detail={changeLabel(snapshot.comparison.telegramClicks)} positive /><Metric label="Conversion rate" value={`${metric('conversionRate')}%`} detail="Unique visitor → click" positive /><Metric label="Leads today" value={metric('leadsToday')} detail="Recorded lead rows" /></div>{tab === 'overview' && <><Overview snapshot={snapshot} showActionCenter={admin?.role === 'admin'} onNavigate={navigateFromActionCenter} onQueueCountChange={updateQueueCount} /><AdvancedAnalytics snapshot={snapshot} activeFilters={{ country: country === 'all' ? null : country, campaign: campaign === 'all' ? null : campaign, device: device === 'all' ? null : device, event: eventFilter === 'all' ? null : eventFilter, date: range === 'custom' && customStart === customEnd ? customStart : null }} onFilterChange={applyAdvancedFilter} /></>}{tab === 'visitors' && <VisitorTable rows={snapshot.visitors} />}{tab === 'campaigns' && <CampaignTable rows={snapshot.campaigns} />}{tab === 'events' && <EventTable rows={snapshot.events} />}</>}</>}
+            {!isBusiness && loadError && <div className="command-data-alert" role="alert"><span aria-hidden="true">!</span><p>{loadError}</p><button type="button" className="glass-button" onClick={() => void load()}>Retry</button></div>}
+            {tab === 'releases' ? <ReleaseManager canWrite={admin?.role === 'admin'} /> : tab === 'support' ? <SupportTicketCenter /> : isBusiness ? <BusinessDashboard section={tab} canWrite={admin?.role === 'admin'} initialFilter={destinationFilter} initialSearch={destinationSearch} navigationKey={businessNavigationKey} commandAction={businessCommand} /> : <>{loading && <div className="loading-bar command-loading-bar" role="status" aria-label="Refreshing dashboard intelligence" />}{tab === 'settings' ? <SettingsPanel admin={admin} theme={theme} queueCount={queueCount} onThemeChange={applyTheme} onNavigate={navigateNormally} /> : tab === 'meta' ? <MetaPanel meta={snapshot.meta} /> : <><div className="filter-row"><Filter label="Country" value={country} options={countries} onChange={setCountry} /><Filter label="Campaign" value={campaign} options={campaigns} onChange={setCampaign} /><Filter label="Device" value={device} options={snapshot.charts.byDevice.map((row) => row.name)} onChange={setDevice} /><Filter label="Event" value={eventFilter} options={['PageView', 'ViewContent', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']} onChange={setEventFilter} /></div><div className="metric-grid v2"><Metric label="Visitors" value={metric('uniqueVisitors')} detail={changeLabel(snapshot.comparison.visitors)} /><Metric label="Visitors online" value={metric('visitorsOnline')} detail="Active in last 5 minutes" positive /><Metric label="Telegram clicks" value={metric('telegramClicks')} detail={changeLabel(snapshot.comparison.telegramClicks)} positive /><Metric label="Conversion rate" value={`${metric('conversionRate')}%`} detail="Unique visitor → click" positive /><Metric label="Leads today" value={metric('leadsToday')} detail="Recorded lead rows" /></div>{tab === 'overview' && <><Overview snapshot={snapshot} showActionCenter={admin?.role === 'admin'} onNavigate={navigateFromActionCenter} onQueueCountChange={updateQueueCount} /><AdvancedAnalytics snapshot={snapshot} activeFilters={{ country: country === 'all' ? null : country, campaign: campaign === 'all' ? null : campaign, device: device === 'all' ? null : device, event: eventFilter === 'all' ? null : eventFilter, date: range === 'custom' && customStart === customEnd ? customStart : null }} onFilterChange={applyAdvancedFilter} /></>}{tab === 'visitors' && <VisitorTable rows={snapshot.visitors} />}{tab === 'campaigns' && <CampaignTable rows={snapshot.campaigns} />}{tab === 'events' && <EventTable rows={snapshot.events} />}</>}</>}
+          </div>
         </section>
       </div>
     </main>
@@ -453,4 +488,47 @@ function EventTable({ rows }: { rows: DashboardEvent[] }) { return <div classNam
 function VisitorTable({ rows }: { rows: any[] }) { return <article className="panel table-panel full"><div className="panel-heading"><div><p className="eyebrow">Anonymous audience</p><h2>Visitors</h2></div></div><div className="data-table"><div className="table-head visitor-head"><span>Visitor</span><span>Location</span><span>Device</span><span>Campaign</span><span>Telegram</span><span>Last visit</span></div>{rows.map((row) => <div className="table-row visitor-row" key={row.visitor_id}><code>{String(row.visitor_id).slice(0, 16)}…</code><span>{countryFlag(row.country)} {row.city || '—'}{row.country ? `, ${row.country}` : ''}</span><span>{row.device_type || '—'}</span><span>{row.utm_campaign || 'Organic'}</span><span className={row.telegram_clicked ? 'positive' : 'muted'}>{row.telegram_clicked ? 'Clicked' : '—'}</span><time>{new Date(row.last_seen).toLocaleString()}</time></div>)}</div></article>; }
 function CampaignTable({ rows, compact = false }: { rows: Campaign[]; compact?: boolean }) { return <article className={`panel table-panel full ${compact ? 'campaign-compact' : ''}`}><div className="panel-heading"><div><p className="eyebrow">UTM attribution</p><h2>Campaign performance</h2></div></div><div className="data-table"><div className="table-head campaign-head"><span>Campaign</span><span>Visitors</span><span>Telegram clicks</span><span>Conversion</span></div>{rows.map((row) => <div className="table-row campaign-row" key={row.name}><span>{row.name}</span><strong>{row.visitors}</strong><span>{row.clicks}</span><span className="positive">{row.conversionRate}%</span></div>)}{!rows.length && <p className="empty-state">No campaign data in this period.</p>}</div></article>; }
 function MetaPanel({ meta }: { meta: Snapshot['meta'] }) { return <div className="settings-grid"><article className="panel status-panel"><p className="eyebrow">Meta Events</p><h2>Browser + server events</h2><p className="muted">Shared event IDs are sent from the Framer Pixel and the Conversions API so Meta can deduplicate them.</p><div className="status-line"><span className="status-dot" /> Browser events: {meta.browserEvents}</div><div className="status-line"><span className="status-dot" /> Server events: {meta.serverEvents} · successful {meta.successful}</div><div className="status-line warning"><span className="status-dot" /> Failed sends: {meta.failed} · last sync {meta.lastSync ? new Date(meta.lastSync).toLocaleString() : '—'}</div></article><article className="panel status-panel"><p className="eyebrow">Event map</p><h2>Conversion signals</h2><p className="muted">PageView and ViewContent build intent. CompleteRegistration marks a verified signup, InitiateCheckout marks the protected order review, Lead is the official Telegram CTA, and Purchase remains backend-only.</p><div className="event-chip-list"><span>PageView</span><span>ViewContent</span><span>CompleteRegistration</span><span>InitiateCheckout</span><span>Lead</span><span>Contact</span><span>Purchase</span></div><p className="muted small">Recent deduplication IDs: {meta.eventIds.length ? meta.eventIds.join(', ') : 'none yet'}</p></article></div>; }
-function SettingsPanel() { return <div className="settings-grid"><article className="panel status-panel"><p className="eyebrow">Installation</p><h2>Framer tracking checklist</h2><ol className="steps"><li>Paste <code>public/framer-tracking.js</code> into Framer Project Settings → Custom Code → End of body.</li><li>Add the Meta Pixel snippet immediately after the tracking script.</li><li>Set the production API base URL and Telegram destination in the snippet config.</li><li>Publish, then verify events in Meta Events Manager → Test events.</li></ol></article><article className="panel status-panel"><p className="eyebrow">Connections</p><h2>System settings</h2><div className="status-line"><span className="status-dot" /> Supabase connection is server-only</div><div className="status-line"><span className="status-dot" /> Telegram redirect is allow-listed</div><div className="status-line"><span className="status-dot" /> Raw IP storage disabled</div><p className="muted small">Data retention: configured with DATA_RETENTION_DAYS. Run the deletion utility on a schedule.</p></article></div>; }
+function SettingsPanel({ admin, theme, queueCount, onThemeChange, onNavigate }: { admin: DashboardProps['admin']; theme: DashboardTheme; queueCount: number | null; onThemeChange: (theme: DashboardTheme) => void; onNavigate: (section: string) => void }) {
+  const roleLabel = admin?.role === 'admin' ? 'Administrator' : 'Analytics viewer';
+  const initial = (admin?.email || 'O').slice(0, 1).toUpperCase();
+  return (
+    <div className="settings-command-grid">
+      <article className="panel settings-command-card settings-command-card--appearance">
+        <div className="settings-command-heading"><span aria-hidden="true"><Palette size={18} /></span><div><p className="eyebrow">Appearance</p><h2>Control center theme</h2></div></div>
+        <p className="muted">Choose the visual mode used on this administrator dashboard. The choice is saved for future visits.</p>
+        <div className="settings-theme-options" role="radiogroup" aria-label="Dashboard color theme">
+          <button type="button" role="radio" aria-checked={theme === 'royal'} className={theme === 'royal' ? 'is-active' : ''} onClick={() => onThemeChange('royal')}><i className="settings-theme-swatch settings-theme-swatch--royal" /><span><strong>Royal black</strong><small>Gold, cyan and emerald signals</small></span></button>
+          <button type="button" role="radio" aria-checked={theme === 'black'} className={theme === 'black' ? 'is-active' : ''} onClick={() => onThemeChange('black')}><i className="settings-theme-swatch settings-theme-swatch--black" /><span><strong>Deep black</strong><small>Cyan focus with reduced gold</small></span></button>
+        </div>
+      </article>
+
+      <article className="panel settings-command-card settings-command-card--account">
+        <div className="settings-command-heading"><span aria-hidden="true"><ShieldCheck size={18} /></span><div><p className="eyebrow">Administrator</p><h2>Account & access</h2></div></div>
+        <div className="settings-account-identity"><span>{initial}</span><div><strong>{admin?.email || 'Orion administrator'}</strong><small>{roleLabel} · protected session</small></div></div>
+        <dl className="settings-facts"><div><dt>Access level</dt><dd>{roleLabel}</dd></div><div><dt>Authentication</dt><dd>Supabase secure sign-in</dd></div></dl>
+        <div className="settings-card-actions"><button type="button" className="glass-button" onClick={() => onNavigate('activity')}>Open audit trail</button><a className="glass-button" href="/forgot-password">Reset password</a></div>
+      </article>
+
+      <article className="panel settings-command-card">
+        <div className="settings-command-heading"><span aria-hidden="true"><Database size={18} /></span><div><p className="eyebrow">Connections</p><h2>Protected configuration</h2></div></div>
+        <div className="settings-health-list"><span><i className="settings-status-indicator" aria-hidden="true" /><b>Database</b><small>Configured server-side</small></span><span><i className="settings-status-indicator" aria-hidden="true" /><b>Telegram redirect</b><small>Allow-list enforced</small></span><span><i className="settings-status-indicator" aria-hidden="true" /><b>Analytics events</b><small>Browser + server delivery</small></span></div>
+      </article>
+
+      <article className="panel settings-command-card">
+        <div className="settings-command-heading"><span aria-hidden="true"><BellRing size={18} /></span><div><p className="eyebrow">Review queue</p><h2>Dashboard attention areas</h2></div></div>
+        <div className="settings-alert-overview"><strong>{queueCount ?? '—'}</strong><span>{queueCount === null ? 'Queue status loads from Overview' : `${queueCount === 1 ? 'open check' : 'open checks'} in the action queue`}</span></div>
+        <div className="settings-chip-row" aria-label="Action queue categories"><span>Registration review</span><span>Payment review</span><span>License expiry</span><span>Suspended accounts</span></div>
+      </article>
+
+      <article className="panel settings-command-card settings-command-card--wide">
+        <div className="settings-command-heading"><span aria-hidden="true"><LockKeyhole size={18} /></span><div><p className="eyebrow">Privacy & security</p><h2>Protected by default</h2></div></div>
+        <div className="settings-protection-grid"><span><ShieldCheck size={17} aria-hidden="true" /><strong>Secrets stay server-side</strong><small>Service credentials are never exposed to the browser.</small></span><span><Database size={17} aria-hidden="true" /><strong>Raw IP storage disabled</strong><small>Visitor reporting uses privacy-conscious location data.</small></span><span><History size={17} aria-hidden="true" /><strong>Operational audit trail</strong><small>Administrative record changes remain reviewable.</small></span></div>
+      </article>
+
+      <details className="panel settings-command-card settings-command-card--wide settings-installation">
+        <summary><span><Settings2 size={17} aria-hidden="true" /></span><div><p className="eyebrow">Website connection</p><h2>Tracking installation checklist</h2><small>Open technical setup details</small></div></summary>
+        <ol className="steps"><li>Keep the Orion tracking script in the website&apos;s end-of-body custom code.</li><li>Load the Meta Pixel immediately after the tracking script.</li><li>Use the production analytics API and approved Telegram destination.</li><li>Verify browser and server events after every website release.</li></ol>
+      </details>
+    </div>
+  );
+}

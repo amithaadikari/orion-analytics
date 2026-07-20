@@ -121,7 +121,11 @@ export function WorldActivityMap({ countries, activeCountry, onSelect }: { count
   return <article className={styles.card}>
     <div className={styles.cardHeading}><div><p>Selected-period geography</p><h3>Visitor world map</h3></div><span>{total.toLocaleString()} visitors</span></div>
     <div className={mapStyles.mapWrap}>
-      <div className={mapStyles.mapLegend} aria-label="Visitor density legend"><span>Visitor density</span><i>Low</i><b aria-hidden="true" /><i>High</i></div>
+      <div className={mapStyles.mapLegend} aria-label="Country colors and visitor intensity legend">
+        <span>Country colors</span>
+        <div className={mapStyles.mapLegendSwatches} aria-hidden="true"><i /><i /><i /><i /><i /><i /></div>
+        <div className={mapStyles.mapLegendScale}><small>Visitor intensity</small><i>Low</i><b aria-hidden="true" /><i>High</i></div>
+      </div>
       <svg className={mapStyles.worldMap} viewBox="0 0 720 340" role="group" aria-label="Interactive world map showing visitors by country">
         <rect x="1" y="1" width="718" height="338" rx="20" className={mapStyles.mapOcean} />
         <path d={WORLD_GRATICULE_PATH} className={mapStyles.mapGrid} />
@@ -131,11 +135,12 @@ export function WorldActivityMap({ countries, activeCountry, onSelect }: { count
           const label = row ? `${countryName(row.name)}: ${row.value.toLocaleString()} ${row.value === 1 ? 'visitor' : 'visitors'}, ${total ? (row.value / total * 100).toFixed(1) : '0'}% of selected traffic` : shape.name;
           const className = row ? selected ? mapStyles.countryShapeSelected : mapStyles.countryShapeActive : mapStyles.countryShape;
           const heat = row ? `${Math.round(24 + row.value / max * 68)}%` : '0%';
+          const palette = mapCountryPalette(shape.code || shape.name);
           return <path
             key={shape.id}
             d={shape.path}
             className={className}
-            style={{ '--country-heat': heat } as CSSProperties}
+            style={{ '--country-heat': heat, '--country-accent': palette.color, '--country-accent-bright': palette.bright } as CSSProperties}
             role={row ? 'button' : undefined}
             tabIndex={row ? 0 : undefined}
             aria-label={row ? label : undefined}
@@ -149,10 +154,12 @@ export function WorldActivityMap({ countries, activeCountry, onSelect }: { count
           const radius = 3.5 + Math.sqrt(market.value / max) * 3.5;
           const interactive = !market.hasShape;
           const label = `${countryName(market.name)}: ${market.value.toLocaleString()} ${market.value === 1 ? 'visitor' : 'visitors'}`;
+          const beaconColor = mapCountryPalette(market.code).color;
           return <g
             key={market.code}
             className={`${index === 0 ? mapStyles.primaryBeacon : mapStyles.marketBeacon} ${interactive ? mapStyles.microBeacon : ''}`.trim()}
             transform={`translate(${market.point[0]} ${market.point[1]})`}
+            style={{ '--beacon-color': beaconColor } as CSSProperties}
             role={interactive ? 'button' : undefined}
             tabIndex={interactive ? 0 : undefined}
             aria-label={interactive ? `${label}, select country filter` : undefined}
@@ -168,7 +175,7 @@ export function WorldActivityMap({ countries, activeCountry, onSelect }: { count
         })}</g>
       </svg>
       <div className={mapStyles.countryRail} role="group" aria-label="Filter analytics by visitor country">
-        {countries.map((row) => <button key={row.name} type="button" aria-pressed={row.name === activeCountry} onClick={() => onSelect(row.name)}><span>{countryFlag(row.name)}</span><strong>{countryName(row.name)}</strong><b>{row.value}</b></button>)}
+        {countries.map((row) => { const palette = mapCountryPalette(countryCode(row.name) || row.name); return <button key={row.name} type="button" aria-pressed={row.name === activeCountry} style={{ '--country-accent': palette.color, '--country-accent-bright': palette.bright } as CSSProperties} onClick={() => onSelect(row.name)}><span>{countryFlag(row.name)}</span><strong>{countryName(row.name)}</strong><b>{row.value}</b></button>; })}
         {!countries.length && <p className={mapStyles.empty}>Country activity will appear here when visitor geography is available.</p>}
       </div>
     </div>
@@ -256,6 +263,22 @@ function formatTime(value?: string | null) { if (!value) return '—'; const dat
 function stageLabel(value: string) { return value.replace(/([a-z])([A-Z])/g, '$1 $2').replace('Registration', 'Reg.'); }
 function activateKey(event: KeyboardEvent<SVGElement>, action: () => void) { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); action(); } }
 function trapDialogFocus(event: KeyboardEvent<HTMLElement>, dialog: HTMLElement | null) { if (event.key !== 'Tab' || !dialog) return; const focusable = Array.from(dialog.querySelectorAll<HTMLElement>('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')); if (!focusable.length) return; const first = focusable[0], last = focusable[focusable.length - 1]; if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); } else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); } }
+
+const MAP_COUNTRY_PALETTES = [
+  { color: '#f6c453', bright: '#ffe39a' },
+  { color: '#42d9ff', bright: '#b9f2ff' },
+  { color: '#39f28a', bright: '#adffd1' },
+  { color: '#a78bfa', bright: '#d8ccff' },
+  { color: '#ff9f43', bright: '#ffd0a3' },
+  { color: '#ff6b81', bright: '#ffb5c0' },
+  { color: '#5b8cff', bright: '#b5c8ff' },
+  { color: '#2dd4bf', bright: '#a8fff3' },
+] as const;
+
+export function mapCountryPalette(identity: string) {
+  const hash = [...identity.toUpperCase()].reduce((value, character) => ((value * 31) + character.charCodeAt(0)) >>> 0, 7);
+  return MAP_COUNTRY_PALETTES[hash % MAP_COUNTRY_PALETTES.length];
+}
 
 type WorldCountryFeature = Feature<Geometry, { name?: string }>;
 type WorldShape = { id: string; name: string; code: string | null; path: string; centroid: [number, number] };

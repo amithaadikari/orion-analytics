@@ -3,7 +3,7 @@
 import React from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { WorldActivityMap } from '@/components/advanced-analytics';
+import { mapCountryPalette, WorldActivityMap } from '@/components/advanced-analytics';
 
 describe('visitor world heat map', () => {
   it('maps real country shapes to visitor data and keeps them keyboard accessible', () => {
@@ -12,9 +12,11 @@ describe('visitor world heat map', () => {
 
     const unitedStates = screen.getByLabelText('United States: 32 visitors, 64.0% of selected traffic');
     expect(unitedStates.getAttribute('d')).toBeTruthy();
+    expect(unitedStates.style.getPropertyValue('--country-accent')).toBe(mapCountryPalette('US').color);
     fireEvent.click(unitedStates);
 
     const sriLanka = screen.getByLabelText('Sri Lanka: 18 visitors, 36.0% of selected traffic');
+    expect(sriLanka.style.getPropertyValue('--country-accent')).not.toBe(unitedStates.style.getPropertyValue('--country-accent'));
     fireEvent.keyDown(sriLanka, { key: 'Enter' });
 
     expect(onSelect).toHaveBeenNthCalledWith(1, 'US');
@@ -29,5 +31,10 @@ describe('visitor world heat map', () => {
     fireEvent.keyDown(singapore, { key: ' ' });
 
     expect(onSelect).toHaveBeenCalledWith('SG');
+  });
+
+  it('assigns a stable premium color to each country identity', () => {
+    expect(mapCountryPalette('US')).toEqual(mapCountryPalette('US'));
+    expect(mapCountryPalette('US')).not.toEqual(mapCountryPalette('LK'));
   });
 });
