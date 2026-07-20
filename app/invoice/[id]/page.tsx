@@ -18,7 +18,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
   const db = createSupabaseAdminClient();
   let query = db.from('client_payments')
-    .select('id,client_id,license_id,receipt_number,plan,method,status,amount,currency,payment_date,reference_id,created_at,clients(full_name,email,country),licenses(license_key,platform,account_number)')
+    .select('id,client_id,license_id,receipt_number,plan,method,status,amount,currency,payment_date,reference_id,created_at,license_key_snapshot,license_platform_snapshot,account_number_snapshot,broker_server_snapshot,account_snapshot_captured_at,clients(full_name,email,country),licenses(license_key,platform,account_number)')
     .eq('id', parsedId.data);
   if (!session.admin && session.client) query = query.eq('client_id', session.client.id);
   const { data: payment, error } = await query.maybeSingle();
@@ -26,6 +26,12 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
   const customer = relation(payment.clients);
   const license = relation(payment.licenses);
+  const licenseIdentity = payment.account_snapshot_captured_at ? {
+    key: payment.license_key_snapshot || null,
+    platform: payment.license_platform_snapshot || null,
+    accountNumber: payment.account_number_snapshot || null,
+    brokerServer: payment.broker_server_snapshot || null,
+  } : license ? { key: license.license_key || null, platform: license.platform || null, accountNumber: license.account_number || null, brokerServer: null } : null;
   const settled = ['Paid', 'Manually verified'].includes(payment.status);
   const reference = payment.reference_id || payment.receipt_number || payment.id;
 
@@ -55,7 +61,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         <section className="invoice-items" aria-label="Invoice items">
           <div className="invoice-item-head"><span>Description</span><span>Access</span><span>Amount</span></div>
           <div className="invoice-item">
-            <div><strong>Orion {payment.plan} plan</strong><p>{license ? `${license.platform} license · Account ${license.account_number || 'not assigned'}` : 'License assignment recorded separately'}</p>{license?.license_key && <code>{maskedLicenseKey(license.license_key)}</code>}</div>
+            <div><strong>Orion {payment.plan} plan</strong><p>{licenseIdentity ? `${licenseIdentity.platform || 'Orion'} license · Account ${licenseIdentity.accountNumber || 'not assigned'}${licenseIdentity.brokerServer ? ` · ${licenseIdentity.brokerServer}` : ''}` : 'License assignment recorded separately'}</p>{licenseIdentity?.key && <code>{maskedLicenseKey(licenseIdentity.key)}</code>}</div>
             <span>{payment.plan}</span>
             <strong>{money(Number(payment.amount), payment.currency)}</strong>
           </div>

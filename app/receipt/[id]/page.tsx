@@ -18,7 +18,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   const db = createSupabaseAdminClient();
   let query = db.from('client_payments')
-    .select('id,client_id,license_id,receipt_number,plan,method,status,amount,currency,payment_date,reference_id,created_at,clients(full_name,email,country),licenses(license_key,platform,account_number)')
+    .select('id,client_id,license_id,receipt_number,plan,method,status,amount,currency,payment_date,reference_id,created_at,license_key_snapshot,license_platform_snapshot,account_number_snapshot,broker_server_snapshot,account_snapshot_captured_at,clients(full_name,email,country),licenses(license_key,platform,account_number)')
     .eq('id', parsedId.data);
   if (!session.admin && session.client) query = query.eq('client_id', session.client.id);
   const { data: payment, error } = await query.maybeSingle();
@@ -26,6 +26,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   const customer = relation(payment.clients);
   const license = relation(payment.licenses);
+  const licenseIdentity = payment.account_snapshot_captured_at ? {
+    key: payment.license_key_snapshot || null,
+    platform: payment.license_platform_snapshot || null,
+    accountNumber: payment.account_number_snapshot || null,
+    brokerServer: payment.broker_server_snapshot || null,
+  } : license ? { key: license.license_key || null, platform: license.platform || null, accountNumber: license.account_number || null, brokerServer: null } : null;
 
   return (
     <main className="receipt-page">
@@ -44,7 +50,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           <div><small>PAYMENT DETAILS</small><p>Method: <b>{payment.method}</b><br />Reference: <b>{payment.reference_id || '—'}</b></p></div>
         </section>
         <div className="receipt-line">
-          <div><small>DESCRIPTION</small><strong>Orion {payment.plan} plan</strong>{license && <p>{license.platform} · Account {license.account_number || 'Not assigned'}<br /><code>{maskedLicenseKey(license.license_key)}</code></p>}</div>
+          <div><small>DESCRIPTION</small><strong>Orion {payment.plan} plan</strong>{licenseIdentity && <p>{licenseIdentity.platform || 'Orion'} · Account {licenseIdentity.accountNumber || 'Not assigned'}{licenseIdentity.brokerServer ? ` · ${licenseIdentity.brokerServer}` : ''}<br /><code>{maskedLicenseKey(licenseIdentity.key || undefined)}</code></p>}</div>
           <strong>{money(Number(payment.amount), payment.currency)}</strong>
         </div>
         <footer><div><span>Total paid</span><strong>{money(Number(payment.amount), payment.currency)}</strong></div><p>Thank you for choosing Orion Scalper. This computer-generated receipt confirms the payment recorded in your Orion account.</p></footer>

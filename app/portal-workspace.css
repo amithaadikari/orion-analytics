@@ -1269,7 +1269,7 @@
     linear-gradient(150deg, var(--portal-panel), var(--portal-panel-strong));
 }
 
-.portal-workspace-shell :is(#overview, #profile, #setup, #licenses, #downloads, #payments, #notifications, #support) {
+.portal-workspace-shell :is(#overview, #profile, #setup, #trading-accounts, #licenses, #downloads, #payments, #notifications, #support) {
   scroll-margin-top: 96px;
 }
 
@@ -1413,7 +1413,7 @@
     margin: 0 auto;
   }
 
-  .portal-workspace-shell :is(#overview, #profile, #setup, #licenses, #downloads, #payments, #notifications, #support) {
+  .portal-workspace-shell :is(#overview, #profile, #setup, #trading-accounts, #licenses, #downloads, #payments, #notifications, #support) {
     scroll-margin-top: 142px;
   }
 }

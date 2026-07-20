@@ -9,6 +9,7 @@ import ClientServiceCenter from '@/components/client-service-center';
 import PortalWorkspaceShell from '@/components/portal-workspace-shell';
 import RegistrationTracker from '@/components/registration-tracker';
 import SoftwareAccessHub from '@/components/software-access-hub';
+import TradingAccountCenter from '@/components/trading-account-center';
 import { countryFlag } from '@/lib/country';
 import { checkoutSelectionPath, normalizePlan, plans } from '@/lib/plans';
 import { normalizePortalTheme, portalThemeCookie } from '@/lib/portal-theme';
@@ -112,6 +113,8 @@ export default async function PortalPage() {
         <PortalWorkspaceSection title="Setup & activation" eyebrow="Your next step" marker="01" anchorId="setup" description="Follow your real account progress and jump directly to the action you need.">
           <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} releases={releases} downloads={downloads || []} recordsAvailable={activationDataAvailable} downloadHistoryAvailable={!downloadsError} planSelectionPath={planSelectionPath} showHeading={false} />
         </PortalWorkspaceSection>
+
+        <TradingAccountCenter />
 
         <SoftwareAccessHub client={{ plan: client.plan, status: client.status }} licenses={licenses || []} releases={releases} downloadActivity={downloadHistory || []} recordsAvailable={!licensesError && !releasesError} activityAvailable={!downloadHistoryError} currentReleaseRequested={Boolean(downloads?.length)} currentReleaseRequestAvailable={!downloadsError} />
 

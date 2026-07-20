@@ -31,7 +31,7 @@ export async function requireClient(nextPath = '/portal') {
   if (!user) redirect(`/client-login?next=${encodeURIComponent(next)}`);
   const assurance = await getAuthAssurance(supabase, user);
   if (assurance.requiresChallenge) redirect(`/mfa?next=${encodeURIComponent(next)}`);
-  const { data: client } = await supabase.from('clients').select('id,full_name,email,telegram_username,phone,country,plan,status,created_at').eq('auth_user_id', user.id).maybeSingle();
+  const { data: client } = await supabase.from('clients').select('id,full_name,email,telegram_username,phone,country,plan,status,created_at,membership_tier,membership_status,membership_started_at,membership_expires_at').eq('auth_user_id', user.id).maybeSingle();
   if (!client) redirect('/client-login?error=not-linked');
   return { supabase, user, client };
 }

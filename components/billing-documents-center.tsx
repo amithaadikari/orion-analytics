@@ -89,7 +89,7 @@ export default function BillingDocumentsCenter({ client, payments, licenses, pay
           <span>See your current access period, payment status, invoices, and receipts issued for completed payments without searching through long tables.</span>
         </div>
         <div className={styles.securityBadge}><ShieldCheck size={16} aria-hidden="true" /><span><small>Private records</small><strong>Account protected</strong></span></div>
-        <strong className={styles.marker} aria-hidden="true">03</strong>
+        <strong className={styles.marker} aria-hidden="true">04</strong>
       </header>
 
       <div className={styles.summaryGrid}>

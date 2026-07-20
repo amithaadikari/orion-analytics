@@ -10,8 +10,8 @@ const clientSchema = z.object({
   telegram_username: z.string().trim().max(80).optional(), phone: z.string().trim().max(40).optional(), country: z.string().trim().max(80).optional(),
   auth_user_id: z.preprocess((value) => value === '' ? null : value, z.string().uuid().nullable().optional()),
   plan: z.enum(['Free', 'Basic', 'Premium', 'Lifetime']), status: z.enum(['Pending', 'Active', 'Expired', 'Suspended']), notes: z.string().trim().max(2000).optional()
-});
-const licenseSchema = z.object({ client_id: z.string().uuid(), license_key: z.string().trim().min(8).max(120).optional(), platform: z.enum(['MT4', 'MT5']), account_number: z.string().trim().max(80).optional(), plan: z.enum(['Basic', 'Premium', 'Lifetime']), status: z.enum(['Active', 'Expired', 'Suspended']), expires_at: z.string().nullable().optional() });
+}).strict();
+const licenseSchema = z.object({ client_id: z.string().uuid(), license_key: z.string().trim().min(8).max(120).optional(), platform: z.enum(['MT4', 'MT5']), plan: z.enum(['Basic', 'Premium', 'Lifetime']), status: z.enum(['Active', 'Expired', 'Suspended']), expires_at: z.string().nullable().optional() }).strict();
 const optionalUuid = z.preprocess((value) => value === '' ? null : value, z.string().uuid().nullable().optional());
 const paymentBaseSchema = z.object({ client_id: z.string().uuid(), license_id: optionalUuid, plan: z.enum(['Basic','Premium','Lifetime']), method: z.enum(['Crypto','Bank Transfer','Card','PayPal','Wise','Skrill','Cash','Other']), status: z.enum(['Pending','Paid','Failed','Refunded','Disputed','Manually verified']), amount: z.coerce.number().min(0).max(100000000), currency: z.string().trim().length(3).transform((value) => value.toUpperCase()), payment_date: z.string().nullable().optional(), reference_id: z.string().trim().max(160).optional(), notes: z.string().trim().max(1000).optional() });
 const paymentSchema = paymentBaseSchema.superRefine((payment, context) => {
@@ -98,7 +98,21 @@ export async function PATCH(request: Request) {
     const linkError = await validatePaymentLink(db, complete.data);
     if (linkError) return jsonError(linkError);
   }
-  const payload = normalizeLicenseStatus(resource, clean(parsed.data));
+  let payload = normalizeLicenseStatus(resource, clean(parsed.data));
+  if (resource === 'license') {
+    const { data: currentLicense, error: currentLicenseError } = await db.from('licenses').select('client_id,platform,trading_account_id,account_number').eq('id', body.id).single();
+    if (currentLicenseError || !currentLicense) return jsonError('License not found', 404);
+    const requested = payload as { client_id?: string; platform?: string };
+    const nextClientId = requested.client_id || currentLicense.client_id;
+    const nextPlatform = requested.platform || currentLicense.platform;
+    if (nextClientId !== currentLicense.client_id || nextPlatform !== currentLicense.platform) {
+      try {
+        payload = await withActiveTradingAccount(db, payload, nextClientId, nextPlatform, Boolean(currentLicense.trading_account_id || currentLicense.account_number));
+      } catch (error) {
+        return jsonError(error instanceof Error ? error.message : 'Unable to verify the registered trading account', 409);
+      }
+    }
+  }
   const { data, error } = await db.from(tables[resource]).update(payload).eq('id', body.id).select('*').single(); if (error) return jsonError(error.message, 400);
   const clientId = resource === 'client' ? data.id : data.client_id; await db.from('client_activity').insert({ client_id: clientId, action: `${resource[0].toUpperCase()}${resource.slice(1)} updated`, details: describe(resource, data), actor_email: auth.admin!.email });
   if (resource === 'payment') await sendPaymentReceipt(data).catch(() => undefined);
@@ -142,16 +156,30 @@ async function prepareNewLicense(db: ReturnType<typeof createSupabaseAdminClient
   if (supplied) {
     const version = licenseKeyVersion(supplied);
     if (!version) throw new Error('License key must use the legacy ORI format or the new ORN-XXXX-XXXX-XXXX-XXXX format');
-    return { ...value, license_key: supplied, key_version: version, key_hash: hashLicenseKey(supplied) };
+    return withActiveTradingAccount(db, { ...value, license_key: supplied, key_version: version, key_hash: hashLicenseKey(supplied) }, String(value.client_id || ''), String(value.platform || ''));
   }
 
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const licenseKey = generateLicenseKey();
     const { data, error } = await db.from('licenses').select('id').eq('license_key', licenseKey).maybeSingle();
     if (error) throw new Error('Unable to verify license-key uniqueness');
-    if (!data) return { ...value, license_key: licenseKey, key_version: 'v2', key_hash: hashLicenseKey(licenseKey) };
+    if (!data) return withActiveTradingAccount(db, { ...value, license_key: licenseKey, key_version: 'v2', key_hash: hashLicenseKey(licenseKey) }, String(value.client_id || ''), String(value.platform || ''));
   }
   throw new Error('Unable to generate a unique license key');
+}
+
+async function withActiveTradingAccount(db: ReturnType<typeof createSupabaseAdminClient>, value: Record<string, unknown>, clientId: string, platform: string, requireActiveAccount = false) {
+  const { data, error } = await db.from('client_trading_accounts')
+    .select('id,account_number')
+    .eq('client_id', clientId)
+    .eq('account_type', 'Real')
+    .eq('status', 'Active')
+    .not('verified_at', 'is', null)
+    .eq('platform', platform)
+    .maybeSingle();
+  if (error) throw new Error('Unable to verify the registered trading account');
+  if (requireActiveAccount && !data) throw new Error('A bound license can only move to a client and platform with an active registered real account');
+  return { ...value, trading_account_id: data?.id || null, account_number: data?.account_number || null };
 }
 
 async function validatePaymentLink(db: ReturnType<typeof createSupabaseAdminClient>, payment: { client_id?: string; license_id?: string | null; plan?: string }) {

@@ -124,7 +124,7 @@ export default function SoftwareAccessHub({ client, licenses, releases, download
           <StatusIcon tone={hubState.tone} />
           <span><small>Current status</small><strong>{hubState.label}</strong></span>
         </div>
-        <strong className={styles.marker} aria-hidden="true">02</strong>
+        <strong className={styles.marker} aria-hidden="true">03</strong>
       </header>
 
       <div className={styles.accessGrid}>
