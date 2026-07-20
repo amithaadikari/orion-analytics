@@ -28,9 +28,9 @@
   position: relative;
   isolation: isolate;
   display: flex;
-  min-height: 166px;
-  padding: clamp(24px, 4vw, 42px);
-  align-items: flex-end;
+  min-height: 104px;
+  padding: clamp(19px, 2.4vw, 27px);
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
   overflow: hidden;
@@ -76,15 +76,15 @@
 
 .header h2 {
   margin: 0;
-  font-size: clamp(30px, 5vw, 52px);
-  line-height: .98;
-  letter-spacing: -.055em;
+  font-size: clamp(22px, 2.3vw, 29px);
+  line-height: 1.05;
+  letter-spacing: -.045em;
 }
 
 .header > div > span,
 .sectionNote {
   color: var(--muted);
-  font-size: 12px;
+  font-size: 10px;
   line-height: 1.65;
 }
 
@@ -907,7 +907,7 @@
 }
 
 @media (max-width: 760px) {
-  .header { min-height: 190px; align-items: flex-start; flex-direction: column; }
+  .header { min-height: 0; align-items: flex-start; flex-direction: column; }
   .header button { align-self: stretch; justify-content: center; }
   .exceptionKpis,
   .loadingGrid { grid-template-columns: 1fr; }

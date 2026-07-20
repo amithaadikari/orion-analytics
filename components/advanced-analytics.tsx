@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { countryCode, countryFlag, countryName } from '@/lib/country';
 import styles from './advanced-analytics.module.css';
+import mapStyles from './advanced-analytics-map.module.css';
 
 type Breakdown = { name: string; value: number };
 type Campaign = { name: string; visitors: number; clicks: number; conversionRate: number };
@@ -100,26 +102,27 @@ export function AdvancedAnalytics({ snapshot, activeFilters = {}, onFilterChange
 export function WorldActivityMap({ countries, activeCountry, onSelect }: { countries: Breakdown[]; activeCountry?: string | null; onSelect: (country: string) => void }) {
   const max = Math.max(1, ...countries.map((row) => row.value));
   const located = countries.map((row) => ({ ...row, point: countryPoint(row.name) })).filter((row) => row.point) as (Breakdown & { point: [number, number] })[];
-  const unlocated = countries.filter((row) => !countryPoint(row.name));
   return <article className={styles.card}>
-    <div className={styles.cardHeading}><div><p>Live geography</p><h3>Visitor world map</h3></div><span>{countries.reduce((total, row) => total + row.value, 0).toLocaleString()} visitors</span></div>
-    <div className={styles.mapWrap}>
-      <svg className={styles.worldMap} viewBox="0 0 720 340" role="img" aria-label="Interactive equirectangular visitor location map">
-        <rect x="1" y="1" width="718" height="338" rx="20" className={styles.mapOcean} />
-        {[-120, -60, 0, 60, 120].map((longitude) => <line key={`lon-${longitude}`} x1={project(longitude, 0)[0]} x2={project(longitude, 0)[0]} y1="14" y2="326" className={styles.graticule} />)}
-        {[-60, -30, 0, 30, 60].map((latitude) => <line key={`lat-${latitude}`} x1="14" x2="706" y1={project(0, latitude)[1]} y2={project(0, latitude)[1]} className={styles.graticule} />)}
-        {located.map((country) => {
+    <div className={styles.cardHeading}><div><p>Selected-period geography</p><h3>Visitor world map</h3></div><span>{countries.reduce((total, row) => total + row.value, 0).toLocaleString()} visitors</span></div>
+    <div className={mapStyles.mapWrap}>
+      <svg className={mapStyles.worldMap} viewBox="0 0 720 340" aria-hidden="true" focusable="false">
+        <rect x="1" y="1" width="718" height="338" rx="20" className={mapStyles.mapOcean} />
+        <g className={mapStyles.dotMatrix}>{WORLD_DOTS.map((dot) => <circle key={dot.key} cx={dot.x} cy={dot.y} r="1.8" className={`${mapStyles.landDot} ${mapStyles[`landDot${dot.region}`]}`} style={{ '--dot-delay': `${dot.delay}s` } as CSSProperties} />)}</g>
+        {located.map((country, index) => {
           const [x, y] = project(country.point[1], country.point[0]);
-          const radius = 5 + Math.sqrt(country.value / max) * 13;
+          const radius = 4 + Math.sqrt(country.value / max) * 8;
           const selected = country.name === activeCountry;
-          return <g key={country.name} className={selected ? styles.mapPointActive : styles.mapPoint} role="button" tabIndex={0} aria-label={`${country.name}: ${country.value} visitors`} onClick={() => onSelect(country.name)} onKeyDown={(event) => activateKey(event, () => onSelect(country.name))}>
-            <circle cx={x} cy={y} r={radius + 7} className={styles.mapPulse} />
-            <circle cx={x} cy={y} r={radius} className={styles.mapBubble} />
-            <text x={x} y={y - radius - 7} textAnchor="middle">{country.name}</text>
+          return <g key={country.name} className={selected ? mapStyles.mapPointActive : mapStyles.mapPoint} onClick={() => onSelect(country.name)}>
+            <circle cx={x} cy={y} r={radius + 7} className={mapStyles.mapPulse} />
+            <circle cx={x} cy={y} r={radius} className={mapStyles.mapBubble} />
+            {(selected || index < 4) && <text x={x} y={y - radius - 7} textAnchor="middle">{countryCode(country.name) || country.name}</text>}
           </g>;
         })}
       </svg>
-      {unlocated.length > 0 && <div className={styles.unlocated}>{unlocated.slice(0, 8).map((row) => <button key={row.name} type="button" onClick={() => onSelect(row.name)}>{row.name}<b>{row.value}</b></button>)}</div>}
+      <div className={mapStyles.countryRail} role="group" aria-label="Filter analytics by visitor country">
+        {countries.map((row) => <button key={row.name} type="button" aria-pressed={row.name === activeCountry} onClick={() => onSelect(row.name)}><span>{countryFlag(row.name)}</span><strong>{countryName(row.name)}</strong><b>{row.value}</b></button>)}
+        {!countries.length && <p className={mapStyles.empty}>Country activity will appear here when visitor geography is available.</p>}
+      </div>
     </div>
   </article>;
 }
@@ -208,11 +211,51 @@ function trapDialogFocus(event: KeyboardEvent<HTMLElement>, dialog: HTMLElement 
 function project(longitude: number, latitude: number): [number, number] { return [14 + (longitude + 180) / 360 * 692, 14 + (90 - latitude) / 180 * 312]; }
 
 const CENTROIDS: Record<string, [number, number]> = {
-  'United States': [39.8, -98.6], USA: [39.8, -98.6], Canada: [56.1, -106.3], Mexico: [23.6, -102.5], Brazil: [-10.8, -52.9], Argentina: [-38.4, -63.6], Chile: [-33.4, -70.7], Colombia: [4.6, -74.1], Peru: [-9.2, -75], Venezuela: [6.4, -66.6],
-  'United Kingdom': [55.4, -3.4], UK: [55.4, -3.4], Ireland: [53.1, -8], France: [46.2, 2.2], Spain: [40.5, -3.7], Portugal: [39.4, -8.2], Germany: [51.2, 10.4], Italy: [42.8, 12.8], Netherlands: [52.1, 5.3], Belgium: [50.5, 4.5], Switzerland: [46.8, 8.2], Austria: [47.5, 14.6], Poland: [51.9, 19.1], Sweden: [60.1, 18.6], Norway: [60.5, 8.5], Finland: [61.9, 25.7], Denmark: [56.3, 9.5], Greece: [39.1, 21.8], Romania: [45.9, 24.9], Ukraine: [48.4, 31.2], Russia: [61.5, 105.3],
-  Turkey: [39, 35.2], Israel: [31, 34.9], 'Saudi Arabia': [23.9, 45.1], UAE: [23.4, 53.8], 'United Arab Emirates': [23.4, 53.8], Egypt: [26.8, 30.8], Morocco: [31.8, -7.1], Nigeria: [9.1, 8.7], Kenya: [-0.02, 37.9], Tanzania: [-6.4, 34.9], Ghana: [7.9, -1], 'South Africa': [-30.6, 22.9],
-  India: [20.6, 79], Pakistan: [30.4, 69.3], Bangladesh: [23.7, 90.4], 'Sri Lanka': [7.9, 80.8], Nepal: [28.4, 84.1], China: [35.9, 104.2], Japan: [36.2, 138.3], 'South Korea': [36.5, 127.9], Korea: [36.5, 127.9], Indonesia: [-0.8, 113.9], Malaysia: [4.2, 101.98], Singapore: [1.35, 103.8], Thailand: [15.9, 100.99], Vietnam: [14.1, 108.3], Philippines: [12.9, 121.8], Australia: [-25.3, 133.8], 'New Zealand': [-40.9, 174.9],
+  US: [39.8, -98.6], CA: [56.1, -106.3], MX: [23.6, -102.5], BR: [-10.8, -52.9], AR: [-38.4, -63.6], CL: [-33.4, -70.7], CO: [4.6, -74.1], PE: [-9.2, -75], VE: [6.4, -66.6], EC: [-1.4, -78.4],
+  GB: [55.4, -3.4], IE: [53.1, -8], FR: [46.2, 2.2], ES: [40.5, -3.7], PT: [39.4, -8.2], DE: [51.2, 10.4], IT: [42.8, 12.8], NL: [52.1, 5.3], BE: [50.5, 4.5], CH: [46.8, 8.2], AT: [47.5, 14.6], PL: [51.9, 19.1], SE: [60.1, 18.6], NO: [60.5, 8.5], FI: [61.9, 25.7], DK: [56.3, 9.5], GR: [39.1, 21.8], RO: [45.9, 24.9], UA: [48.4, 31.2], RU: [61.5, 105.3], AZ: [40.1, 47.6],
+  TR: [39, 35.2], IL: [31, 34.9], SA: [23.9, 45.1], AE: [23.4, 53.8], EG: [26.8, 30.8], MA: [31.8, -7.1], NG: [9.1, 8.7], KE: [-0.02, 37.9], TZ: [-6.4, 34.9], GH: [7.9, -1], ZA: [-30.6, 22.9], QA: [25.3, 51.2], KW: [29.3, 47.5], OM: [20.6, 56.1],
+  IN: [20.6, 79], PK: [30.4, 69.3], BD: [23.7, 90.4], LK: [7.9, 80.8], NP: [28.4, 84.1], CN: [35.9, 104.2], JP: [36.2, 138.3], KR: [36.5, 127.9], ID: [-0.8, 113.9], MY: [4.2, 101.98], SG: [1.35, 103.8], TH: [15.9, 100.99], VN: [14.1, 108.3], PH: [12.9, 121.8], AU: [-25.3, 133.8], NZ: [-40.9, 174.9],
 };
-function countryPoint(country: string) { return CENTROIDS[country] || null; }
+function countryPoint(country: string) { const code = countryCode(country); return code ? CENTROIDS[code] || null : null; }
+
+type LandRegionName = 'NorthAmerica' | 'SouthAmerica' | 'Europe' | 'Africa' | 'Asia' | 'Oceania';
+type LandRegion = { name: LandRegionName; polygons: [number, number][][] };
+
+const LAND_REGIONS: LandRegion[] = [
+  { name: 'NorthAmerica', polygons: [
+    [[-168, 72], [-140, 73], [-118, 56], [-103, 50], [-83, 47], [-55, 54], [-52, 40], [-74, 20], [-98, 15], [-118, 30], [-130, 52], [-154, 60]],
+    [[-72, 81], [-18, 81], [-18, 61], [-48, 58], [-67, 67]],
+  ] },
+  { name: 'SouthAmerica', polygons: [[[-81, 13], [-58, 10], [-35, -6], [-47, -28], [-55, -55], [-69, -51], [-76, -23]]] },
+  { name: 'Europe', polygons: [[[-12, 36], [-10, 58], [4, 71], [30, 70], [43, 56], [35, 41], [18, 35]]] },
+  { name: 'Africa', polygons: [[[-18, 36], [31, 37], [51, 12], [40, -35], [16, -36], [-9, 5]]] },
+  { name: 'Asia', polygons: [[[30, 72], [176, 70], [166, 53], [146, 40], [129, 20], [114, -10], [91, 7], [66, 21], [51, 39], [36, 49]]] },
+  { name: 'Oceania', polygons: [[[110, -10], [155, -10], [154, -41], [114, -43]], [[165, -34], [180, -34], [180, -48], [168, -48]]] },
+];
+
+const WORLD_DOTS = (() => {
+  const dots: { key: string; x: number; y: number; region: LandRegionName; delay: number }[] = [];
+  for (let latitude = 78; latitude >= -54; latitude -= 6) {
+    for (let longitude = -174; longitude <= 174; longitude += 6) {
+      const region = LAND_REGIONS.find((candidate) => candidate.polygons.some((polygon) => pointInPolygon(longitude, latitude, polygon)));
+      if (!region) continue;
+      const [x, y] = project(longitude, latitude);
+      dots.push({ key: `${longitude}:${latitude}`, x, y, region: region.name, delay: (dots.length % 13) * .06 });
+    }
+  }
+  return dots;
+})();
+
+function pointInPolygon(longitude: number, latitude: number, polygon: [number, number][]) {
+  let inside = false;
+  for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current++) {
+    const [currentLongitude, currentLatitude] = polygon[current];
+    const [previousLongitude, previousLatitude] = polygon[previous];
+    const crosses = (currentLatitude > latitude) !== (previousLatitude > latitude)
+      && longitude < (previousLongitude - currentLongitude) * (latitude - currentLatitude) / (previousLatitude - currentLatitude) + currentLongitude;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
 
 export default AdvancedAnalytics;

@@ -1,0 +1,169 @@
+.mapWrap {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.worldMap {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 340px;
+  overflow: visible;
+}
+
+.mapOcean {
+  fill: rgba(1, 6, 9, .96);
+  stroke: rgba(66, 217, 255, .13);
+  stroke-width: 1;
+}
+
+.dotMatrix {
+  filter: drop-shadow(0 0 4px rgba(66, 217, 255, .08));
+}
+
+.landDot {
+  opacity: .48;
+  animation: matrixSignal 5.2s ease-in-out infinite;
+  animation-delay: var(--dot-delay);
+}
+
+.landDotNorthAmerica { fill: #42d9ff; }
+.landDotSouthAmerica { fill: #39f28a; }
+.landDotEurope { fill: #f6c453; }
+.landDotAfrica { fill: #ff9f43; }
+.landDotAsia { fill: #a78bfa; }
+.landDotOceania { fill: #68d8ff; }
+
+.mapPoint,
+.mapPointActive {
+  cursor: pointer;
+}
+
+.mapBubble {
+  fill: #fff;
+  stroke: #42d9ff;
+  stroke-width: 2;
+  transition: transform .2s ease, fill .2s ease, stroke .2s ease;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.mapPulse {
+  fill: rgba(66, 217, 255, .1);
+  stroke: rgba(66, 217, 255, .28);
+  animation: mapPulse 2.7s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.mapPoint text,
+.mapPointActive text {
+  fill: #dbe7ea;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+  paint-order: stroke;
+  stroke: #010507;
+  stroke-width: 4px;
+}
+
+.mapPoint:hover .mapBubble,
+.mapPointActive .mapBubble {
+  fill: #f6c453;
+  stroke: #ffe39a;
+  transform: scale(1.12);
+}
+
+.mapPointActive .mapPulse {
+  fill: rgba(246, 196, 83, .18);
+  stroke: rgba(246, 196, 83, .5);
+}
+
+.countryRail {
+  display: grid;
+  max-height: 154px;
+  padding-right: 3px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-color: rgba(66, 217, 255, .24) transparent;
+}
+
+.countryRail button {
+  display: grid;
+  min-width: 0;
+  min-height: 42px;
+  padding: 7px 9px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  color: #aeb9bc;
+  border: 1px solid rgba(255, 255, 255, .065);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .018);
+  text-align: left;
+}
+
+.countryRail button:hover,
+.countryRail button[aria-pressed="true"] {
+  color: #fff;
+  border-color: rgba(66, 217, 255, .28);
+  background: rgba(66, 217, 255, .045);
+}
+
+.countryRail button:focus-visible {
+  outline: 2px solid #f6c453;
+  outline-offset: 2px;
+}
+
+.countryRail span {
+  font-size: 15px;
+}
+
+.countryRail strong {
+  overflow: hidden;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.countryRail b {
+  color: #42d9ff;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 9px;
+}
+
+.empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 14px;
+  color: #71807f;
+  border: 1px dashed rgba(255, 255, 255, .08);
+  border-radius: 9px;
+  font-size: 9px;
+}
+
+@keyframes matrixSignal {
+  0%, 100% { opacity: .34; }
+  50% { opacity: .74; }
+}
+
+@keyframes mapPulse {
+  50% { opacity: .32; transform: scale(1.28); }
+}
+
+@media (max-width: 720px) {
+  .countryRail { max-height: 218px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .landDot { opacity: .56; }
+  .mapPoint text,
+  .mapPointActive text { font-size: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landDot,
+  .mapPulse { animation: none; }
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { type CSSProperties, type FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { formatMoneyWithCode as formatAmount } from '@/lib/money';
 import { buildRenewalCalendar, type RevenueIntelligenceSnapshot } from '@/lib/revenue-intelligence';
 import styles from './revenue-intelligence.module.css';
 
@@ -264,11 +265,6 @@ function RevenueLoading() {
 
 function barHeight(value: number, maximum: number): BarStyle {
   return { '--trend-height': `${Math.max(value ? 8 : 0, value / maximum * 100)}%` };
-}
-
-function formatAmount(amount: number, currency: string) {
-  const number = new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(amount);
-  return `${currency} ${number}`;
 }
 
 function formatPercent(value: number) {

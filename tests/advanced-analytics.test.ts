@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { buildCountryDeviceHeatmap, buildDailyConversionHeatmap } from '@/lib/advanced-analytics';
+import { countryCode, countryName } from '@/lib/country';
 
 describe('advanced analytics aggregations', () => {
+  it('normalizes stored ISO country codes for map placement and display', () => {
+    expect(countryCode('LK')).toBe('LK');
+    expect(countryCode('Sri Lanka')).toBe('LK');
+    expect(countryName('US')).toBe('United States');
+  });
+
   it('builds country by device counts without mixing unknown values', () => {
     expect(buildCountryDeviceHeatmap([
       { visitor_id: 'v_12345678', country: 'Sri Lanka', device_type: 'Mobile' },

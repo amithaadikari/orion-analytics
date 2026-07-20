@@ -5,6 +5,17 @@
   color: #f7f7fb;
 }
 
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .header {
   display: flex;
   align-items: flex-end;
@@ -42,8 +53,8 @@
 .currencyPicker {
   display: grid;
   gap: 7px;
-  min-width: 180px;
-  justify-items: end;
+  min-width: 120px;
+  justify-items: start;
 }
 
 .currencyPicker small {
@@ -56,7 +67,7 @@
 
 .currencyPicker > div {
   display: flex;
-  max-width: min(420px, 60vw);
+  max-width: min(320px, 50vw);
   gap: 5px;
   padding: 4px;
   overflow-x: auto;
@@ -81,13 +92,13 @@
 
 .currencyPicker button:hover {
   color: #dcd8ef;
-  background: rgba(167, 139, 250, .07);
+  background: rgba(246, 196, 83, .07);
 }
 
 .currencyPicker button[aria-pressed="true"] {
-  color: #f7f4ff;
-  background: linear-gradient(145deg, rgba(167, 139, 250, .2), rgba(104, 216, 255, .08));
-  box-shadow: inset 0 0 0 1px rgba(190, 173, 255, .26), 0 8px 24px rgba(77, 57, 160, .13);
+  color: #fff8df;
+  background: linear-gradient(145deg, rgba(246, 196, 83, .18), rgba(104, 216, 255, .065));
+  box-shadow: inset 0 0 0 1px rgba(246, 196, 83, .27), 0 8px 24px rgba(161, 112, 20, .11);
 }
 
 .controlBar {
@@ -138,9 +149,9 @@
 .rangeControl button:hover,
 .rangeControl button[aria-pressed="true"] {
   color: #fff;
-  border-color: rgba(167, 139, 250, .28);
-  background: linear-gradient(145deg, rgba(167, 139, 250, .17), rgba(104, 216, 255, .055));
-  box-shadow: 0 8px 22px rgba(74, 56, 145, .1);
+  border-color: rgba(66, 217, 255, .28);
+  background: linear-gradient(145deg, rgba(66, 217, 255, .14), rgba(57, 242, 138, .05));
+  box-shadow: 0 8px 22px rgba(31, 125, 153, .1);
 }
 
 .customDates {
@@ -169,8 +180,8 @@
 }
 
 .customDates input:focus {
-  border-color: rgba(167, 139, 250, .52);
-  box-shadow: 0 0 0 3px rgba(167, 139, 250, .08);
+  border-color: rgba(66, 217, 255, .52);
+  box-shadow: 0 0 0 3px rgba(66, 217, 255, .08);
 }
 
 .customDates > i {
@@ -248,10 +259,11 @@
 
 .signalGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
 }
 
+.allTimeCard,
 .signalCard,
 .panel {
   position: relative;
@@ -263,6 +275,62 @@
     linear-gradient(145deg, rgba(10, 11, 20, .98), rgba(3, 4, 9, .99));
   box-shadow: inset 0 1px rgba(255, 255, 255, .035), 0 18px 50px rgba(0, 0, 0, .19);
 }
+
+.allTimeCard {
+  position: relative;
+  display: grid;
+  min-width: 0;
+  min-height: 218px;
+  padding: 18px;
+  align-content: start;
+  gap: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(246, 196, 83, .2);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 86% 0, rgba(246, 196, 83, .13), transparent 48%),
+    linear-gradient(145deg, rgba(15, 12, 6, .98), rgba(4, 4, 5, .99));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .04), 0 18px 50px rgba(0, 0, 0, .2);
+}
+
+.allTimeCard::before {
+  position: absolute;
+  inset: 0 17% auto;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(246, 196, 83, .75), transparent);
+}
+
+.allTimeCard::after {
+  position: absolute;
+  right: -46px;
+  bottom: -58px;
+  width: 158px;
+  height: 158px;
+  content: "";
+  border: 1px dashed rgba(246, 196, 83, .16);
+  border-radius: 50%;
+  animation: allTimeOrbit 18s linear infinite;
+}
+
+.allTimeIcon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  color: #f6c453;
+  border: 1px solid rgba(246, 196, 83, .2);
+  border-radius: 10px;
+  background: rgba(246, 196, 83, .06);
+  box-shadow: 0 0 24px rgba(246, 196, 83, .08);
+}
+
+.allTimeCard > div:nth-child(2) { position: relative; z-index: 1; display: grid; gap: 5px; }
+.allTimeCard p { margin: 0; color: #a98639; font-size: 7px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
+.allTimeCard h3 { margin: 0; font-size: 15px; letter-spacing: -.035em; }
+.allTimeCard > strong { position: relative; z-index: 1; overflow-wrap: anywhere; color: #ffe39a; font-size: clamp(20px, 1.8vw, 27px); font-variant-numeric: tabular-nums; letter-spacing: -.05em; }
+.allTimeCard > span { position: relative; z-index: 1; color: #d1b86f; font-size: 8px; }
+.allTimeCard > small { position: relative; z-index: 1; color: #6d6550; font-size: 7px; line-height: 1.45; }
 
 .signalCard {
   min-height: 218px;
@@ -378,7 +446,7 @@
   filter: drop-shadow(0 0 5px var(--signal-color, #a78bfa));
 }
 
-.violet { --signal-color: #a78bfa; }
+.green { --signal-color: #39f28a; }
 .cyan { --signal-color: #68d8ff; }
 .red { --signal-color: #ff6575; }
 
@@ -394,10 +462,11 @@
 }
 
 .panel {
+  --panel-accent: #68d8ff;
   padding: 22px;
   border-radius: 19px;
   background:
-    radial-gradient(circle at 90% 0, rgba(167, 139, 250, .055), transparent 17rem),
+    radial-gradient(circle at 90% 0, color-mix(in srgb, var(--panel-accent) 6%, transparent), transparent 17rem),
     linear-gradient(145deg, rgba(9, 10, 17, .98), rgba(3, 4, 8, .99));
 }
 
@@ -407,8 +476,14 @@
   height: 1px;
   content: "";
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(167, 139, 250, .34), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--panel-accent) 42%, transparent), transparent);
 }
+
+.revenuePanel { --panel-accent: #39f28a; }
+.planPanel { --panel-accent: #f6c453; }
+.methodPanel { --panel-accent: #42d9ff; }
+.countryPanel { --panel-accent: #ff9f43; }
+.recentPanel { --panel-accent: #a78bfa; }
 
 .panelHeading > span {
   color: #707789;
@@ -434,7 +509,7 @@
 .negative { color: #ff6575; }
 
 .mainChart {
-  --signal-color: #a78bfa;
+  --signal-color: #39f28a;
   height: 320px;
   margin-top: 15px;
   cursor: crosshair;
@@ -462,22 +537,22 @@
   border-radius: 50%;
 }
 
-.currentDot { background: #a78bfa; box-shadow: 0 0 9px rgba(167, 139, 250, .65); }
+.currentDot { background: #39f28a; box-shadow: 0 0 9px rgba(57, 242, 138, .65); }
 .previousDot { border: 1px solid #6f7483; }
 .chartFooter > button {
   min-height: 30px;
   margin-left: auto;
   padding: 0 10px;
-  color: #c7c2df;
-  background: rgba(167, 139, 250, .05);
-  border: 1px solid rgba(167, 139, 250, .12);
+  color: #bce8ce;
+  background: rgba(57, 242, 138, .04);
+  border: 1px solid rgba(57, 242, 138, .12);
   border-radius: 8px;
   font-size: 8px;
   font-weight: 700;
 }
 
-.chartFooter > button:hover { color: #fff; border-color: rgba(167, 139, 250, .3); }
-.chartFooter > button b { margin-left: 5px; color: #a78bfa; }
+.chartFooter > button:hover { color: #fff; border-color: rgba(57, 242, 138, .3); }
+.chartFooter > button b { margin-left: 5px; color: #39f28a; }
 
 .chartDateSelect {
   display: flex;
@@ -495,15 +570,15 @@
   min-height: 30px;
   max-width: 164px;
   padding: 0 26px 0 9px;
-  color: #c7c2df;
-  background: rgba(167, 139, 250, .05);
-  border: 1px solid rgba(167, 139, 250, .12);
+  color: #bce8ce;
+  background: rgba(57, 242, 138, .04);
+  border: 1px solid rgba(57, 242, 138, .12);
   border-radius: 8px;
   font-size: 8px;
 }
 
 .chartDateSelect select:focus-visible {
-  outline: 2px solid rgba(167, 139, 250, .58);
+  outline: 2px solid rgba(57, 242, 138, .58);
   outline-offset: 2px;
 }
 
@@ -593,7 +668,7 @@
   border-radius: 19px;
   background:
     radial-gradient(circle at 0 0, rgba(104, 216, 255, .055), transparent 23rem),
-    radial-gradient(circle at 100% 0, rgba(167, 139, 250, .055), transparent 20rem),
+    radial-gradient(circle at 100% 0, rgba(246, 196, 83, .05), transparent 20rem),
     linear-gradient(145deg, rgba(8, 10, 17, .98), rgba(3, 4, 8, .99));
 }
 
@@ -602,7 +677,7 @@
   inset: 0 20% auto;
   height: 1px;
   content: "";
-  background: linear-gradient(90deg, transparent, rgba(104, 216, 255, .45), rgba(167, 139, 250, .35), transparent);
+  background: linear-gradient(90deg, transparent, rgba(104, 216, 255, .45), rgba(246, 196, 83, .35), transparent);
 }
 
 .volumeHeading {
@@ -1088,11 +1163,14 @@
   from { opacity: .5; transform: translateX(42px); }
 }
 
+@keyframes allTimeOrbit {
+  to { transform: rotate(360deg); }
+}
+
 @media (max-width: 1180px) {
   .controlBar { flex-wrap: wrap; }
   .scopeNote { margin-left: 0; }
   .signalGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .signalCard:last-child { grid-column: 1 / -1; }
   .primaryGrid { grid-template-columns: 1fr; }
   .planList { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .quickFacts { max-width: 620px; }
@@ -1111,7 +1189,6 @@
   .scopeNote { flex: 1; }
   .signalGrid,
   .breakdownGrid { grid-template-columns: 1fr; }
-  .signalCard:last-child { grid-column: auto; }
   .methodBody { grid-template-columns: 150px 1fr; }
   .volumeHeading { align-items: flex-start; flex-direction: column; }
   .volumeGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1120,6 +1197,7 @@
 @media (max-width: 560px) {
   .shell { gap: 11px; }
   .header h2 { font-size: 27px; }
+  .allTimeCard,
   .signalCard { min-height: 205px; padding: 16px 15px 8px; }
   .signalValue { align-items: flex-start; flex-direction: column; gap: 4px; }
   .signalChart { height: 96px; }

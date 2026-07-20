@@ -11,5 +11,23 @@ Object.assign(countryCodes, {
   pakistan:'PK', bangladesh:'BD', 'saudi arabia':'SA', qatar:'QA', kuwait:'KW', oman:'OM',
   bahrain:'BH', turkey:'TR', brazil:'BR', mexico:'MX', 'south africa':'ZA', nigeria:'NG'
 });
-export function countryFlag(country?: string | null) { if (!country) return '🌐'; const clean=country.trim(); const code=clean.length===2?clean.toUpperCase():countryCodes[clean.toLowerCase()]; return code&&/^[A-Z]{2}$/.test(code)?String.fromCodePoint(...[...code].map(letter=>127397+letter.charCodeAt(0))):'🌐'; }
-export function countryLabel(country?: string | null) { return country ? `${countryFlag(country)} ${country}` : '🌐 Unknown'; }
+export function countryCode(country?: string | null) {
+  if (!country) return null;
+  const clean = country.trim();
+  const code = clean.length === 2 ? clean.toUpperCase() : countryCodes[clean.toLowerCase()];
+  return code && /^[A-Z]{2}$/.test(code) ? code : null;
+}
+
+export function countryName(country?: string | null) {
+  const code = countryCode(country);
+  return code ? displayNames.of(code) || country?.trim() || code : country?.trim() || 'Unknown';
+}
+
+export function countryFlag(country?: string | null) {
+  const code = countryCode(country);
+  return code ? String.fromCodePoint(...[...code].map((letter) => 127397 + letter.charCodeAt(0))) : '🌐';
+}
+
+export function countryLabel(country?: string | null) {
+  return country ? `${countryFlag(country)} ${countryName(country)}` : '🌐 Unknown';
+}

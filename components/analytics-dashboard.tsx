@@ -2,6 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import {
+  Activity,
+  BadgeDollarSign,
+  CreditCard,
+  Globe2,
+  History,
+  KeyRound,
+  LayoutDashboard,
+  LifeBuoy,
+  Megaphone,
+  Moon,
+  PackageOpen,
+  Radio,
+  Settings2,
+  Sparkles,
+  UserPlus,
+  UsersRound,
+  type LucideIcon
+} from 'lucide-react';
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import LogoutButton from '@/components/logout-button';
 import { countryFlag } from '@/lib/country';
@@ -13,12 +32,14 @@ import ReleaseManager from '@/components/release-manager';
 import OrionBrand from '@/components/orion-brand';
 import SupportTicketCenter from '@/components/support-ticket-center';
 
-type DashboardProps = { admin: { email?: string | null; role?: string | null } | null };
+type DashboardProps = { admin: { email?: string | null; role?: string | null } | null; initialTheme?: DashboardTheme };
 type Breakdown = { name: string; value: number };
 type Campaign = { name: string; visitors: number; clicks: number; conversionRate: number };
 type DashboardEvent = { event_id?: string; event_name?: string; label?: string; visitor_id?: string; created_at?: string; country?: string; utm_campaign?: string };
 type Snapshot = { metrics: Record<string, number | string>; comparison: { visitors: number; telegramClicks: number }; meta: { browserEvents: number; serverEvents: number; successful: number; failed: number; lastSync: string | null; eventIds: string[] }; funnel: Record<string, number>; charts: { byDay: any[]; byCountry: Breakdown[]; byCity: Breakdown[]; byCampaign: Breakdown[]; byDevice: Breakdown[]; byBrowser: Breakdown[]; byReferrer: Breakdown[] }; heatmaps: { countryDevice: { country:string; device:string; value:number }[]; dailyConversion: { date:string; stage:string; value:number }[]; countries?: Breakdown[]; devices?: string[]; stages?: string[] }; campaigns: Campaign[]; events: DashboardEvent[]; visitors: any[]; range: { start: string; end: string } };
 type ActionCenterNavigate = (section: string, filter?: string) => void;
+type DashboardTheme = 'royal' | 'black';
+type NavItem = { label: string; icon: LucideIcon };
 
 const emptySnapshot: Snapshot = { metrics: { visitorsToday: 0, uniqueVisitors: 0, visitorsOnline: 0, telegramClicks: 0, conversionRate: 0, leadsToday: 0, returningVisitors: 0, eventsInView: 0, topCountry: '—', topCampaign: 'Organic' }, comparison: { visitors: 0, telegramClicks: 0 }, meta: { browserEvents: 0, serverEvents: 0, successful: 0, failed: 0, lastSync: null, eventIds: [] }, funnel: { visitors: 0, viewContent: 0, telegramClicks: 0 }, charts: { byDay: [], byCountry: [], byCity: [], byCampaign: [], byDevice: [], byBrowser: [], byReferrer: [] }, heatmaps: { countryDevice: [], dailyConversion: [], countries: [], devices: [], stages: [] }, campaigns: [], events: [], visitors: [], range: { start: '', end: '' } };
 
@@ -39,6 +60,23 @@ const royalTooltipStyle: CSSProperties = {
   borderRadius: 9,
   boxShadow: '0 20px 56px rgba(0,0,0,.68)',
   backdropFilter: 'blur(18px)'
+};
+
+const navigationItems: Record<string, NavItem> = {
+  overview: { label: 'Overview', icon: LayoutDashboard },
+  visitors: { label: 'Visitors', icon: Globe2 },
+  campaigns: { label: 'Campaigns', icon: Megaphone },
+  events: { label: 'Events', icon: Activity },
+  meta: { label: 'Pixel & events', icon: Radio },
+  sales: { label: 'Sales', icon: BadgeDollarSign },
+  payments: { label: 'Payments', icon: CreditCard },
+  registrations: { label: 'Registrations', icon: UserPlus },
+  clients: { label: 'Clients', icon: UsersRound },
+  licenses: { label: 'Licenses', icon: KeyRound },
+  support: { label: 'Support', icon: LifeBuoy },
+  releases: { label: 'Releases', icon: PackageOpen },
+  activity: { label: 'Audit trail', icon: History },
+  settings: { label: 'Settings', icon: Settings2 }
 };
 
 function numericValue(value: unknown) {
@@ -64,13 +102,21 @@ function signalTime(value?: string) {
   return Number.isNaN(date.getTime()) ? 'Time unavailable' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export default function Dashboard({ admin }: DashboardProps) {
+export default function Dashboard({ admin, initialTheme = 'royal' }: DashboardProps) {
   const [range, setRange] = useState('7d'); const [customStart, setCustomStart] = useState(''); const [customEnd, setCustomEnd] = useState(''); const [eventFilter, setEventFilter] = useState('all'); const [country, setCountry] = useState('all'); const [campaign, setCampaign] = useState('all'); const [device, setDevice] = useState('all'); const [snapshot, setSnapshot] = useState<Snapshot>(emptySnapshot); const [loading, setLoading] = useState(true); const [loadError, setLoadError] = useState(''); const [tab, setTab] = useState('overview');
+  const [theme, setTheme] = useState<DashboardTheme>(initialTheme);
   const [queueCount, setQueueCount] = useState<number | null>(null);
   const [destinationFilter, setDestinationFilter] = useState<string>();
   const [destinationSearch, setDestinationSearch] = useState<string>();
   const [businessNavigationKey, setBusinessNavigationKey] = useState(0);
   const [businessCommand, setBusinessCommand] = useState<{ type:'add-client'|'create-license'|'record-payment'; key:number }>();
+  const toggleTheme = useCallback(() => {
+    setTheme((current) => {
+      const next: DashboardTheme = current === 'royal' ? 'black' : 'royal';
+      try { document.cookie = `orion-admin-theme=${next}; Path=/dashboard; Max-Age=31536000; SameSite=Lax`; } catch { /* Keep the in-memory preference. */ }
+      return next;
+    });
+  }, []);
   const navigateFromActionCenter = useCallback<ActionCenterNavigate>((section, filter) => {
     setDestinationFilter(filter);
     setDestinationSearch(undefined);
@@ -141,7 +187,7 @@ export default function Dashboard({ admin }: DashboardProps) {
   const isBusiness = businessTabs.includes(tab);
   const isOperationalSurface = isBusiness || tab === 'support';
   const titles: Record<string, [string, string, string]> = {
-    sales: ['Business overview', 'Sales command center.', 'Clients, licenses and manually recorded revenue at a glance.'],
+    sales: ['Revenue', 'Sales performance', 'Completed sales, customer mix and payment quality by currency.'],
     registrations: ['Client onboarding', 'Registration queue.', 'Review new free accounts and clients who still need activation.'],
     clients: ['Client management', 'Your Orion clients.', 'Profiles, plans, contacts and complete commercial history.'],
     licenses: ['License operations', 'License manager.', 'Generate and monitor MT4 and MT5 access.'],
@@ -152,20 +198,31 @@ export default function Dashboard({ admin }: DashboardProps) {
   };
   const heading = titles[tab] || [tab === 'overview' ? 'Command center' : tab, tab === 'overview' ? 'Marketing performance, live.' : `${tab[0].toUpperCase()}${tab.slice(1)} activity`, 'Orion acquisition, attribution and conversion intelligence.'];
   const nav = [
-    { label: 'Analytics', items: ['overview','visitors','campaigns','events','meta'] },
-    { label: 'Business', items: ['sales','registrations','clients','licenses','payments','releases','activity','support'] },
-    { label: 'System', items: ['settings'] }
+    { label: 'Analytics', tone: 'cyan', items: ['overview','visitors','campaigns','events','meta'] },
+    { label: 'Revenue', tone: 'green', items: ['sales','payments'] },
+    { label: 'Customers', tone: 'gold', items: ['registrations','clients','licenses','support'] },
+    { label: 'Operations', tone: 'violet', items: ['releases','activity'] },
+    { label: 'System', tone: 'orange', items: ['settings'] }
   ];
-  const icons: Record<string,string> = { overview:'✦', visitors:'◉', campaigns:'↗', events:'⌁', meta:'M', sales:'◇', registrations:'＋', clients:'◎', licenses:'⌘', payments:'$', releases:'⬇', activity:'≋', support:'?', settings:'⚙' };
   return (
-    <main className="dashboard-shell command-center-shell">
-      <header className="dashboard-topbar command-topbar" aria-label="Orion Royal command bar">
+    <main className="dashboard-shell command-center-shell" data-dashboard-theme={theme}>
+      <header className="dashboard-topbar command-topbar" aria-label="Orion command bar">
         <div className="command-brand-lockup">
           <OrionBrand context="ADMIN" className="command-brand" />
-          <span className="command-surface-name">Royal command</span>
+          <span className="command-surface-name">Control center</span>
         </div>
         <div className="topbar-right command-topbar-actions">
           <CommandPalette canWrite={admin?.role === 'admin'} onNavigate={navigateFromCommand} onAction={executeCommand} />
+          <button
+            type="button"
+            className="glass-button command-theme-toggle"
+            aria-pressed={theme === 'black'}
+            aria-label={`Switch to ${theme === 'royal' ? 'deep black' : 'Royal'} theme`}
+            onClick={toggleTheme}
+          >
+            {theme === 'royal' ? <Moon aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+            <span>{theme === 'royal' ? 'Royal' : 'Black'}</span>
+          </button>
           {admin?.role === 'admin' && (
             <button
               type="button"
@@ -191,21 +248,25 @@ export default function Dashboard({ admin }: DashboardProps) {
           {nav.map((group) => {
               const groupId = `command-nav-${group.label.toLowerCase()}`;
               return (
-                <section className="nav-group command-nav-group" aria-labelledby={groupId} key={group.label}>
+                <section className="nav-group command-nav-group" data-tone={group.tone} aria-labelledby={groupId} key={group.label}>
                   <h2 className="sidebar-label command-nav-label" id={groupId}>{group.label}</h2>
                   {group.items.map((item) => {
-                    const label = item[0].toUpperCase() + item.slice(1);
+                    const itemConfig = navigationItems[item];
+                    const label = itemConfig?.label || item[0].toUpperCase() + item.slice(1);
+                    const Icon = itemConfig?.icon || LayoutDashboard;
                     const active = tab === item;
                     return (
                       <button
                         key={item}
                         type="button"
                         className={active ? 'sidebar-link command-nav-item active' : 'sidebar-link command-nav-item'}
+                        aria-label={label}
+                        title={label}
                         aria-current={active ? 'page' : undefined}
                         aria-controls="dashboard-command-content"
                         onClick={() => navigateNormally(item)}
                       >
-                        <span className="command-nav-icon" aria-hidden="true">{icons[item]}</span>
+                        <span className="command-nav-icon" aria-hidden="true"><Icon size={16} strokeWidth={1.8} /></span>
                         <strong className="command-nav-text">{label}</strong>
                       </button>
                     );
@@ -222,7 +283,7 @@ export default function Dashboard({ admin }: DashboardProps) {
           aria-labelledby="dashboard-command-title"
           aria-busy={!isOperationalSurface && loading}
         >
-          <header className="content-heading command-page-heading">
+          <header className={`content-heading command-page-heading${tab === 'sales' ? ' command-page-heading--compact' : ''}`}>
             <div className="command-heading-copy">
               <p className="eyebrow command-section-kicker">{heading[0]}</p>
               <h1 id="dashboard-command-title">{heading[1]}</h1>

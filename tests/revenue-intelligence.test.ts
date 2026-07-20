@@ -5,6 +5,7 @@ import {
   type RevenueLicenseRecord,
   type RevenuePaymentRecord,
 } from '@/lib/revenue-intelligence';
+import { formatMoneyWithCode } from '@/lib/money';
 
 const now = new Date('2026-07-19T12:00:00.000Z');
 
@@ -17,6 +18,10 @@ function payment(value: Partial<RevenuePaymentRecord> & Pick<RevenuePaymentRecor
 }
 
 describe('revenue intelligence calculations', () => {
+  it('formats revenue with two decimals and an explicit currency code', () => {
+    expect(formatMoneyWithCode(479, 'usd')).toBe('$479.00 USD');
+  });
+
   it('normalizes MRR by original currency using the latest completed payment and excludes Lifetime or inactive terms', () => {
     const snapshot = calculateRevenueIntelligence({
       clients: [{ id: 'client-a', full_name: 'Client A' }, { id: 'client-b', full_name: 'Client B' }],

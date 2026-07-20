@@ -17,7 +17,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { CircleDollarSign } from 'lucide-react';
 import { countryLabel } from '@/lib/country';
+import { formatMoneyWithCode as formatMoney } from '@/lib/money';
 import styles from './sales-command-center.module.css';
 
 type SalesClient = {
@@ -86,6 +88,10 @@ type CountItem = {
   count: number;
 };
 
+type SalesSummary = {
+  currencies: { currency: string; amount: number; count: number }[];
+};
+
 const completedStatuses = new Set(['Paid', 'Manually verified']);
 const exceptionStatuses = new Set(['Refunded', 'Disputed']);
 const rangeOptions: { value: RangePreset; label: string }[] = [
@@ -128,6 +134,8 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
   const [customEnd, setCustomEnd] = useState(() => utcDateKey(0));
   const [showComparison, setShowComparison] = useState(true);
   const [transactionView, setTransactionView] = useState<TransactionView | null>(null);
+  const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
+  const [summaryError, setSummaryError] = useState(false);
   const currency = currencies.includes(selectedCurrency) ? selectedCurrency : currencies[0] || '';
   const period = useMemo(() => resolvePeriod(range, customStart, customEnd), [customEnd, customStart, range]);
 
@@ -138,6 +146,21 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
   useEffect(() => {
     setTransactionView(null);
   }, [currency, customEnd, customStart, range, search]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    setSummaryError(false);
+    fetch('/api/sales-summary', { cache: 'no-store', credentials: 'same-origin', signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) throw new Error(payload?.error || 'Unable to load all-time sales totals');
+        setSalesSummary(payload as SalesSummary);
+      })
+      .catch((reason) => {
+        if (!(reason instanceof DOMException && reason.name === 'AbortError')) setSummaryError(true);
+      });
+    return () => controller.abort();
+  }, []);
 
   if (!currency) {
     return (
@@ -154,6 +177,7 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
 
   const currencyPayments = visiblePayments.filter((payment) => normalizeCurrency(payment.currency) === currency);
   const completedAll = currencyPayments.filter((payment) => completedStatuses.has(payment.status));
+  const allTime = salesSummary?.currencies.find((item) => item.currency === currency);
   const exceptionsAll = currencyPayments.filter((payment) => exceptionStatuses.has(payment.status));
   const completed = filterPeriod(completedAll, period.startKey, period.endKey);
   const previousCompleted = filterPeriod(completedAll, period.previousStartKey, period.previousEndKey);
@@ -199,13 +223,9 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
   }
 
   return (
-    <section className={styles.shell} aria-labelledby="sales-command-title">
-      <header className={styles.header}>
-        <div>
-          <p>Live revenue overview</p>
-          <h2 id="sales-command-title">Sales command center</h2>
-          <span>Completed revenue, payment quality, and market mix without combining currencies.</span>
-        </div>
+    <section className={styles.shell} aria-label="Sales revenue performance">
+      <h2 className={styles.srOnly}>Revenue performance</h2>
+      <div className={styles.controlBar}>
         <div className={styles.currencyPicker} aria-label="Revenue currency">
           <small>Viewing currency</small>
           <div>
@@ -221,9 +241,6 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
             ))}
           </div>
         </div>
-      </header>
-
-      <div className={styles.controlBar}>
         <div className={styles.rangeControl} aria-label="Sales reporting period">
           <small>Reporting period</small>
           <div>
@@ -248,14 +265,19 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
       </div>
 
       <div className={styles.signalGrid}>
+        <AllTimeRevenueCard
+          value={salesSummary ? formatMoney(allTime?.amount ?? 0, currency) : '—'}
+          count={salesSummary ? allTime?.count ?? 0 : null}
+          state={summaryError ? 'All-time total unavailable' : salesSummary ? 'Across every completed payment' : 'Loading complete history…'}
+        />
         <SignalCard
           title="Revenue momentum"
           eyebrow={`Completed · ${period.label}`}
           value={formatMoney(totalRevenue, currency)}
           change={showComparison ? formatChange(change) : `${completed.length} sales`}
           data={comparison.slice(-14).map(({ key, label, value }) => ({ key, label, value }))}
-          color="#a78bfa"
-          tone="violet"
+          color="#39f28a"
+          tone="green"
           formatter={(value) => formatMoney(value, currency)}
         />
         <SignalCard
@@ -302,9 +324,9 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
               <AreaChart data={comparison} margin={{ top: 18, right: 8, left: 2, bottom: 0 }} onClick={openChartPoint}>
                 <defs>
                   <linearGradient id="salesRevenueFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor="#a78bfa" stopOpacity={0.36} />
-                    <stop offset="62%" stopColor="#7c63ff" stopOpacity={0.08} />
-                    <stop offset="100%" stopColor="#7c63ff" stopOpacity={0} />
+                    <stop offset="0" stopColor="#39f28a" stopOpacity={0.32} />
+                    <stop offset="62%" stopColor="#39f28a" stopOpacity={0.07} />
+                    <stop offset="100%" stopColor="#39f28a" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke="rgba(255,255,255,.055)" vertical={false} strokeDasharray="4 8" />
@@ -323,8 +345,8 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
                 />
                 <ReferenceLine y={periodAverage} stroke="rgba(255,255,255,.18)" strokeDasharray="4 7" />
                 {showComparison && <Line type="monotone" dataKey="previous" stroke="rgba(255,255,255,.2)" strokeWidth={1.4} dot={false} activeDot={false} />}
-                <Area type="monotone" dataKey="value" stroke="#a78bfa" strokeWidth={3} fill="url(#salesRevenueFill)" dot={false} activeDot={{ r: 5, fill: '#080811', stroke: '#d8ceff', strokeWidth: 2 }} />
-                {periodHigh && <ReferenceDot x={periodHigh.key} y={periodHigh.value} r={4.5} fill="#090911" stroke="#d8ceff" strokeWidth={2} />}
+                <Area type="monotone" dataKey="value" stroke="#39f28a" strokeWidth={3} fill="url(#salesRevenueFill)" dot={false} activeDot={{ r: 5, fill: '#080b09', stroke: '#b8ffd7', strokeWidth: 2 }} />
+                {periodHigh && <ReferenceDot x={periodHigh.key} y={periodHigh.value} r={4.5} fill="#080b09" stroke="#b8ffd7" strokeWidth={2} />}
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -362,8 +384,8 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
           <div className={styles.planList}>
             {sortedPlans.length ? sortedPlans.map(([name, value], index) => (
               <div key={name}>
-                <span><i style={{ background: planColor(index) }} />{name}<strong>{formatMoney(value, currency)}</strong></span>
-                <div><i style={{ width: visualPercentage(value, totalRevenue), background: planColor(index) }} /></div>
+                <span><i style={{ background: planColor(name) }} />{name}<strong>{formatMoney(value, currency)}</strong></span>
+                <div><i style={{ width: visualPercentage(value, totalRevenue), background: planColor(name) }} /></div>
                 <small>{percentage(value, totalRevenue)} of completed revenue</small>
               </div>
             )) : <InlineEmpty text="No completed plan revenue." />}
@@ -407,7 +429,7 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie data={sortedMethods.map(([name, value]) => ({ name, value }))} dataKey="value" nameKey="name" innerRadius={48} outerRadius={74} paddingAngle={4} stroke="none">
-                      {sortedMethods.map(([name], index) => <Cell key={name} fill={methodColor(index)} />)}
+                      {sortedMethods.map(([name]) => <Cell key={name} fill={methodColor(name)} />)}
                     </Pie>
                     <Tooltip contentStyle={chartTooltip} formatter={(value) => formatMoney(Number(value), currency)} />
                   </PieChart>
@@ -416,8 +438,8 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
               <span><strong>{sortedMethods.length}</strong><small>methods</small></span>
             </div>
             <div className={styles.methodLegend}>
-              {sortedMethods.slice(0, 8).map(([name, value], index) => (
-                <span key={name}><i style={{ background: methodColor(index) }} /><b>{name}</b><strong>{formatMoney(value, currency)}</strong></span>
+              {sortedMethods.slice(0, 8).map(([name, value]) => (
+                <span key={name}><i style={{ background: methodColor(name) }} /><b>{name}</b><strong>{formatMoney(value, currency)}</strong></span>
               ))}
               {!sortedMethods.length && <InlineEmpty text="No payment methods available." />}
             </div>
@@ -493,6 +515,18 @@ function CountCard({ title, icon, items, empty, formatName = (name) => name, onS
   );
 }
 
+function AllTimeRevenueCard({ value, count, state }: { value: string; count: number | null; state: string }) {
+  return (
+    <article className={styles.allTimeCard}>
+      <div className={styles.allTimeIcon} aria-hidden="true"><CircleDollarSign size={18} strokeWidth={1.8} /></div>
+      <div><p>Completed payments · all dates</p><h3>All-time revenue</h3></div>
+      <strong>{value}</strong>
+      <span>{count === null ? 'Complete payment history' : `${count.toLocaleString()} ${count === 1 ? 'completed payment' : 'completed payments'}`}</span>
+      <small>{state}</small>
+    </article>
+  );
+}
+
 function SalesDetailsDrawer({ view, currency, clientById, licenseById, close }: {
   view: TransactionView;
   currency: string;
@@ -547,7 +581,7 @@ function SignalCard({ title, eyebrow, value, change, data, color, tone, formatte
   change: string;
   data: SeriesPoint[];
   color: string;
-  tone: 'violet' | 'cyan' | 'red';
+  tone: 'green' | 'cyan' | 'red';
   formatter: (value: number) => string;
 }) {
   const high = maxPoint(data);
@@ -745,14 +779,6 @@ function normalizeCurrency(value: string) {
   return value.trim().toUpperCase() || 'UNSPECIFIED';
 }
 
-function formatMoney(value: number, currency: string) {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(value);
-  } catch {
-    return `${currency} ${value.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
-  }
-}
-
 function compactNumber(value: number) {
   return new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 }
@@ -766,10 +792,12 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'CL';
 }
 
-function planColor(index: number) {
-  return ['#a78bfa', '#68d8ff', '#f6c453', '#39f28a'][index % 4];
+function planColor(plan: string) {
+  const colors: Record<string, string> = { Basic: '#42d9ff', Premium: '#a78bfa', Lifetime: '#f6c453', Unassigned: '#7a8495' };
+  return colors[plan] || '#7a8495';
 }
 
-function methodColor(index: number) {
-  return ['#a78bfa', '#68d8ff', '#f6c453', '#39f28a', '#ff8a65', '#ff6575'][index % 6];
+function methodColor(method: string) {
+  const colors: Record<string, string> = { Crypto: '#a78bfa', 'Bank Transfer': '#42d9ff', Card: '#4f8cff', PayPal: '#f6c453', Wise: '#39f28a', Skrill: '#ff9f43', Cash: '#ffd36a', Other: '#7a8495', Unknown: '#7a8495' };
+  return colors[method] || '#7a8495';
 }
