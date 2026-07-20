@@ -31,7 +31,13 @@ type Ticket = {
   client?: { fullName: string; email: string | null } | null;
   messages: TicketMessage[];
 };
-type TicketResponse = { actor: { type: 'client' | 'admin'; canManage: boolean }; tickets: Ticket[] };
+type TicketPageInfo = { hasMore: boolean; nextCursor: string | null };
+type TicketResponse = {
+  actor: { type: 'client' | 'admin'; canManage: boolean };
+  tickets: Ticket[];
+  unreadReplyNotifications: Record<string, string[]>;
+  pageInfo: TicketPageInfo;
+};
 type TicketFilter = 'active' | 'waiting' | 'resolved' | 'closed' | 'all';
 type TicketSummary = { activeCount: number; totalCount: number; loaded: boolean };
 
@@ -50,12 +56,18 @@ type SupportTicketCenterProps = {
   className?: string;
   embedded?: boolean;
   portalEmbedded?: boolean;
+  active?: boolean;
   newTicketRequest?: number;
   onSummaryChange?: (summary: TicketSummary) => void;
+  onReadNotifications?: (ids: string[]) => Promise<boolean | void>;
+  externalUnreadReplyNotifications?: Record<string, string[]>;
 };
 
-export default function SupportTicketCenter({ className = '', embedded = false, portalEmbedded = false, newTicketRequest = 0, onSummaryChange }: SupportTicketCenterProps) {
-  const [data, setData] = useState<TicketResponse>({ actor: { type: 'client', canManage: false }, tickets: [] });
+const emptyPageInfo: TicketPageInfo = { hasMore: false, nextCursor: null };
+const emptyUnreadReplies: Record<string, string[]> = {};
+
+export default function SupportTicketCenter({ className = '', embedded = false, portalEmbedded = false, active = false, newTicketRequest = 0, onSummaryChange, onReadNotifications, externalUnreadReplyNotifications = emptyUnreadReplies }: SupportTicketCenterProps) {
+  const [data, setData] = useState<TicketResponse>({ actor: { type: 'client', canManage: false }, tickets: [], unreadReplyNotifications: {}, pageInfo: emptyPageInfo });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [hasLoaded, setHasLoaded] = useState(false);
@@ -72,33 +84,105 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
   const ticketButtons = useRef(new Map<string, HTMLButtonElement>());
   const mobileBackButton = useRef<HTMLButtonElement>(null);
   const lastOpenedTicket = useRef<string | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
+  const quietRefreshInFlight = useRef(false);
+  const readNotificationsInFlight = useRef(new Set<string>());
+  const wasActive = useRef(active);
   const endpoint = portalEmbedded ? '/api/support-tickets?scope=self' : '/api/support-tickets';
+  const listEndpoint = portalEmbedded ? '/api/support-tickets?scope=self&limit=12' : '/api/support-tickets';
 
   const load = useCallback(async (signal?: AbortSignal, quiet = false) => {
     if (!quiet) setLoading(true);
     setError('');
     try {
-      const response = await fetch(endpoint, { cache: 'no-store', credentials: 'same-origin', signal });
-      const payload = await response.json().catch(() => null) as TicketResponse | { error?: string } | null;
-      if (!response.ok || !payload || !('tickets' in payload)) throw new Error(payload && 'error' in payload ? payload.error : 'Unable to load support tickets.');
-      setData(payload);
+      const ticketQuery = portalEmbedded ? readPortalTicketQuery() : { present: false, id: null };
+      if (ticketQuery.present && !ticketQuery.id) cleanPortalTicketQuery();
+      const isNewLinkedTarget = Boolean(ticketQuery.id && ticketQuery.id !== selectedIdRef.current);
+      const preferredId = ticketQuery.id || (portalEmbedded ? selectedIdRef.current : null);
+      const firstPage = await requestTickets(listEndpoint, signal);
+      let exactTicket: TicketResponse | null = null;
+      if (portalEmbedded && preferredId && !firstPage.tickets.some((ticket) => ticket.id === preferredId)) {
+        exactTicket = await requestTickets(`${listEndpoint}&ticketId=${encodeURIComponent(preferredId)}`, signal);
+      }
+
+      const preferredTicket = firstPage.tickets.find((ticket) => ticket.id === preferredId)
+        || exactTicket?.tickets.find((ticket) => ticket.id === preferredId)
+        || null;
+      if (ticketQuery.id && !preferredTicket) cleanPortalTicketQuery();
+
+      const freshData: TicketResponse = {
+        actor: firstPage.actor,
+        tickets: mergeTickets(firstPage.tickets, exactTicket?.tickets || []),
+        unreadReplyNotifications: mergeUnreadReplies(firstPage.unreadReplyNotifications, exactTicket?.unreadReplyNotifications || {}),
+        pageInfo: firstPage.pageInfo,
+      };
+      setData((current) => {
+        if (!quiet) return freshData;
+        const refreshedTicketIds = new Set(freshData.tickets.map((ticket) => ticket.id));
+        const retainedUnread = Object.fromEntries(Object.entries(current.unreadReplyNotifications)
+          .filter(([ticketId]) => !refreshedTicketIds.has(ticketId)));
+        return {
+          ...freshData,
+          tickets: mergeTickets(freshData.tickets, current.tickets),
+          unreadReplyNotifications: mergeUnreadReplies(retainedUnread, freshData.unreadReplyNotifications),
+          pageInfo: current.tickets.length > freshData.tickets.length ? current.pageInfo : freshData.pageInfo,
+        };
+      });
       setHasLoaded(true);
-      setSelectedId((current) => current && payload.tickets.some((ticket) => ticket.id === current)
-        ? current
-        : [...payload.tickets].sort((left, right) => waitPriority(left.status, payload.actor.type === 'client') - waitPriority(right.status, payload.actor.type === 'client') || Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0]?.id || null);
+      const selectableTickets = freshData.tickets;
+      const nextSelectedId = preferredTicket?.id
+        || (selectedIdRef.current && selectableTickets.some((ticket) => ticket.id === selectedIdRef.current) ? selectedIdRef.current : null)
+        || [...selectableTickets].sort((left, right) => waitPriority(left.status, firstPage.actor.type === 'client') - waitPriority(right.status, firstPage.actor.type === 'client') || Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0]?.id
+        || null;
+      selectedIdRef.current = nextSelectedId;
+      setSelectedId(nextSelectedId);
+      if (isNewLinkedTarget && preferredTicket) {
+        setFilter(filterForLinkedTicket(preferredTicket.status));
+        lastOpenedTicket.current = preferredTicket.id;
+        if (isMobileTicketLayout()) setMobileThreadOpen(true);
+      }
     } catch (reason) {
       if (reason instanceof DOMException && reason.name === 'AbortError') return;
       setError(reason instanceof Error ? reason.message : 'Unable to load support tickets.');
     } finally {
       if (!signal?.aborted && !quiet) setLoading(false);
     }
-  }, [endpoint]);
+  }, [listEndpoint, portalEmbedded]);
 
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
+
+  const refreshQuietly = useCallback(async () => {
+    if (quietRefreshInFlight.current) return;
+    quietRefreshInFlight.current = true;
+    try {
+      await load(undefined, true);
+    } finally {
+      quietRefreshInFlight.current = false;
+    }
+  }, [load]);
+
+  useEffect(() => {
+    const becameActive = active && !wasActive.current;
+    wasActive.current = active;
+    if (portalEmbedded && becameActive && hasLoaded) void refreshQuietly();
+  }, [active, hasLoaded, portalEmbedded, refreshQuietly]);
+
+  useEffect(() => {
+    if (!portalEmbedded) return;
+    const refreshWhenVisible = () => {
+      if (active && (typeof document === 'undefined' || document.visibilityState === 'visible')) void refreshQuietly();
+    };
+    window.addEventListener('focus', refreshWhenVisible);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.removeEventListener('focus', refreshWhenVisible);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [active, portalEmbedded, refreshQuietly]);
 
   useEffect(() => {
     if (newTicketRequest > 0) {
@@ -116,14 +200,17 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
     .filter((ticket) => matchesTicketFilter(ticket.status, filter))
     .sort((left, right) => waitPriority(left.status, portalEmbedded || data.actor.type === 'client') - waitPriority(right.status, portalEmbedded || data.actor.type === 'client') || Date.parse(right.updatedAt) - Date.parse(left.updatedAt)), [data.actor.type, data.tickets, filter, portalEmbedded]);
   const selected = useMemo(() => data.tickets.find((ticket) => ticket.id === selectedId) || null, [data.tickets, selectedId]);
+  const visibleUnreadReplies = useMemo(() => mergeUnreadReplies(data.unreadReplyNotifications, externalUnreadReplyNotifications), [data.unreadReplyNotifications, externalUnreadReplyNotifications]);
 
   useEffect(() => {
     if (!visibleTickets.length) {
+      selectedIdRef.current = null;
       setSelectedId(null);
       setMobileThreadOpen(false);
       return;
     }
     if (!selectedId || !visibleTickets.some((ticket) => ticket.id === selectedId)) {
+      selectedIdRef.current = visibleTickets[0].id;
       setSelectedId(visibleTickets[0].id);
       setMobileThreadOpen(false);
     }
@@ -138,6 +225,38 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
     setManageStatus(selected.status);
     setManagePriority(selected.priority);
   }, [selected]);
+
+  useEffect(() => {
+    if (!portalEmbedded || !active || !selectedId || readPortalTicketQuery().id) return;
+    setPortalTicketUrl(selectedId);
+  }, [active, portalEmbedded, selectedId]);
+
+  useEffect(() => {
+    if (!portalEmbedded || !active || !selectedId || !onReadNotifications) return;
+    if (isMobileTicketLayout() && !mobileThreadOpen) return;
+    const notificationIds = visibleUnreadReplies[selectedId] || [];
+    if (!notificationIds.length) return;
+    const uniqueIds = [...new Set(notificationIds)];
+    const requestKey = `${selectedId}:${[...uniqueIds].sort().join(',')}`;
+    if (readNotificationsInFlight.current.has(requestKey)) return;
+    readNotificationsInFlight.current.add(requestKey);
+    void onReadNotifications(uniqueIds)
+      .then((result) => {
+        if (result === false) return;
+        const markedIds = new Set(uniqueIds);
+        setData((current) => {
+          const unreadForTicket = current.unreadReplyNotifications[selectedId] || [];
+          const remaining = unreadForTicket.filter((id) => !markedIds.has(id));
+          if (remaining.length === unreadForTicket.length) return current;
+          const nextUnread = { ...current.unreadReplyNotifications };
+          if (remaining.length) nextUnread[selectedId] = remaining;
+          else delete nextUnread[selectedId];
+          return { ...current, unreadReplyNotifications: nextUnread };
+        });
+      })
+      .catch(() => undefined)
+      .finally(() => readNotificationsInFlight.current.delete(requestKey));
+  }, [active, mobileThreadOpen, onReadNotifications, portalEmbedded, selectedId, visibleUnreadReplies]);
 
   async function createTicket(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -164,8 +283,13 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
       setShowNew(false);
       setFilter('active');
       setNotice('Your ticket was sent securely to Orion support.');
+      if (payload?.ticketId && portalEmbedded) {
+        selectedIdRef.current = payload.ticketId;
+        setPortalTicketUrl(payload.ticketId);
+      }
       await load(undefined, true);
       if (payload?.ticketId) {
+        selectedIdRef.current = payload.ticketId;
         setSelectedId(payload.ticketId);
         setMobileThreadOpen(true);
       }
@@ -201,15 +325,50 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
     }
   }
 
+  async function loadOlderTickets() {
+    const cursor = data.pageInfo.nextCursor;
+    if (!portalEmbedded || !data.pageInfo.hasMore || !cursor || busy) return;
+    setBusy('older');
+    setError('');
+    try {
+      const olderPage = await requestTickets(`${listEndpoint}&cursor=${encodeURIComponent(cursor)}`);
+      setData((current) => ({
+        actor: olderPage.actor,
+        tickets: mergeTickets(current.tickets, olderPage.tickets),
+        unreadReplyNotifications: mergeUnreadReplies(current.unreadReplyNotifications, olderPage.unreadReplyNotifications),
+        pageInfo: olderPage.pageInfo,
+      }));
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to load older support tickets.');
+    } finally {
+      setBusy('');
+    }
+  }
+
   function selectFilter(nextFilter: TicketFilter) {
     setFilter(nextFilter);
     setMobileThreadOpen(false);
+    const currentTicket = data.tickets.find((ticket) => ticket.id === selectedId && matchesTicketFilter(ticket.status, nextFilter));
+    const nextTicket = currentTicket || data.tickets
+      .filter((ticket) => matchesTicketFilter(ticket.status, nextFilter))
+      .sort((left, right) => waitPriority(left.status, portalEmbedded || data.actor.type === 'client') - waitPriority(right.status, portalEmbedded || data.actor.type === 'client') || Date.parse(right.updatedAt) - Date.parse(left.updatedAt))[0];
+    if (nextTicket && nextTicket.id !== selectedId) {
+      selectedIdRef.current = nextTicket.id;
+      setSelectedId(nextTicket.id);
+      if (portalEmbedded) setPortalTicketUrl(nextTicket.id);
+    } else if (!nextTicket) {
+      selectedIdRef.current = null;
+      setSelectedId(null);
+      if (portalEmbedded) cleanPortalTicketQuery();
+    }
   }
 
   function openTicket(ticketId: string) {
+    selectedIdRef.current = ticketId;
     setSelectedId(ticketId);
     setMobileThreadOpen(true);
     lastOpenedTicket.current = ticketId;
+    if (portalEmbedded) setPortalTicketUrl(ticketId);
     if (isMobileTicketLayout()) focusAfterRender(() => mobileBackButton.current);
   }
 
@@ -227,7 +386,7 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
           <div className={styles.compactTitle}><span aria-hidden="true"><Headphones size={18} /></span><div><small>Official assistance</small><strong>Secure support conversations</strong></div></div>
         ) : embedded ? <h2 className="orion-visually-hidden" id={headingId}>Ticket workspace</h2> : <div><p>Official assistance</p><h2 id={headingId}>Support tickets</h2><span>Keep setup, license, and payment questions inside your secure Orion workspace.</span></div>}
         <div className={styles.headerActions}>
-          <strong>{activeCount}<small>Recent active</small></strong>
+          <strong>{activeCount}<small>{data.pageInfo.hasMore ? 'Loaded active' : 'Active tickets'}</small></strong>
           {hasLoaded && data.actor.type === 'client' && <button type="button" onClick={() => setShowNew((value) => !value)}>{showNew ? <><X size={15} aria-hidden="true" />Cancel</> : <><Plus size={15} aria-hidden="true" />New ticket</>}</button>}
           <button className={styles.iconButton} type="button" disabled={loading || Boolean(busy)} onClick={() => void load()} aria-label="Refresh support tickets"><RefreshCw size={16} aria-hidden="true" /></button>
         </div>
@@ -247,7 +406,7 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
       )}
 
       {!loading && data.tickets.length > 0 && (
-        <div className={styles.filters} role="group" aria-label="Filter recent support tickets">
+        <div className={styles.filters} role="group" aria-label="Filter loaded support tickets">
           {ticketFilters.map((option) => <button type="button" key={option.id} aria-pressed={filter === option.id} onClick={() => selectFilter(option.id)}>{option.label}<span>{ticketFilterCount(data.tickets, option.id)}</span></button>)}
         </div>
       )}
@@ -257,16 +416,17 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
       ) : error && data.tickets.length === 0 ? null : data.tickets.length === 0 ? (
         <EmptyTickets onCreate={data.actor.type === 'client' ? () => setShowNew(true) : undefined} />
       ) : visibleTickets.length === 0 ? (
-        <div className={styles.filterEmpty} role="status"><Inbox size={21} aria-hidden="true" /><div><strong>No {ticketFilters.find((option) => option.id === filter)?.label.toLowerCase()} tickets in recent history</strong><p>Choose another filter to view the rest of the ticket history loaded here.</p></div></div>
+        <div className={styles.filterEmpty} role="status"><Inbox size={21} aria-hidden="true" /><div><strong>No {ticketFilters.find((option) => option.id === filter)?.label.toLowerCase()} tickets in loaded history</strong><p>{data.pageInfo.hasMore ? 'There may be matching tickets in your older history.' : 'Choose another filter to view the rest of your ticket history.'}</p>{portalEmbedded && data.pageInfo.hasMore && <button className={styles.loadOlder} type="button" disabled={Boolean(busy)} onClick={() => void loadOlderTickets()}>{busy === 'older' ? 'Loading older tickets…' : 'Load older tickets'}</button>}</div></div>
       ) : (
         <div className={styles.workspace} data-mobile-thread={mobileThreadOpen ? 'true' : 'false'}>
           <nav className={styles.ticketList} aria-label="Support tickets">
-            <header><span><TicketCheck size={16} aria-hidden="true" />Recent ticket history</span><small>{visibleTickets.length} shown</small></header>
+            <header><span><TicketCheck size={16} aria-hidden="true" />Ticket history</span><small>{visibleTickets.length} shown{data.pageInfo.hasMore ? ' · more available' : ''}</small></header>
             {visibleTickets.map((ticket) => {
               const lastMessage = ticket.messages[ticket.messages.length - 1];
+              const hasUnreadReply = Boolean(visibleUnreadReplies[ticket.id]?.length);
               return (
                 <button ref={(node) => { if (node) ticketButtons.current.set(ticket.id, node); else ticketButtons.current.delete(ticket.id); }} type="button" key={ticket.id} onClick={() => openTicket(ticket.id)} aria-pressed={ticket.id === selectedId}>
-                  <span><i data-status={statusTone(ticket.status)} />{ticket.category}<em>#{ticket.id.slice(0, 8).toUpperCase()}</em></span>
+                  <span><i data-status={statusTone(ticket.status)} />{ticket.category}{hasUnreadReply && <mark className={styles.newReply}><MessageSquare size={10} aria-hidden="true" />New reply</mark>}<em>#{ticket.id.slice(0, 8).toUpperCase()}</em></span>
                   <strong>{ticket.subject}</strong>
                   {ticket.client && <small>{ticket.client.fullName}</small>}
                   <small>{lastMessage ? `Last reply: ${authorLabel(lastMessage.authorType, portalEmbedded || data.actor.type === 'client')}` : 'No messages recorded'}</small>
@@ -274,6 +434,7 @@ export default function SupportTicketCenter({ className = '', embedded = false, 
                 </button>
               );
             })}
+            {portalEmbedded && data.pageInfo.hasMore && <div className={styles.listFooter}><button className={styles.loadOlder} type="button" disabled={Boolean(busy)} onClick={() => void loadOlderTickets()}>{busy === 'older' ? 'Loading older tickets…' : 'Load older tickets'}</button><small>Older tickets load in place.</small></div>}
           </nav>
 
           {selected && (
@@ -360,6 +521,71 @@ function friendlyStatus(status: string, clientView: boolean) {
   if (status === 'Waiting on client') return 'Your reply needed';
   if (status === 'In progress') return 'Orion is working';
   return status;
+}
+
+async function requestTickets(url: string, signal?: AbortSignal): Promise<TicketResponse> {
+  const response = await fetch(url, { cache: 'no-store', credentials: 'same-origin', signal });
+  const payload = await response.json().catch(() => null) as Partial<TicketResponse> & { error?: string } | null;
+  if (!response.ok || !payload || !Array.isArray(payload.tickets) || !payload.actor) {
+    throw new Error(payload?.error || 'Unable to load support tickets.');
+  }
+  return {
+    actor: payload.actor,
+    tickets: payload.tickets,
+    unreadReplyNotifications: payload.unreadReplyNotifications || {},
+    pageInfo: payload.pageInfo || emptyPageInfo,
+  };
+}
+
+function mergeTickets(primary: Ticket[], secondary: Ticket[]) {
+  const seen = new Set<string>();
+  return [...primary, ...secondary].filter((ticket) => {
+    if (seen.has(ticket.id)) return false;
+    seen.add(ticket.id);
+    return true;
+  });
+}
+
+function mergeUnreadReplies(primary: Record<string, string[]>, secondary: Record<string, string[]>) {
+  const merged: Record<string, string[]> = {};
+  for (const [ticketId, ids] of [...Object.entries(primary), ...Object.entries(secondary)]) {
+    merged[ticketId] = [...new Set([...(merged[ticketId] || []), ...ids])];
+  }
+  return merged;
+}
+
+function filterForLinkedTicket(status: string): TicketFilter {
+  if (status === 'Resolved') return 'resolved';
+  if (status === 'Closed') return 'closed';
+  return 'active';
+}
+
+function readPortalTicketQuery() {
+  if (typeof window === 'undefined') return { present: false, id: null };
+  const url = new URL(window.location.href);
+  const value = url.searchParams.get('ticket');
+  if (value === null) return { present: false, id: null };
+  return { present: true, id: isUuid(value) ? value : null };
+}
+
+function setPortalTicketUrl(ticketId: string) {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  url.searchParams.set('ticket', ticketId);
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}#support`);
+}
+
+function cleanPortalTicketQuery() {
+  if (typeof window === 'undefined') return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has('ticket')) return;
+  url.searchParams.delete('ticket');
+  const search = url.searchParams.toString();
+  window.history.replaceState(window.history.state, '', `${url.pathname}${search ? `?${search}` : ''}${url.hash}`);
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function authorLabel(authorType: TicketMessage['authorType'], clientPerspective: boolean) {

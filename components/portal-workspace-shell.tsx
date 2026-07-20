@@ -15,6 +15,8 @@ import {
 import ClientAvatar from '@/components/client-avatar';
 import LogoutButton from '@/components/logout-button';
 import OrionBrand from '@/components/orion-brand';
+import PortalNotificationBell from '@/components/portal-notification-bell';
+import { PortalNotificationsProvider } from '@/components/portal-notifications-provider';
 import { portalThemeCookie, type PortalTheme } from '@/lib/portal-theme';
 import type { ClientAvatarKey } from '@/lib/client-profile';
 
@@ -78,7 +80,8 @@ export default function PortalWorkspaceShell({ currentView, clientName, clientDi
   }
 
   return (
-    <main className="portal-shell portal-workspace-shell" data-portal-theme={theme}>
+    <PortalNotificationsProvider>
+      <main className="portal-shell portal-workspace-shell" data-portal-theme={theme}>
       <a className="portal-skip-link" href="#portal-content">Skip to client workspace</a>
       <header className="portal-workspace-topbar" aria-label="Orion client navigation">
         <Link className="portal-home-link" href="/portal" aria-label="Open Orion client portal home">
@@ -90,6 +93,7 @@ export default function PortalWorkspaceShell({ currentView, clientName, clientDi
             <span>{theme === 'gold' ? 'Royal Gold' : 'Aurora Blue'}</span>
             <i aria-hidden="true" />
           </button>
+          <PortalNotificationBell />
           <Link className="portal-profile-summary" href="/portal/profile" aria-label="Open your Orion profile">
             <ClientAvatar avatarKey={clientAvatarKey} size="small" />
             <div><small>Client profile</small><strong>{clientDisplayName}</strong></div>
@@ -129,6 +133,7 @@ export default function PortalWorkspaceShell({ currentView, clientName, clientDi
 
         <div className="portal-workspace-main" id="portal-content">{children}</div>
       </div>
-    </main>
+      </main>
+    </PortalNotificationsProvider>
   );
 }

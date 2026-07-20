@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Bell, Headphones, Plus, ShieldCheck } from 'lucide-react';
 import PortalNotificationCenter from '@/components/portal-notification-center';
+import { usePortalNotifications } from '@/components/portal-notifications-provider';
 import SupportTicketCenter from '@/components/support-ticket-center';
 import styles from './client-service-center.module.css';
 
@@ -11,10 +12,16 @@ type NotificationSummary = { unreadCount: number; totalCount: number; loaded: bo
 type TicketSummary = { activeCount: number; totalCount: number; loaded: boolean };
 
 export default function ClientServiceCenter() {
+  const { notifications: notificationItems, markMany } = usePortalNotifications();
   const [view, setView] = useState<ServiceView>('updates');
   const [newTicketRequest, setNewTicketRequest] = useState(0);
   const [notifications, setNotifications] = useState<NotificationSummary>({ unreadCount: 0, totalCount: 0, loaded: false });
   const [tickets, setTickets] = useState<TicketSummary>({ activeCount: 0, totalCount: 0, loaded: false });
+  const unreadRepliesByTicket = useMemo(() => notificationItems.reduce<Record<string, string[]>>((groups, notification) => {
+    if (notification.read_at || !notification.ticketId) return groups;
+    (groups[notification.ticketId] ||= []).push(notification.id);
+    return groups;
+  }, {}), [notificationItems]);
 
   const openView = useCallback((nextView: ServiceView, createTicket = false, updateAddress = true, focusPanel = false) => {
     const target = nextView === 'updates' ? 'notifications' : 'support';
@@ -76,7 +83,14 @@ export default function ClientServiceCenter() {
         <PortalNotificationCenter embedded onSummaryChange={setNotifications} />
       </div>
       <div className={styles.panel} id="support" role="region" aria-labelledby="service-support-tab" hidden={view !== 'support'} tabIndex={-1}>
-        <SupportTicketCenter portalEmbedded newTicketRequest={newTicketRequest} onSummaryChange={setTickets} />
+        <SupportTicketCenter
+          portalEmbedded
+          active={view === 'support'}
+          newTicketRequest={newTicketRequest}
+          onSummaryChange={setTickets}
+          onReadNotifications={markMany}
+          externalUnreadReplyNotifications={unreadRepliesByTicket}
+        />
       </div>
     </section>
   );

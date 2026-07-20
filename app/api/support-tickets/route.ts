@@ -13,7 +13,12 @@ const listSchema = z.object({
   clientId: z.string().uuid().optional(),
   status: z.enum(statuses).optional(),
   scope: z.enum(['self']).optional(),
+  cursor: z.string().trim().min(1).max(400).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(40),
+}).refine((value) => !(value.ticketId && value.cursor), 'Choose a ticket or an older-history cursor, not both.');
+const cursorSchema = z.object({
+  updatedAt: z.string().datetime({ offset: true }),
+  id: z.string().uuid(),
 });
 const createSchema = z.object({
   clientId: z.string().uuid().optional(),
@@ -40,9 +45,12 @@ export async function GET(request: Request) {
     clientId: url.searchParams.get('clientId') || undefined,
     status: url.searchParams.get('status') || undefined,
     scope: url.searchParams.get('scope') || undefined,
+    cursor: url.searchParams.get('cursor') || undefined,
     limit: url.searchParams.get('limit') || undefined,
   });
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message || 'Invalid support-ticket query');
+  const cursor = parsed.data.cursor ? decodeCursor(parsed.data.cursor) : null;
+  if (parsed.data.cursor && !cursor) return jsonError('Invalid support-ticket cursor');
   const selfScope = parsed.data.scope === 'self';
   if (selfScope && !session.client) return jsonError('A linked client account is required for the client portal', 403);
   if ((!session.admin || selfScope) && parsed.data.clientId) return jsonError('Client filtering is available only to administrators', 403);
@@ -51,21 +59,27 @@ export async function GET(request: Request) {
   let query = db.from('support_tickets')
     .select('id,client_id,subject,category,priority,status,created_at,updated_at,closed_at,clients(full_name,email)')
     .order('updated_at', { ascending: false })
-    .limit(parsed.data.limit);
+    .order('id', { ascending: false })
+    .limit(parsed.data.limit + 1);
   if (session.client && (!session.admin || selfScope)) query = query.eq('client_id', session.client.id);
   if (session.admin && !selfScope && parsed.data.clientId) query = query.eq('client_id', parsed.data.clientId);
   if (parsed.data.ticketId) query = query.eq('id', parsed.data.ticketId);
   if (parsed.data.status) query = query.eq('status', parsed.data.status);
+  if (cursor) query = query.or(`updated_at.lt.${cursor.updatedAt},and(updated_at.eq.${cursor.updatedAt},id.lt.${cursor.id})`);
 
   const { data: tickets, error } = await query;
   if (error) return jsonError('Support tickets are temporarily unavailable', 500);
-  const ticketIds = (tickets || []).map((ticket) => ticket.id);
+  const ticketRows = (tickets || []).slice(0, parsed.data.limit);
+  const hasMore = !parsed.data.ticketId && (tickets || []).length > parsed.data.limit;
+  const lastTicket = ticketRows[ticketRows.length - 1];
+  const ticketIds = ticketRows.map((ticket) => ticket.id);
   let messages: Record<string, unknown>[] = [];
   if (ticketIds.length) {
     let messageQuery = db.from('support_ticket_messages')
       .select('id,ticket_id,client_id,author_type,body,created_at')
       .in('ticket_id', ticketIds)
       .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
       .limit(2000);
     if (session.client && (!session.admin || selfScope)) messageQuery = messageQuery.eq('client_id', session.client.id);
     const messageResult = await messageQuery;
@@ -73,12 +87,32 @@ export async function GET(request: Request) {
     messages = messageResult.data || [];
   }
 
+  const unreadReplyNotifications: Record<string, string[]> = {};
+  if (ticketIds.length && session.client && (!session.admin || selfScope)) {
+    const unreadResult = await db.from('client_notifications')
+      .select('id,ticket_id')
+      .eq('client_id', session.client.id)
+      .eq('kind', 'Support')
+      .is('read_at', null)
+      .in('ticket_id', ticketIds)
+      .limit(1000);
+    if (unreadResult.error && !isMissingTicketLinkColumn(unreadResult.error)) {
+      return jsonError('Support reply status is temporarily unavailable', 500);
+    }
+    if (!unreadResult.error) {
+      for (const notification of unreadResult.data || []) {
+        if (typeof notification.ticket_id !== 'string' || typeof notification.id !== 'string') continue;
+        (unreadReplyNotifications[notification.ticket_id] ||= []).push(notification.id);
+      }
+    }
+  }
+
   return Response.json({
     actor: {
       type: session.admin && !selfScope ? 'admin' : 'client',
       canManage: !selfScope && session.admin?.role === 'admin',
     },
-    tickets: (tickets || []).map((ticket) => ({
+    tickets: ticketRows.map((ticket) => ({
       id: ticket.id,
       subject: ticket.subject,
       category: ticket.category,
@@ -95,6 +129,11 @@ export async function GET(request: Request) {
         createdAt: message.created_at,
       })),
     })),
+    unreadReplyNotifications,
+    pageInfo: {
+      hasMore,
+      nextCursor: hasMore && lastTicket ? encodeCursor({ updatedAt: lastTicket.updated_at, id: lastTicket.id }) : null,
+    },
   }, { headers: { 'Cache-Control': 'private, no-store' } });
 }
 
@@ -195,4 +234,25 @@ function readScope(request: Request) {
   const value = new URL(request.url).searchParams.get('scope');
   if (value === null) return null;
   return value === 'self' ? 'self' as const : 'invalid' as const;
+}
+
+function decodeCursor(value: string) {
+  try {
+    const decoded = JSON.parse(Buffer.from(value, 'base64url').toString('utf8')) as unknown;
+    const parsed = cursorSchema.safeParse(decoded);
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+function encodeCursor(value: z.infer<typeof cursorSchema>) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+}
+
+function isMissingTicketLinkColumn(error: { code?: string; message?: string }) {
+  const message = error.message?.toLowerCase() || '';
+  return error.code === '42703'
+    || error.code === 'PGRST204'
+    || (message.includes('ticket_id') && (message.includes('column') || message.includes('schema cache')));
 }

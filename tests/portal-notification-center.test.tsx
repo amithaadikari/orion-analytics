@@ -4,6 +4,7 @@ import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import PortalNotificationCenter from '@/components/portal-notification-center';
+import { PortalNotificationsProvider } from '@/components/portal-notifications-provider';
 
 const notifications = [
   { id: 'notice-payment', kind: 'Payment', title: 'Payment confirmed', message: 'Your Basic payment is now marked Paid.', href: '/portal#payments', read_at: null, created_at: '2026-07-20T10:00:00Z' },
@@ -21,7 +22,7 @@ describe('Portal Notification Center', () => {
   it('loads real notification types, reports its summary, and filters the recent list', async () => {
     const summary = vi.fn();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ notifications, unreadCount: 2 })));
-    render(<PortalNotificationCenter embedded onSummaryChange={summary} />);
+    renderCenter(<PortalNotificationCenter embedded onSummaryChange={summary} />);
 
     expect(await screen.findByText('Payment confirmed')).toBeTruthy();
     await waitFor(() => expect(summary).toHaveBeenLastCalledWith({ unreadCount: 2, totalCount: 3, loaded: true }));
@@ -36,7 +37,7 @@ describe('Portal Notification Center', () => {
       .mockResolvedValueOnce(jsonResponse({ notifications, unreadCount: 2 }))
       .mockResolvedValueOnce(jsonResponse({ updated: 2, unreadCount: 0 }));
     vi.stubGlobal('fetch', fetchMock);
-    render(<PortalNotificationCenter embedded />);
+    renderCenter(<PortalNotificationCenter embedded />);
 
     fireEvent.click(await screen.findByRole('button', { name: /Mark all read/i }));
 
@@ -52,7 +53,7 @@ describe('Portal Notification Center', () => {
       .mockResolvedValueOnce(jsonResponse({ error: 'Notifications are temporarily unavailable' }, 500))
       .mockResolvedValueOnce(jsonResponse({ notifications: [], unreadCount: 0 }));
     vi.stubGlobal('fetch', fetchMock);
-    render(<PortalNotificationCenter embedded />);
+    renderCenter(<PortalNotificationCenter embedded />);
 
     expect(await screen.findByText('Notifications are temporarily unavailable')).toBeTruthy();
     expect(screen.queryByText('You’re up to date')).toBeNull();
@@ -63,7 +64,7 @@ describe('Portal Notification Center', () => {
   it('keeps long notification histories compact until requested', async () => {
     const longList = Array.from({ length: 7 }, (_, index) => ({ ...notifications[0], id: `notice-${index}`, title: `Update ${index}`, created_at: `2026-07-${String(20 - index).padStart(2, '0')}T10:00:00Z` }));
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ notifications: longList, unreadCount: 7 })));
-    render(<PortalNotificationCenter embedded />);
+    renderCenter(<PortalNotificationCenter embedded />);
 
     expect(await screen.findByText('Update 0')).toBeTruthy();
     expect(screen.queryByText('Update 5')).toBeNull();
@@ -74,6 +75,10 @@ describe('Portal Notification Center', () => {
     expect(screen.getByText('Update 6')).toBeTruthy();
   });
 });
+
+function renderCenter(center: React.ReactNode) {
+  return render(<PortalNotificationsProvider>{center}</PortalNotificationsProvider>);
+}
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } });

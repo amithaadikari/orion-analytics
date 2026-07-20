@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import SupportTicketCenter from '@/components/support-ticket-center';
 
@@ -38,10 +38,34 @@ const openTicket = {
   updatedAt: '2026-07-17T10:00:00Z',
 };
 
-const clientPayload = { actor: { type: 'client', canManage: false }, tickets: [waitingTicket, resolvedTicket] };
+const closedTicket = {
+  ...waitingTicket,
+  id: '550e8400-e29b-41d4-a716-446655440004',
+  subject: 'Closed billing question',
+  category: 'Payment',
+  status: 'Closed',
+  priority: 'Normal',
+  updatedAt: '2026-07-16T10:00:00Z',
+  closedAt: '2026-07-16T10:00:00Z',
+};
+
+const olderOpenTicket = {
+  ...waitingTicket,
+  id: '550e8400-e29b-41d4-a716-446655440005',
+  subject: 'Older technical ticket',
+  category: 'Technical',
+  status: 'In progress',
+  priority: 'Normal',
+  updatedAt: '2026-07-15T10:00:00Z',
+};
+
+const clientActor = { type: 'client' as const, canManage: false };
+const clientPayload = ticketPayload([waitingTicket, resolvedTicket]);
+type TestTicket = Omit<typeof waitingTicket, 'closedAt'> & { closedAt: string | null };
 
 afterEach(() => {
   cleanup();
+  window.history.replaceState(null, '', '/');
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -54,7 +78,7 @@ describe('Support Ticket Center', () => {
     render(<SupportTicketCenter portalEmbedded onSummaryChange={summary} />);
 
     expect(await screen.findByRole('heading', { name: 'License will not activate' })).toBeTruthy();
-    expect(fetchMock.mock.calls[0][0]).toBe('/api/support-tickets?scope=self');
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/support-tickets?scope=self&limit=12');
     expect(screen.getAllByText('Your reply needed').length).toBeGreaterThan(0);
     await waitFor(() => expect(summary).toHaveBeenLastCalledWith({ activeCount: 1, totalCount: 2, loaded: true }));
 
@@ -63,11 +87,115 @@ describe('Support Ticket Center', () => {
     expect(screen.queryByText('License will not activate')).toBeNull();
   });
 
+  it.each([
+    { target: resolvedTicket, filterName: /Resolved 1/i },
+    { target: closedTicket, filterName: /Closed 1/i },
+  ])('restores a directly linked older $target.status ticket and selects its matching filter', async ({ target, filterName }) => {
+    window.history.replaceState(null, '', `/portal?ticket=${target.id}#support`);
+    const firstPage = ticketPayload([waitingTicket, openTicket], {
+      hasMore: true,
+      nextCursor: 'first-page-cursor',
+    });
+    const exactPage = ticketPayload([target]);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(firstPage))
+      .mockResolvedValueOnce(jsonResponse(exactPage));
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<SupportTicketCenter portalEmbedded />);
+
+    expect(await screen.findByRole('heading', { name: target.subject })).toBeTruthy();
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      '/api/support-tickets?scope=self&limit=12',
+      `/api/support-tickets?scope=self&limit=12&ticketId=${target.id}`,
+    ]);
+    expect(screen.getByRole('button', { name: filterName }).getAttribute('aria-pressed')).toBe('true');
+    expect(window.location.pathname).toBe('/portal');
+    expect(window.location.search).toBe(`?ticket=${target.id}`);
+    expect(window.location.hash).toBe('#support');
+  });
+
+  it('stores the selected ticket in the portal address for refresh-safe navigation', async () => {
+    window.history.replaceState(null, '', '/portal#support');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(ticketPayload([waitingTicket, openTicket]))));
+    render(<SupportTicketCenter portalEmbedded />);
+
+    await screen.findByRole('heading', { name: 'License will not activate' });
+    fireEvent.click(screen.getByRole('button', { name: /Payment.*New payment question/i }));
+
+    expect(await screen.findByRole('heading', { name: 'New payment question' })).toBeTruthy();
+    expect(window.location.pathname).toBe('/portal');
+    expect(window.location.search).toBe(`?ticket=${openTicket.id}`);
+    expect(window.location.hash).toBe('#support');
+  });
+
+  it('appends and de-duplicates older tickets without replacing the selected thread or address', async () => {
+    const cursor = 'next/page=2';
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse(ticketPayload([waitingTicket, openTicket], { hasMore: true, nextCursor: cursor })))
+      .mockResolvedValueOnce(jsonResponse(ticketPayload([openTicket, olderOpenTicket])));
+    vi.stubGlobal('fetch', fetchMock);
+    window.history.replaceState(null, '', '/portal#support');
+    render(<SupportTicketCenter portalEmbedded />);
+
+    await screen.findByRole('heading', { name: 'License will not activate' });
+    fireEvent.click(screen.getByRole('button', { name: /Payment.*New payment question/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Load older tickets' }));
+
+    expect(await screen.findByRole('button', { name: /Technical.*Older technical ticket/i })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'New payment question' })).toBeTruthy();
+    expect(window.location.search).toBe(`?ticket=${openTicket.id}`);
+    expect(window.location.hash).toBe('#support');
+    const ticketList = screen.getByRole('navigation', { name: 'Support tickets' });
+    expect(within(ticketList).getAllByRole('button')).toHaveLength(3);
+    expect(within(ticketList).getAllByRole('button', { name: /New payment question/i })).toHaveLength(1);
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/support-tickets?scope=self&limit=12&cursor=next%2Fpage%3D2');
+  });
+
+  it('keeps unread replies untouched while the support workspace is hidden', async () => {
+    const markRead = vi.fn().mockResolvedValue(true);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(ticketPayload(
+      [waitingTicket],
+      undefined,
+      { [waitingTicket.id]: ['reply-notification-one'] },
+    ))));
+
+    render(<SupportTicketCenter portalEmbedded active={false} onReadNotifications={markRead} />);
+
+    await screen.findByRole('heading', { name: 'License will not activate' });
+    expect(screen.getByText('New reply')).toBeTruthy();
+    await act(async () => Promise.resolve());
+    expect(markRead).not.toHaveBeenCalled();
+  });
+
+  it('marks only the selected desktop ticket notification IDs and clears its new-reply badge after success', async () => {
+    const readResult = deferred<boolean>();
+    const markRead = vi.fn().mockReturnValue(readResult.promise);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(ticketPayload(
+      [waitingTicket, openTicket],
+      undefined,
+      {
+        [waitingTicket.id]: ['reply-notification-one', 'reply-notification-two', 'reply-notification-one'],
+        [openTicket.id]: ['other-ticket-notification'],
+      },
+    ))));
+
+    render(<SupportTicketCenter portalEmbedded active onReadNotifications={markRead} />);
+
+    expect(await screen.findAllByText('New reply')).toHaveLength(2);
+    await waitFor(() => expect(markRead).toHaveBeenCalledWith(['reply-notification-one', 'reply-notification-two']));
+    expect(markRead).toHaveBeenCalledTimes(1);
+    await act(async () => readResult.resolve(true));
+    await waitFor(() => expect(screen.getAllByText('New reply')).toHaveLength(1));
+    expect(screen.getByRole('button', { name: /License.*License will not activate/i }).textContent).not.toContain('New reply');
+    expect(screen.getByRole('button', { name: /Payment.*New payment question/i }).textContent).toContain('New reply');
+  });
+
   it('creates a secure ticket from the inline drawer', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({ actor: clientPayload.actor, tickets: [] }))
+      .mockResolvedValueOnce(jsonResponse(ticketPayload([])))
       .mockResolvedValueOnce(jsonResponse({ ticketId: waitingTicket.id }, 201))
-      .mockResolvedValueOnce(jsonResponse({ actor: clientPayload.actor, tickets: [waitingTicket] }));
+      .mockResolvedValueOnce(jsonResponse(ticketPayload([waitingTicket])));
     vi.stubGlobal('fetch', fetchMock);
     render(<SupportTicketCenter portalEmbedded />);
 
@@ -87,7 +215,7 @@ describe('Support Ticket Center', () => {
   it('distinguishes an unavailable ticket history from an empty account', async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(jsonResponse({ error: 'Support tickets are temporarily unavailable' }, 500))
-      .mockResolvedValueOnce(jsonResponse({ actor: clientPayload.actor, tickets: [] }));
+      .mockResolvedValueOnce(jsonResponse(ticketPayload([])));
     vi.stubGlobal('fetch', fetchMock);
     render(<SupportTicketCenter portalEmbedded />);
 
@@ -99,9 +227,9 @@ describe('Support Ticket Center', () => {
 
   it('sends a client reply without flashing the entire workspace away', async () => {
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonResponse({ actor: clientPayload.actor, tickets: [waitingTicket] }))
+      .mockResolvedValueOnce(jsonResponse(ticketPayload([waitingTicket])))
       .mockResolvedValueOnce(jsonResponse({ ok: true, ticketId: waitingTicket.id, status: 'Open', priority: 'High' }))
-      .mockResolvedValueOnce(jsonResponse({ actor: clientPayload.actor, tickets: [{ ...waitingTicket, status: 'Open' }] }));
+      .mockResolvedValueOnce(jsonResponse(ticketPayload([{ ...waitingTicket, status: 'Open' }])));
     vi.stubGlobal('fetch', fetchMock);
     render(<SupportTicketCenter portalEmbedded />);
 
@@ -153,7 +281,7 @@ describe('Support Ticket Center', () => {
 
   it('moves and restores focus when a mobile client opens a conversation', async () => {
     vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true }));
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ actor: clientPayload.actor, tickets: [waitingTicket] })));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(ticketPayload([waitingTicket]))));
     render(<SupportTicketCenter portalEmbedded />);
 
     await screen.findByRole('heading', { name: 'License will not activate' });
@@ -169,4 +297,18 @@ describe('Support Ticket Center', () => {
 
 function jsonResponse(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), { status, headers: { 'content-type': 'application/json' } });
+}
+
+function ticketPayload(
+  tickets: TestTicket[],
+  pageInfo = { hasMore: false, nextCursor: null as string | null },
+  unreadReplyNotifications: Record<string, string[]> = {},
+) {
+  return { actor: clientActor, tickets, unreadReplyNotifications, pageInfo };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((fulfill) => { resolve = fulfill; });
+  return { promise, resolve };
 }

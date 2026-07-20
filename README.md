@@ -28,7 +28,7 @@ Open `http://localhost:3000/login`. Create an email/password user in Supabase Au
 ## Supabase setup
 
 1. Create a Supabase project.
-2. Run the files in `supabase/migrations` in timestamp order. Existing projects should apply `20260724_orion_command_suite.sql` and `20260725_protect_release_sources.sql` before enabling the Action Center, Revenue Intelligence, Client 360, notification, support, Software Access Hub, and protected-download features.
+2. Run the files in `supabase/migrations` in timestamp order. Existing projects should apply `20260724_orion_command_suite.sql`, `20260725_protect_release_sources.sql`, and `20260726_support_notification_ticket_links.sql` before enabling the Action Center, Revenue Intelligence, Client 360, exact support-reply links, Software Access Hub, and protected-download features.
 3. Enable email/password in Authentication → Providers.
 4. Create the first admin user, copy its Auth UUID, and insert it into `public.admins` with role `admin`.
 5. Put the project URL, anon key and service-role key in `.env.local` / Vercel Environment Variables.

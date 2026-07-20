@@ -454,6 +454,25 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   text-overflow: ellipsis;
 }
 
+.newReply {
+  display: inline-flex;
+  min-height: 22px;
+  padding: 0 7px;
+  align-items: center;
+  gap: 4px;
+  color: #061014;
+  border: 1px solid rgba(var(--portal-secondary-rgb), .68);
+  border-radius: 999px;
+  background: linear-gradient(110deg, var(--portal-secondary), var(--portal-secondary-bright));
+  box-shadow: 0 0 16px rgba(var(--portal-secondary-rgb), .14);
+  font-size: 8px;
+  font-weight: 780;
+  letter-spacing: .04em;
+  line-height: 1;
+  text-transform: uppercase;
+  animation: ticket-new-reply 2.8s ease-in-out infinite;
+}
+
 .ticketList i {
   width: 7px;
   height: 7px;
@@ -508,6 +527,56 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   margin-left: auto;
   flex: none;
   color: #5f6d69;
+}
+
+.listFooter {
+  display: grid;
+  padding: 12px 14px 14px;
+  place-items: center;
+  gap: 6px;
+  border-top: 1px solid rgba(255, 255, 255, .045);
+  background: rgba(var(--portal-secondary-rgb), .012);
+}
+
+.listFooter small {
+  color: #74817e;
+  font-size: 9.5px;
+}
+
+.ticketList .loadOlder,
+.filterEmpty .loadOlder {
+  display: inline-flex;
+  width: auto;
+  min-width: 164px;
+  min-height: 44px;
+  padding: 0 14px;
+  align-items: center;
+  justify-content: center;
+  color: var(--portal-secondary-bright);
+  border: 1px solid rgba(var(--portal-secondary-rgb), .2);
+  border-radius: 8px;
+  background: rgba(var(--portal-secondary-rgb), .045);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 710;
+  text-align: center;
+  cursor: pointer;
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+
+.ticketList .loadOlder {
+  min-height: 44px;
+  border-bottom: 1px solid rgba(var(--portal-secondary-rgb), .2);
+}
+
+.ticketList .loadOlder:disabled,
+.filterEmpty .loadOlder:disabled {
+  cursor: wait;
+  opacity: .58;
+}
+
+.filterEmpty .loadOlder {
+  margin-top: 13px;
 }
 
 .thread {
@@ -836,6 +905,13 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   .ticketList button:hover {
     background: linear-gradient(90deg, rgba(var(--portal-secondary-rgb), .05), transparent);
   }
+
+  .ticketList .loadOlder:hover,
+  .filterEmpty .loadOlder:hover {
+    transform: translateY(-1px);
+    border-color: rgba(var(--portal-secondary-rgb), .38);
+    background: rgba(var(--portal-secondary-rgb), .075);
+  }
 }
 
 @keyframes ticket-enter {
@@ -850,6 +926,11 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
 
 @keyframes ticket-loading {
   to { background-position: -200% 0; }
+}
+
+@keyframes ticket-new-reply {
+  0%, 100% { box-shadow: 0 0 12px rgba(var(--portal-secondary-rgb), .1); }
+  50% { box-shadow: 0 0 19px rgba(var(--portal-secondary-rgb), .26); }
 }
 
 @media (max-width: 860px) {
@@ -1013,6 +1094,10 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   .notice,
   .error,
   .loading span {
+    animation: none !important;
+  }
+
+  .newReply {
     animation: none !important;
   }
 }
