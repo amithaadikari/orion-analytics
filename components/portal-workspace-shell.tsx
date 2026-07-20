@@ -23,7 +23,7 @@ const workspaceSections = [
   { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'setup', label: 'Setup', icon: ListChecks },
   { id: 'licenses', label: 'Software', icon: PackageOpen },
-  { id: 'payments', label: 'Payments', icon: ReceiptText },
+  { id: 'payments', label: 'Billing', icon: ReceiptText },
   { id: 'notifications', label: 'Updates', icon: Bell },
   { id: 'support', label: 'Support', icon: Headphones },
 ] as const;

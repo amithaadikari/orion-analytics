@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { KeyRound, LockKeyhole, MapPin, PackageOpen, ReceiptText, ShieldCheck } from 'lucide-react';
 import { requireClient } from '@/lib/auth';
+import BillingDocumentsCenter from '@/components/billing-documents-center';
 import ClientPortalInsights from '@/components/client-portal-insights';
 import ClientProfileSummary from '@/components/client-profile-summary';
 import PortalNotificationCenter from '@/components/portal-notification-center';
@@ -59,6 +60,7 @@ export default async function PortalPage() {
   const latestReleaseVersion = latestRelease
     ? (/^v/i.test(latestRelease.version) ? latestRelease.version : `v${latestRelease.version}`)
     : 'Not ready';
+  const portalAsOf = new Date().toISOString();
 
   return (
     <PortalWorkspaceShell currentView="overview" clientName={client.full_name} clientDisplayName={displayName} clientAvatarKey={profile.avatarKey} clientPlan={client.plan} clientStatus={client.status} initialTheme={initialTheme}>
@@ -113,14 +115,7 @@ export default async function PortalPage() {
 
         <SoftwareAccessHub client={{ plan: client.plan, status: client.status }} licenses={licenses || []} releases={releases} downloadActivity={downloadHistory || []} recordsAvailable={!licensesError && !releasesError} activityAvailable={!downloadHistoryError} currentReleaseRequested={Boolean(downloads?.length)} currentReleaseRequestAvailable={!downloadsError} />
 
-        <div className="portal-grid portal-resource-grid">
-          <PortalPanel title="Payment history" eyebrow="Transactions & documents" marker="03" anchorId="payments" wide>
-            {payments?.length ? <div className="portal-table" role="table" aria-label="Payment history">
-              <div className="portal-table-head portal-table-head--documents" role="row"><span role="columnheader">Date</span><span role="columnheader">Plan</span><span role="columnheader">Method</span><span role="columnheader">Amount</span><span role="columnheader">Status</span><span role="columnheader">Documents</span></div>
-              {payments.map((payment) => <div className="portal-table-row portal-table-row--documents" role="row" key={payment.id}><span role="cell" data-label="Date">{payment.payment_date ? new Date(`${payment.payment_date}T00:00:00`).toLocaleDateString() : '—'}</span><strong role="cell" data-label="Plan">{payment.plan}</strong><span role="cell" data-label="Method">{payment.method}</span><span role="cell" data-label="Amount">{payment.currency} {Number(payment.amount).toLocaleString()}</span><span className={`payment-status ${payment.status.toLowerCase().replace(/\s+/g, '-')}`} role="cell" data-label="Status">{payment.status}</span><span className="portal-document-links" role="cell" data-label="Documents"><Link href={`/invoice/${payment.id}`}>Invoice</Link>{payment.receipt_number && <Link href={`/receipt/${payment.id}`}>Receipt</Link>}</span></div>)}
-            </div> : <Empty text="No payment history yet." />}
-          </PortalPanel>
-        </div>
+        <BillingDocumentsCenter client={{ plan: client.plan, status: client.status }} payments={payments || []} licenses={licenses || []} paymentsAvailable={!paymentsError} licensesAvailable={!licensesError} asOf={portalAsOf} />
 
         <PortalNotificationCenter />
         <SupportTicketCenter />
@@ -134,16 +129,7 @@ function PortalMetric({ icon, label, value, detail, tone }: { icon: React.ReactN
   return <article className={`portal-metric portal-metric-${tone}`}><span aria-hidden="true">{icon}</span><div><small>{label}</small><strong>{value}</strong><p>{detail}</p></div></article>;
 }
 
-function PortalPanel({ title, eyebrow, marker, anchorId, wide = false, children }: { title: string; eyebrow: string; marker: string; anchorId?: string; wide?: boolean; children: React.ReactNode }) {
-  const headingId = `portal-panel-${marker}`;
-  return <section className={`portal-panel portal-workspace-panel ${wide ? 'wide' : ''}`} id={anchorId} aria-labelledby={headingId}><header className="portal-panel-heading"><div><p className="eyebrow">{eyebrow}</p><h2 id={headingId}>{title}</h2></div><span aria-hidden="true">{marker}</span></header>{children}</section>;
-}
-
 function PortalWorkspaceSection({ title, eyebrow, marker, anchorId, description, children }: { title: string; eyebrow: string; marker: string; anchorId: string; description: string; children: React.ReactNode }) {
   const headingId = `portal-section-${anchorId}`;
   return <section className="portal-workspace-section" id={anchorId} aria-labelledby={headingId}><header className="portal-workspace-section-heading"><div><p className="eyebrow">{eyebrow}</p><h2 id={headingId}>{title}</h2><span>{description}</span></div><strong aria-hidden="true">{marker}</strong></header>{children}</section>;
-}
-
-function Empty({ text }: { text: string }) {
-  return <p className="portal-empty" role="status"><span aria-hidden="true">◇</span>{text}</p>;
 }

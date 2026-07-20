@@ -55,7 +55,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         <section className="invoice-items" aria-label="Invoice items">
           <div className="invoice-item-head"><span>Description</span><span>Access</span><span>Amount</span></div>
           <div className="invoice-item">
-            <div><strong>Orion {payment.plan} plan</strong><p>{license ? `${license.platform} license · Account ${license.account_number || 'not assigned'}` : 'License assignment recorded separately'}</p>{license?.license_key && <code>{license.license_key}</code>}</div>
+            <div><strong>Orion {payment.plan} plan</strong><p>{license ? `${license.platform} license · Account ${license.account_number || 'not assigned'}` : 'License assignment recorded separately'}</p>{license?.license_key && <code>{maskedLicenseKey(license.license_key)}</code>}</div>
             <span>{payment.plan}</span>
             <strong>{money(Number(payment.amount), payment.currency)}</strong>
           </div>
@@ -63,8 +63,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
 
         <footer className="invoice-footer">
           <div><span>{settled ? 'Total recorded' : 'Invoice amount'}</span><strong>{money(Number(payment.amount), payment.currency)}</strong></div>
-          <p>{settled ? 'This invoice is linked to a completed payment record. Use the separate payment receipt as formal proof of payment.' : `This invoice reflects a transaction currently marked ${payment.status}. It is not proof of payment.`}</p>
-          {payment.receipt_number && <a href={`/receipt/${payment.id}`}>Open payment receipt {payment.receipt_number} →</a>}
+          <p>{settled ? 'This invoice is linked to a completed account payment record. The separate payment receipt confirms the recorded payment.' : `This invoice reflects a transaction currently marked ${payment.status}. It is not proof of payment.`}</p>
+          {settled && payment.receipt_number?.trim() && <a href={`/receipt/${payment.id}`}>Open payment receipt {payment.receipt_number} →</a>}
         </footer>
       </article>
     </main>
@@ -77,8 +77,8 @@ function relation(value: unknown) {
 }
 
 function formatDate(value: string) {
-  const date = new Date(value.includes('T') ? value : `${value}T00:00:00`);
-  return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  const date = new Date(value.includes('T') ? value : `${value}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? 'Date unavailable' : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
 function money(value: number, currency: string) {
@@ -88,4 +88,8 @@ function money(value: number, currency: string) {
 
 function statusClass(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+}
+
+function maskedLicenseKey(value: string) {
+  return `License ending •••• ${value.slice(-4)}`;
 }

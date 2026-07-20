@@ -12,6 +12,10 @@ describe('client plan handoff', () => {
     expect(safeAuthNext('/checkout?plan=basic')).toBe('/checkout?plan=basic');
     expect(safeAuthNext('/portal/profile')).toBe('/portal/profile');
     expect(safeAuthNext('/reset-password')).toBe('/reset-password');
+    expect(safeAuthNext('/invoice/550e8400-e29b-41d4-a716-446655440000')).toBe('/invoice/550e8400-e29b-41d4-a716-446655440000');
+    expect(safeAuthNext('/receipt/550e8400-e29b-41d4-a716-446655440000')).toBe('/receipt/550e8400-e29b-41d4-a716-446655440000');
+    expect(safeAuthNext('/invoice/not-a-uuid')).toBe('/portal');
+    expect(safeAuthNext('/receipt/550e8400-e29b-41d4-a716-446655440000/extra')).toBe('/portal');
     expect(safeAuthNext('//evil.example')).toBe('/portal');
     expect(safeAuthNext('/\\evil.example')).toBe('/portal');
     expect(safeAuthNext('https://evil.example')).toBe('/portal');

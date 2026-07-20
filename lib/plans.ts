@@ -55,13 +55,14 @@ export function normalizeTrackingId(value: unknown) {
 }
 
 const allowedAuthDestinations = new Set(['/portal', '/portal/profile', '/checkout', '/reset-password']);
+const documentDestination = /^\/(?:invoice|receipt)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function safeAuthNext(value: unknown, fallback = '/portal') {
   if (typeof value !== 'string' || !value.startsWith('/') || value.includes('\\')) return fallback;
   try {
     const origin = 'https://orion-client.invalid';
     const target = new URL(value, origin);
-    if (target.origin !== origin || !allowedAuthDestinations.has(target.pathname)) return fallback;
+    if (target.origin !== origin || (!allowedAuthDestinations.has(target.pathname) && !documentDestination.test(target.pathname))) return fallback;
     return `${target.pathname}${target.search}`;
   } catch {
     return fallback;
