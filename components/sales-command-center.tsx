@@ -65,7 +65,7 @@ type ComparisonPoint = SeriesPoint & {
   previous: number;
 };
 
-type RangePreset = '7d' | '30d' | '90d' | '12m' | 'custom';
+type RangePreset = 'today' | 'yesterday' | '7d' | '30d' | '90d' | '12m' | 'custom';
 
 type PeriodSpec = {
   startKey: string;
@@ -95,6 +95,8 @@ type SalesSummary = {
 const completedStatuses = new Set(['Paid', 'Manually verified']);
 const exceptionStatuses = new Set(['Refunded', 'Disputed']);
 const rangeOptions: { value: RangePreset; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
   { value: '7d', label: '7D' },
   { value: '30d', label: '30D' },
   { value: '90d', label: '90D' },
@@ -672,10 +674,11 @@ function filterPeriod(rows: SalesPayment[], startKey: string, endKey: string, da
   });
 }
 
-function resolvePeriod(range: RangePreset, customStart: string, customEnd: string): PeriodSpec {
-  const endKey = range === 'custom' ? customEnd : utcDateKey(0);
+export function resolvePeriod(range: RangePreset, customStart: string, customEnd: string): PeriodSpec {
+  const endKey = range === 'custom' ? customEnd : range === 'yesterday' ? utcDateKey(1) : utcDateKey(0);
   const configuredDays = range === '7d' ? 7 : range === '90d' ? 90 : range === '12m' ? 365 : 30;
-  const startKey = range === 'custom' ? customStart : range === '12m' ? firstDayMonthsAgo(11) : addDaysKey(endKey, -(configuredDays - 1));
+  const isSingleDay = range === 'today' || range === 'yesterday';
+  const startKey = range === 'custom' ? customStart : isSingleDay ? endKey : range === '12m' ? firstDayMonthsAgo(11) : addDaysKey(endKey, -(configuredDays - 1));
   const safeStart = startKey <= endKey ? startKey : endKey;
   const safeEnd = startKey <= endKey ? endKey : startKey;
   const unboundedDays = Math.max(1, daysBetween(safeStart, safeEnd) + 1);
@@ -683,8 +686,9 @@ function resolvePeriod(range: RangePreset, customStart: string, customEnd: strin
   const boundedStart = unboundedDays > days ? addDaysKey(safeEnd, -(days - 1)) : safeStart;
   const previousEndKey = addDaysKey(boundedStart, -1);
   const previousStartKey = addDaysKey(previousEndKey, -(days - 1));
-  const label = range === 'custom' ? 'Custom range' : range === '12m' ? 'Last 12 months' : `Last ${configuredDays} days`;
-  return { startKey: boundedStart, endKey: safeEnd, previousStartKey, previousEndKey, days, label, previousLabel: `Previous ${days} days` };
+  const label = range === 'today' ? 'Today' : range === 'yesterday' ? 'Yesterday' : range === 'custom' ? 'Custom range' : range === '12m' ? 'Last 12 months' : `Last ${configuredDays} days`;
+  const previousLabel = range === 'today' ? 'Yesterday' : range === 'yesterday' ? 'Day before' : `Previous ${days} ${days === 1 ? 'day' : 'days'}`;
+  return { startKey: boundedStart, endKey: safeEnd, previousStartKey, previousEndKey, days, label, previousLabel };
 }
 
 function chartPointPayload(state: unknown): { key: string; label: string } | null {

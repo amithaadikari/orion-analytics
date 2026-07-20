@@ -5,6 +5,46 @@
   margin-top: 18px;
 }
 
+.mapLegend {
+  position: absolute;
+  z-index: 3;
+  top: 15px;
+  right: 16px;
+  display: grid;
+  min-width: 150px;
+  padding: 9px 10px;
+  grid-template-columns: auto minmax(42px, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  color: #748287;
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 9px;
+  background: rgba(2, 7, 8, .78);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .28);
+  backdrop-filter: blur(12px);
+}
+
+.mapLegend span {
+  grid-column: 1 / -1;
+  color: #b6c2c4;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.mapLegend i {
+  font-size: 7px;
+  font-style: normal;
+}
+
+.mapLegend b {
+  height: 5px;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #101b1d, #745f26 48%, #f6c453);
+  box-shadow: 0 0 12px rgba(246, 196, 83, .12);
+}
+
 .worldMap {
   display: block;
   width: 100%;
@@ -14,72 +54,104 @@
 }
 
 .mapOcean {
-  fill: rgba(1, 6, 9, .96);
-  stroke: rgba(66, 217, 255, .13);
+  fill: #020708;
+  stroke: rgba(246, 196, 83, .12);
   stroke-width: 1;
 }
 
-.dotMatrix {
-  filter: drop-shadow(0 0 4px rgba(66, 217, 255, .08));
+.mapGrid {
+  fill: none;
+  stroke: rgba(66, 217, 255, .055);
+  stroke-width: .55;
+  vector-effect: non-scaling-stroke;
 }
 
-.landDot {
-  opacity: .48;
-  animation: matrixSignal 5.2s ease-in-out infinite;
-  animation-delay: var(--dot-delay);
+.countryShapes {
+  filter: drop-shadow(0 5px 16px rgba(0, 0, 0, .3));
 }
 
-.landDotNorthAmerica { fill: #42d9ff; }
-.landDotSouthAmerica { fill: #39f28a; }
-.landDotEurope { fill: #f6c453; }
-.landDotAfrica { fill: #ff9f43; }
-.landDotAsia { fill: #a78bfa; }
-.landDotOceania { fill: #68d8ff; }
+.countryShape,
+.countryShapeActive,
+.countryShapeSelected {
+  stroke: rgba(157, 178, 181, .24);
+  stroke-width: .6;
+  vector-effect: non-scaling-stroke;
+  transition: fill .24s ease, filter .24s ease, stroke .24s ease;
+}
 
-.mapPoint,
-.mapPointActive {
+.countryShape {
+  fill: #10191b;
+}
+
+.countryShapeActive,
+.countryShapeSelected {
   cursor: pointer;
+  fill: color-mix(in srgb, #f6c453 var(--country-heat), #102123);
+  stroke: color-mix(in srgb, #ffe39a 44%, rgba(66, 217, 255, .32));
 }
 
-.mapBubble {
-  fill: #fff;
-  stroke: #42d9ff;
-  stroke-width: 2;
-  transition: transform .2s ease, fill .2s ease, stroke .2s ease;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-
-.mapPulse {
-  fill: rgba(66, 217, 255, .1);
-  stroke: rgba(66, 217, 255, .28);
-  animation: mapPulse 2.7s ease-in-out infinite;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-
-.mapPoint text,
-.mapPointActive text {
-  fill: #dbe7ea;
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 9px;
-  font-weight: 700;
-  pointer-events: none;
-  paint-order: stroke;
-  stroke: #010507;
-  stroke-width: 4px;
-}
-
-.mapPoint:hover .mapBubble,
-.mapPointActive .mapBubble {
-  fill: #f6c453;
+.countryShapeActive:hover,
+.countryShapeActive:focus-visible,
+.countryShapeSelected {
+  fill: color-mix(in srgb, #ffe39a var(--country-heat), #173034);
   stroke: #ffe39a;
-  transform: scale(1.12);
+  stroke-width: 1.35;
+  filter: drop-shadow(0 0 5px rgba(246, 196, 83, .4));
+  outline: none;
 }
 
-.mapPointActive .mapPulse {
-  fill: rgba(246, 196, 83, .18);
-  stroke: rgba(246, 196, 83, .5);
+.topMarkets {
+  pointer-events: none;
+}
+
+.microBeacon {
+  pointer-events: auto;
+  cursor: pointer;
+  outline: none;
+}
+
+.microBeacon:focus-visible .beaconCore {
+  stroke: #fff;
+  stroke-width: 3;
+}
+
+.marketBeacon,
+.primaryBeacon {
+  --beacon-color: #42d9ff;
+}
+
+.primaryBeacon {
+  --beacon-color: #f6c453;
+}
+
+.beaconHalo {
+  fill: color-mix(in srgb, var(--beacon-color) 11%, transparent);
+  stroke: color-mix(in srgb, var(--beacon-color) 36%, transparent);
+  stroke-width: 1;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: beaconPulse 2.8s ease-in-out infinite;
+}
+
+.marketBeacon:nth-child(2) .beaconHalo { animation-delay: -.8s; }
+.marketBeacon:nth-child(3) .beaconHalo { animation-delay: -1.6s; }
+
+.beaconCore {
+  fill: var(--beacon-color);
+  stroke: #020708;
+  stroke-width: 2;
+  filter: drop-shadow(0 0 6px var(--beacon-color));
+}
+
+.marketBeacon text,
+.primaryBeacon text {
+  fill: #f1f6f5;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 8px;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: #020708;
+  stroke-width: 4px;
 }
 
 .countryRail {
@@ -147,23 +219,18 @@
   font-size: 9px;
 }
 
-@keyframes matrixSignal {
-  0%, 100% { opacity: .34; }
-  50% { opacity: .74; }
-}
-
-@keyframes mapPulse {
-  50% { opacity: .32; transform: scale(1.28); }
+@keyframes beaconPulse {
+  0%, 100% { opacity: .38; transform: scale(.88); }
+  50% { opacity: .82; transform: scale(1.24); }
 }
 
 @media (max-width: 720px) {
+  .mapLegend { position: static; width: 100%; grid-template-columns: auto minmax(72px, 1fr) auto; }
   .countryRail { max-height: 218px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .landDot { opacity: .56; }
-  .mapPoint text,
-  .mapPointActive text { font-size: 8px; }
+  .marketBeacon text,
+  .primaryBeacon text { font-size: 7px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landDot,
-  .mapPulse { animation: none; }
+  .beaconHalo { animation: none; }
 }

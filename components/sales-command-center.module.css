@@ -334,7 +334,7 @@
   overflow-wrap: anywhere;
   color: #ffe39a;
   font-family: var(--font-display), Inter, ui-sans-serif, sans-serif;
-  font-size: clamp(31px, 2.9vw, 44px);
+  font-size: clamp(27px, 2.25vw, 35px);
   font-variant-numeric: lining-nums tabular-nums;
   font-weight: 700;
   line-height: .98;
@@ -421,7 +421,7 @@
 .signalValue strong {
   overflow: hidden;
   font-family: var(--font-display), Inter, ui-sans-serif, sans-serif;
-  font-size: clamp(17px, 1.45vw, 22px);
+  font-size: clamp(20px, 1.8vw, 27px);
   font-variant-numeric: lining-nums tabular-nums;
   font-weight: 650;
   line-height: 1.05;

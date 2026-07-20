@@ -2435,67 +2435,205 @@ textarea {
 
 .orion-brand-wordmark {
   display: grid;
-  gap: 2px;
+  gap: 0;
   line-height: 1;
 }
 
 .orion-brand-wordmark strong {
   color: var(--orion-text-strong);
-  font-size: 15px;
-  letter-spacing: .16em;
+  font-size: 16px;
+  font-weight: 780;
+  letter-spacing: .12em;
 }
 
-.orion-brand-wordmark em {
-  color: var(--orion-brand-gold);
-  font-size: 7.5px;
-  letter-spacing: .2em;
+.orion-brand-wordmark small {
+  display: flex;
+  margin-top: 5px;
+  align-items: center;
+  gap: 5px;
+  color: var(--orion-muted);
+  font-size: 8.5px;
+  font-weight: 400;
+  letter-spacing: .12em;
 }
 
-.orion-brand-mark {
+.orion-brand-wordmark b {
+  color: var(--orion-gold);
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
+.orion-brand {
+  font-family: var(--font-display), Sora, ui-sans-serif, sans-serif;
+}
+
+.orion-core-mark {
+  position: relative;
+  width: 42px;
+  height: 42px;
   isolation: isolate;
+  overflow: visible;
+  color: var(--orion-gold);
+  border: 1px solid color-mix(in srgb, var(--orion-gold) 58%, transparent);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 38% 34%, color-mix(in srgb, var(--orion-gold) 19%, transparent), transparent 42%),
+    #020606;
+  box-shadow:
+    inset 0 0 0 4px rgba(0, 0, 0, .72),
+    inset 0 1px rgba(255, 255, 255, .13),
+    0 0 28px color-mix(in srgb, var(--orion-gold) 22%, transparent);
 }
 
-.orion-brand-core,
-.orion-brand-orbit,
-.orion-brand-planet {
+.orion-core-mark::before {
+  z-index: -1;
+  top: 50%;
+  left: 50%;
   position: absolute;
-  display: block;
+  width: 114%;
+  height: 43%;
+  content: "";
+  border: 1px solid color-mix(in srgb, var(--orion-green) 76%, transparent);
+  border-left-color: transparent;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--orion-green) 30%, transparent));
+  transform: translate(-50%, -50%) rotate(-24deg);
+  animation: orionEngineOrbit 7s ease-in-out infinite;
 }
 
-.orion-brand-core {
+.orion-core-mark::after {
+  content: none;
+}
+
+.orion-core-ring {
+  position: absolute;
+  z-index: 1;
+  inset: 9.5%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--orion-cyan) 34%, transparent);
+  background: repeating-conic-gradient(from -2deg, var(--orion-gold) 0 1.2deg, transparent 1.2deg 30deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  animation: orionEngineDial 18s linear infinite;
+}
+
+.orion-engine-needle {
+  position: absolute;
   z-index: 3;
-  width: 8px;
-  height: 8px;
+  inset: 16.7%;
   border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 12px rgba(246, 196, 83, .78);
+  transform: rotate(34deg);
+  animation: orionNeedleCalibrate 4.8s cubic-bezier(.45, 0, .25, 1) infinite;
 }
 
-.orion-brand-orbit {
-  z-index: 2;
-  width: 25px;
-  height: 13px;
-  border: 1px solid currentColor;
+.orion-engine-needle::before,
+.orion-engine-needle::after {
+  position: absolute;
+  left: 50%;
+  content: "";
+  transform: translateX(-50%);
+}
+
+.orion-engine-needle::before {
+  top: 2.4%;
+  width: 11.9%;
+  height: 33.3%;
+  clip-path: polygon(50% 0, 100% 100%, 50% 76%, 0 100%);
+  background: linear-gradient(to bottom, var(--orion-gold-bright), var(--orion-gold));
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--orion-gold) 62%, transparent));
+}
+
+.orion-engine-needle::after {
+  bottom: 4.8%;
+  width: 4.8%;
+  height: 23.8%;
+  background: linear-gradient(to bottom, var(--orion-green), transparent);
+}
+
+.orion-engine-core {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  left: 50%;
+  width: 19%;
+  height: 19%;
+  border: 2px solid #020606;
   border-radius: 50%;
-  opacity: .88;
+  background: var(--orion-gold);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--orion-gold) 65%, transparent);
+  transform: translate(-50%, -50%);
 }
 
-.orion-brand-orbit--angled {
-  width: 13px;
-  height: 25px;
-  transform: rotate(38deg);
-}
-
-.orion-brand-planet {
+.orion-engine-scan {
+  position: absolute;
   z-index: 4;
-  top: 10px;
-  right: 6px;
-  width: 3px;
-  height: 3px;
+  inset: 2.4%;
   border-radius: 50%;
-  background: currentColor;
-  box-shadow: 0 0 7px currentColor;
-  animation: orion-pulse 2.2s ease-in-out infinite;
+  animation: orionEngineScan 6s linear infinite;
+}
+
+.orion-engine-scan i {
+  position: absolute;
+  left: 50%;
+  top: -2.4%;
+  width: 11.9%;
+  height: 11.9%;
+  border: 1px solid #020606;
+  border-radius: 50%;
+  background: var(--orion-green);
+  box-shadow: 0 0 10px 2px color-mix(in srgb, var(--orion-green) 52%, transparent);
+  transform: translateX(-50%);
+}
+
+.orion-engine-signals {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: 11.9%;
+  width: 30%;
+  display: flex;
+  justify-content: space-between;
+  gap: 0;
+  transform: translateX(-50%);
+}
+
+.orion-engine-signals i {
+  width: 20%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--orion-green);
+  box-shadow: 0 0 4px currentColor;
+  animation: orionSignalPulse 2.1s ease-in-out infinite;
+}
+
+.orion-engine-signals i:nth-child(2) {
+  background: var(--orion-gold);
+  animation-delay: .22s;
+}
+
+.orion-engine-signals i:nth-child(3) {
+  background: var(--orion-cyan);
+  animation-delay: .44s;
+}
+
+.brand:hover .orion-core-ring { animation-duration: 6s; }
+.brand:hover .orion-engine-scan { animation-duration: 2.4s; }
+
+@keyframes orionEngineDial { to { transform: rotate(360deg); } }
+@keyframes orionEngineScan { to { transform: rotate(360deg); } }
+@keyframes orionEngineOrbit {
+  0%, 100% { opacity: .58; transform: translate(-50%, -50%) rotate(-24deg) scale(.98); }
+  50% { opacity: 1; transform: translate(-50%, -50%) rotate(-18deg) scale(1.04); }
+}
+@keyframes orionNeedleCalibrate {
+  0%, 100% { transform: rotate(28deg); }
+  18% { transform: rotate(42deg); }
+  32%, 72% { transform: rotate(36deg); }
+}
+@keyframes orionSignalPulse {
+  0%, 52%, 100% { opacity: .25; transform: scale(.75); }
+  16% { opacity: 1; transform: scale(1.45); }
 }
 
 .orion-auth-form {
