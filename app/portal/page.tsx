@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { cookies } from 'next/headers';
+import { KeyRound, LockKeyhole, MapPin, PackageOpen, ReceiptText, ShieldCheck } from 'lucide-react';
 import { requireClient } from '@/lib/auth';
 import ClientPortalInsights from '@/components/client-portal-insights';
 import ClientProfileSummary from '@/components/client-profile-summary';
@@ -31,6 +32,14 @@ export default async function PortalPage() {
     supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number').eq('client_id', client.id).order('created_at', { ascending: false }),
     supabase.from('product_releases').select('id,version,title,release_notes,platform,download_url,released_at').eq('published', true).order('released_at', { ascending: false }),
   ]);
+  const activeLicenseCount = licenses?.filter((license) => {
+    const expired = license.expires_at && new Date(`${license.expires_at.slice(0, 10)}T23:59:59.999Z`).getTime() < Date.now();
+    return license.status === 'Active' && !expired;
+  }).length || 0;
+  const latestRelease = releases?.[0];
+  const latestReleaseVersion = latestRelease
+    ? (/^v/i.test(latestRelease.version) ? latestRelease.version : `v${latestRelease.version}`)
+    : 'Not ready';
 
   return (
     <PortalWorkspaceShell currentView="overview" clientName={client.full_name} clientDisplayName={displayName} clientAvatarKey={profile.avatarKey} clientPlan={client.plan} clientStatus={client.status} initialTheme={initialTheme}>
@@ -38,16 +47,22 @@ export default async function PortalPage() {
         <div className="portal-overview-view" id="overview" tabIndex={-1}>
           <div className="portal-hero portal-workspace-hero">
             <div className="portal-hero-copy">
-              <p className="eyebrow">Orion V5 · Secure client workspace</p>
-              <h1 id="portal-title">Everything you need, <span>{displayName}.</span></h1>
-              <p>Your setup, software access, payments, updates, and official support are now organized in one simple workspace.</p>
-              <div className="portal-hero-links"><a href="#setup">Continue setup <span aria-hidden="true">→</span></a><a href="#support">Get support</a></div>
+              <p className="eyebrow">Orion client workspace</p>
+              <h1 id="portal-title">Welcome back, <span>{displayName}.</span></h1>
+              <p>Manage your setup, licenses, payments, software updates, and support from one secure workspace.</p>
+              <div className="portal-hero-links"><a href="#setup">Continue setup <span aria-hidden="true">→</span></a><Link href="/portal/profile">View profile</Link></div>
             </div>
-            <div className="portal-account-state portal-account-snapshot" aria-label={`${client.plan} plan, account status ${client.status}`}>
-              <div><small>Current plan</small><strong>{client.plan}</strong></div>
-              <span className={`portal-status ${client.status.toLowerCase()}`} role="status"><i aria-hidden="true" />{client.status}</span>
-              <p>Protected access · Orion V5</p>
-            </div>
+            <aside className="portal-account-state portal-account-snapshot" aria-label={`${client.plan} plan, account status ${client.status}`}>
+              <div className="portal-account-snapshot-heading">
+                <span aria-hidden="true"><ShieldCheck size={18} /></span>
+                <div><small>Secure account</small><strong>Orion access</strong></div>
+              </div>
+              <div className="portal-account-snapshot-facts">
+                <div><small>Current plan</small><strong>{client.plan}</strong></div>
+                <div><small>Account status</small><span className={`portal-status ${client.status.toLowerCase()}`} role="status"><i aria-hidden="true" />{client.status}</span></div>
+              </div>
+              <p><LockKeyhole size={13} aria-hidden="true" />Protected client workspace</p>
+            </aside>
           </div>
 
           {client.status === 'Pending' && <div className="portal-approval-notice" role="status"><span className="portal-notice-mark" aria-hidden="true">!</span><div><strong>Paid plan awaiting approval</strong><span>Your portal account is active, but downloads and licensing remain locked until Orion verifies your payment.</span></div></div>}
@@ -59,11 +74,15 @@ export default async function PortalPage() {
             </div>
           )}
 
-          <div className="portal-metrics" aria-label="Account overview">
-            <PortalMetric icon="◇" label="Assigned licenses" value={licenses?.length || 0} tone="cyan" />
-            <PortalMetric icon="✦" label="Current plan" value={client.plan} tone="gold" />
-            <PortalMetric icon="▣" label="Recorded payments" value={payments?.length || 0} tone="green" />
-            <PortalMetric icon={countryFlag(client.country)} label="Registered country" value={client.country || 'Not set'} tone="cyan" />
+          <header className="portal-overview-heading">
+            <div><p className="eyebrow">Account summary</p><h2>At a glance</h2></div>
+            <span>Updated from your Orion records</span>
+          </header>
+          <div className="portal-metrics portal-overview-metrics" aria-label="Account overview">
+            <PortalMetric icon={<KeyRound size={18} />} label="Assigned licenses" value={licenses?.length || 0} detail={`${activeLicenseCount} active now`} tone="cyan" />
+            <PortalMetric icon={<ReceiptText size={18} />} label="Payment records" value={payments?.length || 0} detail="Secure records on file" tone="green" />
+            <PortalMetric icon={<PackageOpen size={18} />} label="Latest software" value={latestReleaseVersion} detail={latestRelease?.title || 'Available after activation'} tone="violet" />
+            <PortalMetric icon={<MapPin size={18} />} label="Registered country" value={`${countryFlag(client.country)} ${client.country || 'Not set'}`} detail="Account location" tone="gold" />
           </div>
 
           <ClientProfileSummary fullName={client.full_name} country={client.country || null} profile={profile} />
@@ -109,8 +128,8 @@ export default async function PortalPage() {
   );
 }
 
-function PortalMetric({ icon, label, value, tone }: { icon: string; label: string; value: string | number; tone: 'gold' | 'cyan' | 'green' }) {
-  return <article className={`portal-metric portal-metric-${tone}`}><span aria-hidden="true">{icon}</span><div><small>{label}</small><strong>{value}</strong></div></article>;
+function PortalMetric({ icon, label, value, detail, tone }: { icon: React.ReactNode; label: string; value: string | number; detail: string; tone: 'gold' | 'cyan' | 'green' | 'violet' }) {
+  return <article className={`portal-metric portal-metric-${tone}`}><span aria-hidden="true">{icon}</span><div><small>{label}</small><strong>{value}</strong><p>{detail}</p></div></article>;
 }
 
 function PortalPanel({ title, eyebrow, marker, anchorId, wide = false, children }: { title: string; eyebrow: string; marker: string; anchorId?: string; wide?: boolean; children: React.ReactNode }) {

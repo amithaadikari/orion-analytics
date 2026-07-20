@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { AtSign, MapPin, PencilLine, Phone, ShieldCheck } from 'lucide-react';
+import { AtSign, PencilLine, Phone, ShieldCheck } from 'lucide-react';
 import ClientAvatar from '@/components/client-avatar';
 import { clientProfileDisplayName, type ClientProfile } from '@/lib/client-profile';
 
@@ -12,6 +12,7 @@ type ClientProfileSummaryProps = {
 export default function ClientProfileSummary({ fullName, country, profile }: ClientProfileSummaryProps) {
   const displayName = clientProfileDisplayName(profile, fullName);
   const profileStarted = Boolean(profile.nickname || profile.bio || profile.brokers.length || profile.tradingPairs.length || profile.telegramUsername || profile.phoneNumber);
+  const hasContactDetails = Boolean(profile.telegramUsername || profile.phoneNumber);
 
   return (
     <section className="client-profile-summary-card" aria-labelledby="profile-summary-title">
@@ -27,9 +28,9 @@ export default function ClientProfileSummary({ fullName, country, profile }: Cli
       <div className="client-profile-summary-copy">
         <p>{profile.bio || (profileStarted ? 'Add a short bio so Orion support can understand your trading focus.' : 'Complete your private trading profile with your preferred markets, brokers, and contact details.')}</p>
         <div className="client-profile-summary-contact" aria-label="Saved contact details">
-          <span><AtSign size={13} aria-hidden="true" />{profile.telegramUsername ? `@${profile.telegramUsername}` : 'Telegram not added'}</span>
-          <span><Phone size={13} aria-hidden="true" />{profile.phoneNumber || 'Phone not added'}</span>
-          <span><MapPin size={13} aria-hidden="true" />{country || 'Country not set'}</span>
+          {profile.telegramUsername && <span><AtSign size={14} aria-hidden="true" />@{profile.telegramUsername}</span>}
+          {profile.phoneNumber && <span><Phone size={14} aria-hidden="true" />{profile.phoneNumber}</span>}
+          {!hasContactDetails && <span className="is-empty">Add Telegram or phone details</span>}
         </div>
       </div>
 
@@ -52,8 +53,8 @@ function PreferencePreview({ label, values, empty }: { label: string; values: st
     <div>
       <small>{label}</small>
       <span className={visible.length ? '' : 'is-empty'}>
-        {visible.length ? visible.map((value) => <i key={value}>{value}</i>) : empty}
-        {values.length > visible.length && <b>+{values.length - visible.length}</b>}
+        {visible.length ? visible.map((value) => <span className="client-profile-summary-chip" key={value}>{value}</span>) : empty}
+        {values.length > visible.length && <span className="client-profile-summary-more">+{values.length - visible.length}</span>}
       </span>
     </div>
   );
