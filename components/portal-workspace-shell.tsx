@@ -4,11 +4,10 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   Bell,
-  Download,
   Headphones,
-  KeyRound,
   LayoutDashboard,
   ListChecks,
+  PackageOpen,
   Palette,
   ReceiptText,
   UserRound,
@@ -23,8 +22,7 @@ const workspaceSections = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'setup', label: 'Setup', icon: ListChecks },
-  { id: 'licenses', label: 'Licenses', icon: KeyRound },
-  { id: 'downloads', label: 'Downloads', icon: Download },
+  { id: 'licenses', label: 'Software', icon: PackageOpen },
   { id: 'payments', label: 'Payments', icon: ReceiptText },
   { id: 'notifications', label: 'Updates', icon: Bell },
   { id: 'support', label: 'Support', icon: Headphones },

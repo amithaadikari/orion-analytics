@@ -115,6 +115,21 @@ describe('client activation journey', () => {
     expect(screen.getByText('Access approved').closest('li')?.getAttribute('aria-current')).toBe('step');
   });
 
+  it('does not claim a release is ready while the client account is pending', () => {
+    render(
+      <ClientPortalInsights
+        {...baseProps}
+        client={{ plan: 'Basic', status: 'Pending' }}
+        payments={[{ id: 'payment', plan: 'Basic', status: 'Paid' }]}
+        licenses={[{ id: 'license', plan: 'Basic', platform: 'MT5', status: 'Active', expires_at: '2099-12-31' }]}
+        releases={[{ id: 'release', version: 'v5.2', title: 'Orion V5', platform: 'MT5', download_url: 'protected' }]}
+      />,
+    );
+
+    expect(screen.getByText('Account approval is in progress')).toBeTruthy();
+    expect(screen.queryByText(/ready for secure download/i)).toBeNull();
+  });
+
   it('shows one neutral unavailable state when secure records cannot be confirmed', () => {
     render(<ClientPortalInsights {...baseProps} recordsAvailable={false} client={{ plan: 'Basic', status: 'Active' }} />);
 

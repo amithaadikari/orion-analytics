@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { compatibleReleaseForPlan } from '@/lib/portal-activation';
+import { compatibleReleaseForPlan, effectiveLicenseStatus } from '@/lib/portal-activation';
 
 describe('portal activation release selection', () => {
+  it('preserves a manually suspended status after the expiry date passes', () => {
+    expect(effectiveLicenseStatus({ plan: 'Basic', platform: 'MT5', status: 'Suspended', expires_at: '2020-01-01' })).toBe('suspended');
+  });
+
   it('selects the newest release matching the current plan license platform', () => {
     const licenses = [
       { plan: 'Premium', platform: 'MT4', status: 'Active', expires_at: '2099-12-31' },

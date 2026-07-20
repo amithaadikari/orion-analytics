@@ -33,13 +33,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ rele
   let licenseQuery = db.from('licenses')
     .select('id')
     .eq('client_id', session.client.id)
+    .eq('plan', session.client.plan)
     .eq('status', 'Active')
     .or(`expires_at.is.null,expires_at.gte.${todayUtc}`)
     .limit(1);
   if (release.platform !== 'Both') licenseQuery = licenseQuery.eq('platform', release.platform);
   const { data: licenses, error: licenseError } = await licenseQuery;
   if (licenseError) return jsonError('Unable to verify download eligibility', 500);
-  if (!licenses?.length) return jsonError('An active matching-platform license is required for this release', 403);
+  if (!licenses?.length) return jsonError(`An active ${session.client.plan} matching-platform license is required for this release`, 403);
 
   const sourceUrl = approvedProductDownloadUrl(release.download_url);
   if (!sourceUrl) return jsonError('This release does not have a safe download source', 502);

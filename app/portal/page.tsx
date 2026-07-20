@@ -7,6 +7,7 @@ import ClientProfileSummary from '@/components/client-profile-summary';
 import PortalNotificationCenter from '@/components/portal-notification-center';
 import PortalWorkspaceShell from '@/components/portal-workspace-shell';
 import RegistrationTracker from '@/components/registration-tracker';
+import SoftwareAccessHub from '@/components/software-access-hub';
 import SupportTicketCenter from '@/components/support-ticket-center';
 import { countryFlag } from '@/lib/country';
 import { checkoutSelectionPath, normalizePlan, plans } from '@/lib/plans';
@@ -33,22 +34,28 @@ export default async function PortalPage() {
   const [licenseResult, paymentResult, releaseResult] = await Promise.all([
     supabase.from('licenses').select('id,license_key,platform,account_number,plan,status,issued_at,expires_at').eq('client_id', client.id).order('created_at', { ascending: false }),
     supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number,created_at').eq('client_id', client.id).order('created_at', { ascending: false }),
-    supabase.from('product_releases').select('id,version,title,release_notes,platform,download_url,released_at').eq('published', true).order('released_at', { ascending: false }),
+    admin.from('product_releases').select('id,version,title,release_notes,platform,download_url,released_at').eq('published', true).order('released_at', { ascending: false }),
   ]);
   const { data: licenses, error: licensesError } = licenseResult;
   const { data: payments, error: paymentsError } = paymentResult;
-  const { data: releases, error: releasesError } = releaseResult;
-  const currentReleaseId = compatibleReleaseForPlan(client.plan, licenses || [], releases || [])?.id;
-  const downloadResult = currentReleaseId
-    ? await admin.from('download_events').select('id,release_id,version,platform,downloaded_at').eq('client_id', client.id).eq('release_id', currentReleaseId).order('downloaded_at', { ascending: false }).limit(1)
-    : { data: [], error: null };
+  const { data: releaseRows, error: releasesError } = releaseResult;
+  const releases = (releaseRows || []).map(({ download_url, ...release }) => ({ ...release, download_url: download_url ? 'protected' : null }));
+  const currentRelease = compatibleReleaseForPlan(client.plan, licenses || [], releases);
+  const currentReleaseId = currentRelease?.id;
+  const [downloadResult, downloadHistoryResult] = await Promise.all([
+    currentReleaseId
+      ? admin.from('download_events').select('id,release_id,version,platform,downloaded_at').eq('client_id', client.id).eq('release_id', currentReleaseId).order('downloaded_at', { ascending: false }).limit(1)
+      : Promise.resolve({ data: [], error: null }),
+    admin.from('download_events').select('id,release_id,version,platform,downloaded_at').eq('client_id', client.id).order('downloaded_at', { ascending: false }).limit(8),
+  ]);
   const { data: downloads, error: downloadsError } = downloadResult;
+  const { data: downloadHistory, error: downloadHistoryError } = downloadHistoryResult;
   const activationDataAvailable = !licensesError && !paymentsError && !releasesError;
   const activeLicenseCount = licenses?.filter((license) => {
     const expired = license.expires_at && new Date(`${license.expires_at.slice(0, 10)}T23:59:59.999Z`).getTime() < Date.now();
     return license.status === 'Active' && !expired;
   }).length || 0;
-  const latestRelease = releases?.[0];
+  const latestRelease = currentRelease;
   const latestReleaseVersion = latestRelease
     ? (/^v/i.test(latestRelease.version) ? latestRelease.version : `v${latestRelease.version}`)
     : 'Not ready';
@@ -91,7 +98,7 @@ export default async function PortalPage() {
             <span>Updated from your Orion records</span>
           </header>
           <div className="portal-metrics portal-overview-metrics" aria-label="Account overview">
-            <PortalMetric icon={<KeyRound size={18} />} label="Assigned licenses" value={licenses?.length || 0} detail={`${activeLicenseCount} active now`} tone="cyan" />
+            <PortalMetric icon={<KeyRound size={18} />} label="Assigned licenses" value={licenses?.length || 0} detail={`${activeLicenseCount} active across plans`} tone="cyan" />
             <PortalMetric icon={<ReceiptText size={18} />} label="Payment records" value={payments?.length || 0} detail="Secure records on file" tone="green" />
             <PortalMetric icon={<PackageOpen size={18} />} label="Latest software" value={latestReleaseVersion} detail={latestRelease?.title || 'Available after activation'} tone="violet" />
             <PortalMetric icon={<MapPin size={18} />} label="Registered country" value={`${countryFlag(client.country)} ${client.country || 'Not set'}`} detail="Account location" tone="gold" />
@@ -101,25 +108,13 @@ export default async function PortalPage() {
         </div>
 
         <PortalWorkspaceSection title="Setup & activation" eyebrow="Your next step" marker="01" anchorId="setup" description="Follow your real account progress and jump directly to the action you need.">
-          <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} releases={releases || []} downloads={downloads || []} recordsAvailable={activationDataAvailable} downloadHistoryAvailable={!downloadsError} planSelectionPath={planSelectionPath} showHeading={false} />
+          <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} releases={releases} downloads={downloads || []} recordsAvailable={activationDataAvailable} downloadHistoryAvailable={!downloadsError} planSelectionPath={planSelectionPath} showHeading={false} />
         </PortalWorkspaceSection>
 
+        <SoftwareAccessHub client={{ plan: client.plan, status: client.status }} licenses={licenses || []} releases={releases} downloadActivity={downloadHistory || []} recordsAvailable={!licensesError && !releasesError} activityAvailable={!downloadHistoryError} currentReleaseRequested={Boolean(downloads?.length)} currentReleaseRequestAvailable={!downloadsError} />
+
         <div className="portal-grid portal-resource-grid">
-          <PortalPanel title="Your licenses" eyebrow="Software access" marker="02" anchorId="licenses">
-            <div className="portal-records">{licenses?.map((license) => <LicenseRecord key={license.id} license={license} />) || null}{!licenses?.length && <Empty text="No license has been assigned yet." />}</div>
-          </PortalPanel>
-          <PortalPanel title="Downloads & updates" eyebrow="Licensed releases" marker="03" anchorId="downloads">
-            <div className="portal-records">
-              {releases?.map((release) => (
-                <article className="release-record" key={release.id}>
-                  <div><strong>{release.title}</strong><span>Version {release.version} · {release.platform}</span><p>{release.release_notes || 'Orion product update.'}</p></div>
-                  {release.download_url ? <a href={`/api/downloads/${release.id}`} aria-label={`Securely download ${release.title}, version ${release.version}`}>Secure download <span aria-hidden="true">↓</span></a> : <span className="muted">Coming soon</span>}
-                </article>
-              ))}
-              {!releases?.length && <Empty text="Downloads become available after an active license is assigned." />}
-            </div>
-          </PortalPanel>
-          <PortalPanel title="Payment history" eyebrow="Transactions & documents" marker="04" anchorId="payments" wide>
+          <PortalPanel title="Payment history" eyebrow="Transactions & documents" marker="03" anchorId="payments" wide>
             {payments?.length ? <div className="portal-table" role="table" aria-label="Payment history">
               <div className="portal-table-head portal-table-head--documents" role="row"><span role="columnheader">Date</span><span role="columnheader">Plan</span><span role="columnheader">Method</span><span role="columnheader">Amount</span><span role="columnheader">Status</span><span role="columnheader">Documents</span></div>
               {payments.map((payment) => <div className="portal-table-row portal-table-row--documents" role="row" key={payment.id}><span role="cell" data-label="Date">{payment.payment_date ? new Date(`${payment.payment_date}T00:00:00`).toLocaleDateString() : '—'}</span><strong role="cell" data-label="Plan">{payment.plan}</strong><span role="cell" data-label="Method">{payment.method}</span><span role="cell" data-label="Amount">{payment.currency} {Number(payment.amount).toLocaleString()}</span><span className={`payment-status ${payment.status.toLowerCase().replace(/\s+/g, '-')}`} role="cell" data-label="Status">{payment.status}</span><span className="portal-document-links" role="cell" data-label="Documents"><Link href={`/invoice/${payment.id}`}>Invoice</Link>{payment.receipt_number && <Link href={`/receipt/${payment.id}`}>Receipt</Link>}</span></div>)}
@@ -147,20 +142,6 @@ function PortalPanel({ title, eyebrow, marker, anchorId, wide = false, children 
 function PortalWorkspaceSection({ title, eyebrow, marker, anchorId, description, children }: { title: string; eyebrow: string; marker: string; anchorId: string; description: string; children: React.ReactNode }) {
   const headingId = `portal-section-${anchorId}`;
   return <section className="portal-workspace-section" id={anchorId} aria-labelledby={headingId}><header className="portal-workspace-section-heading"><div><p className="eyebrow">{eyebrow}</p><h2 id={headingId}>{title}</h2><span>{description}</span></div><strong aria-hidden="true">{marker}</strong></header>{children}</section>;
-}
-
-function LicenseRecord({ license }: { license: { license_key: string; platform: string; account_number?: string; plan: string; status: string; issued_at: string; expires_at?: string } }) {
-  const expired = license.expires_at && new Date(`${license.expires_at.slice(0, 10)}T23:59:59.999Z`).getTime() < Date.now();
-  const status = expired ? 'Expired' : license.status;
-  const days = licenseDays(license.expires_at);
-  return <article className="license-record" aria-label={`${license.platform} ${license.plan} license, ${status}`}><div><strong>{license.platform} · {license.plan}</strong><code>{license.license_key}</code></div><span className={status.toLowerCase()} role="status"><i aria-hidden="true" />{status}</span><dl><div><dt>Account</dt><dd>{license.account_number || 'Not assigned'}</dd></div><div><dt>Issued</dt><dd>{new Date(license.issued_at).toLocaleDateString()}</dd></div><div><dt>Expires</dt><dd>{license.expires_at ? new Date(`${license.expires_at.slice(0, 10)}T00:00:00`).toLocaleDateString() : 'Lifetime'}</dd></div></dl>{status === 'Active' && days !== null && days >= 0 && days <= 30 && <p className="license-renewal-warning">Renewal due in {days} day{days === 1 ? '' : 's'} · Contact Orion support</p>}</article>;
-}
-
-function licenseDays(expiresAt?: string) {
-  if (!expiresAt) return null;
-  const today = new Date();
-  const todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  return Math.round((Date.parse(`${expiresAt.slice(0, 10)}T00:00:00Z`) - todayUtc) / 86400000);
 }
 
 function Empty({ text }: { text: string }) {

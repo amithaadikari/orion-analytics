@@ -101,7 +101,7 @@ export default function ClientPortalInsights({
   const paymentVerified = paidPlanAssigned && confirmedPaymentStatuses.has(paymentStatus);
   const paymentAwaitingReview = paymentStatus === 'pending';
   const paymentNeedsAttention = attentionPaymentStatuses.has(paymentStatus);
-  const downloadableRelease = compatibleReleaseForPlan(client.plan, licenses, releases);
+  const downloadableRelease = accountActive ? compatibleReleaseForPlan(client.plan, licenses, releases) : undefined;
   const latestDownload = downloadableRelease
     ? downloads.find((download) => download.release_id === downloadableRelease.id)
     : undefined;

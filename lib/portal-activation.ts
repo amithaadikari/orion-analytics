@@ -12,14 +12,16 @@ export type ActivationRelease = {
 };
 
 export function effectiveLicenseStatus(license: ActivationLicense, asOf = Date.now()) {
+  const storedStatus = normalizeActivationValue(license.status);
+  if (['suspended', 'revoked', 'disabled'].includes(storedStatus)) return storedStatus;
   if (license.expires_at) {
     const expiry = Date.parse(`${license.expires_at.slice(0, 10)}T23:59:59.999Z`);
     if (Number.isFinite(expiry) && expiry < asOf) return 'expired';
   }
-  return normalizeActivationValue(license.status);
+  return storedStatus;
 }
 
-export function activeLicensesForPlan(plan: string, licenses: ActivationLicense[], asOf = Date.now()) {
+export function activeLicensesForPlan<T extends ActivationLicense>(plan: string, licenses: T[], asOf = Date.now()) {
   const normalizedPlan = normalizeActivationValue(plan);
   return licenses.filter((license) => normalizeActivationValue(license.plan) === normalizedPlan && effectiveLicenseStatus(license, asOf) === 'active');
 }
