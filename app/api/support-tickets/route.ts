@@ -12,6 +12,7 @@ const listSchema = z.object({
   ticketId: z.string().uuid().optional(),
   clientId: z.string().uuid().optional(),
   status: z.enum(statuses).optional(),
+  scope: z.enum(['self']).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(40),
 });
 const createSchema = z.object({
@@ -38,18 +39,21 @@ export async function GET(request: Request) {
     ticketId: url.searchParams.get('ticketId') || undefined,
     clientId: url.searchParams.get('clientId') || undefined,
     status: url.searchParams.get('status') || undefined,
+    scope: url.searchParams.get('scope') || undefined,
     limit: url.searchParams.get('limit') || undefined,
   });
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message || 'Invalid support-ticket query');
-  if (!session.admin && parsed.data.clientId) return jsonError('Client filtering is available only to administrators', 403);
+  const selfScope = parsed.data.scope === 'self';
+  if (selfScope && !session.client) return jsonError('A linked client account is required for the client portal', 403);
+  if ((!session.admin || selfScope) && parsed.data.clientId) return jsonError('Client filtering is available only to administrators', 403);
 
   const db = createSupabaseAdminClient();
   let query = db.from('support_tickets')
     .select('id,client_id,subject,category,priority,status,created_at,updated_at,closed_at,clients(full_name,email)')
     .order('updated_at', { ascending: false })
     .limit(parsed.data.limit);
-  if (session.client && !session.admin) query = query.eq('client_id', session.client.id);
-  if (session.admin && parsed.data.clientId) query = query.eq('client_id', parsed.data.clientId);
+  if (session.client && (!session.admin || selfScope)) query = query.eq('client_id', session.client.id);
+  if (session.admin && !selfScope && parsed.data.clientId) query = query.eq('client_id', parsed.data.clientId);
   if (parsed.data.ticketId) query = query.eq('id', parsed.data.ticketId);
   if (parsed.data.status) query = query.eq('status', parsed.data.status);
 
@@ -63,7 +67,7 @@ export async function GET(request: Request) {
       .in('ticket_id', ticketIds)
       .order('created_at', { ascending: true })
       .limit(2000);
-    if (session.client && !session.admin) messageQuery = messageQuery.eq('client_id', session.client.id);
+    if (session.client && (!session.admin || selfScope)) messageQuery = messageQuery.eq('client_id', session.client.id);
     const messageResult = await messageQuery;
     if (messageResult.error) return jsonError('Support messages are temporarily unavailable', 500);
     messages = messageResult.data || [];
@@ -71,8 +75,8 @@ export async function GET(request: Request) {
 
   return Response.json({
     actor: {
-      type: session.admin ? 'admin' : 'client',
-      canManage: session.admin?.role === 'admin',
+      type: session.admin && !selfScope ? 'admin' : 'client',
+      canManage: !selfScope && session.admin?.role === 'admin',
     },
     tickets: (tickets || []).map((ticket) => ({
       id: ticket.id,
@@ -83,7 +87,7 @@ export async function GET(request: Request) {
       createdAt: ticket.created_at,
       updatedAt: ticket.updated_at,
       closedAt: ticket.closed_at,
-      client: session.admin ? clientSummary(ticket.clients) : undefined,
+      client: session.admin && !selfScope ? clientSummary(ticket.clients) : undefined,
       messages: messages.filter((message) => message.ticket_id === ticket.id).map((message) => ({
         id: message.id,
         authorType: message.author_type,
@@ -99,18 +103,23 @@ export async function POST(request: Request) {
   if (!session.user) return jsonError('Authentication required', 401);
   if (!session.admin && !session.client) return jsonError('A linked Orion account is required', 403);
   if (!rateLimit(request, `support-create:${session.user.id}`).allowed) return jsonError('Too many support requests', 429);
+  const scope = readScope(request);
+  if (scope === 'invalid') return jsonError('Invalid support scope');
+  const selfScope = scope === 'self';
+  if (selfScope && !session.client) return jsonError('A linked client account is required for the client portal', 403);
+  const actingAdmin = selfScope ? null : session.admin;
 
   let body: unknown;
   try { body = await readJson(request, 8_000); } catch { return jsonError('Invalid support request'); }
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message || 'Invalid support request');
-  if (session.admin && session.admin.role !== 'admin') return jsonError('Admin write access required', 403);
-  if (session.admin && !parsed.data.clientId) return jsonError('Choose a client for this ticket');
-  if (!session.admin && parsed.data.clientId) return jsonError('Clients cannot create tickets for another account', 403);
+  if (actingAdmin && actingAdmin.role !== 'admin') return jsonError('Admin write access required', 403);
+  if (actingAdmin && !parsed.data.clientId) return jsonError('Choose a client for this ticket');
+  if (!actingAdmin && parsed.data.clientId) return jsonError('Clients cannot create tickets for another account', 403);
 
-  const clientId = session.admin ? parsed.data.clientId! : session.client!.id;
+  const clientId = actingAdmin ? parsed.data.clientId! : session.client!.id;
   const db = createSupabaseAdminClient();
-  if (session.admin) {
+  if (actingAdmin) {
     const { data: target } = await db.from('clients').select('id').eq('id', clientId).maybeSingle();
     if (!target) return jsonError('Client not found', 404);
   }
@@ -120,8 +129,8 @@ export async function POST(request: Request) {
     p_subject: parsed.data.subject,
     p_category: parsed.data.category,
     p_priority: parsed.data.priority,
-    p_author_type: session.admin ? 'Admin' : 'Client',
-    p_author_email: session.admin?.email || session.user.email || null,
+    p_author_type: actingAdmin ? 'Admin' : 'Client',
+    p_author_email: actingAdmin?.email || session.user.email || null,
     p_message: parsed.data.message,
   });
   if (error || !ticketId) return jsonError(error?.message.includes('function') ? 'Apply the command-suite migration before using support tickets' : 'Unable to create the support ticket', error?.message.includes('function') ? 503 : 500);
@@ -133,30 +142,35 @@ export async function PATCH(request: Request) {
   if (!session.user) return jsonError('Authentication required', 401);
   if (!session.admin && !session.client) return jsonError('A linked Orion account is required', 403);
   if (!rateLimit(request, `support-update:${session.user.id}`).allowed) return jsonError('Too many support updates', 429);
+  const scope = readScope(request);
+  if (scope === 'invalid') return jsonError('Invalid support scope');
+  const selfScope = scope === 'self';
+  if (selfScope && !session.client) return jsonError('A linked client account is required for the client portal', 403);
+  const actingAdmin = selfScope ? null : session.admin;
 
   let body: unknown;
   try { body = await readJson(request, 8_000); } catch { return jsonError('Invalid support update'); }
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message || 'Invalid support update');
-  if (session.admin && session.admin.role !== 'admin') return jsonError('Admin write access required', 403);
-  if (!session.admin && parsed.data.priority) return jsonError('Ticket priority can be changed only by Orion support', 403);
-  if (!session.admin && parsed.data.status && parsed.data.status !== 'Closed') return jsonError('Clients may close a ticket, but cannot set internal support states', 403);
+  if (actingAdmin && actingAdmin.role !== 'admin') return jsonError('Admin write access required', 403);
+  if (!actingAdmin && parsed.data.priority) return jsonError('Ticket priority can be changed only by Orion support', 403);
+  if (!actingAdmin && parsed.data.status && parsed.data.status !== 'Closed') return jsonError('Clients may close a ticket, but cannot set internal support states', 403);
 
   const db = createSupabaseAdminClient();
   let ticketQuery = db.from('support_tickets').select('id,client_id,subject,status,priority').eq('id', parsed.data.ticketId);
-  if (session.client && !session.admin) ticketQuery = ticketQuery.eq('client_id', session.client.id);
+  if (session.client && (!session.admin || selfScope)) ticketQuery = ticketQuery.eq('client_id', session.client.id);
   const { data: ticket, error: ticketError } = await ticketQuery.maybeSingle();
   if (ticketError || !ticket) return jsonError('Support ticket not found', 404);
   if (ticket.status === 'Closed' && parsed.data.message && parsed.data.status === undefined) return jsonError('Choose a new status before replying to a closed ticket', 409);
 
-  const nextStatus = parsed.data.status || (parsed.data.message ? (session.admin ? 'Waiting on client' : 'Open') : ticket.status);
+  const nextStatus = parsed.data.status || (parsed.data.message ? (actingAdmin ? 'Waiting on client' : 'Open') : ticket.status);
   const priority = parsed.data.priority || ticket.priority;
   const { data: updated, error: updateError } = await db.rpc('update_support_ticket_atomic', {
     p_ticket_id: ticket.id,
     p_client_id: ticket.client_id,
     p_message: parsed.data.message || null,
-    p_author_type: session.admin ? 'Admin' : 'Client',
-    p_author_email: session.admin?.email || session.user.email || null,
+    p_author_type: actingAdmin ? 'Admin' : 'Client',
+    p_author_email: actingAdmin?.email || session.user.email || null,
     p_status: nextStatus,
     p_priority: priority,
   });
@@ -175,4 +189,10 @@ function clientSummary(value: unknown) {
     fullName: typeof client.full_name === 'string' ? client.full_name : 'Orion client',
     email: typeof client.email === 'string' ? client.email : null,
   };
+}
+
+function readScope(request: Request) {
+  const value = new URL(request.url).searchParams.get('scope');
+  if (value === null) return null;
+  return value === 'self' ? 'self' as const : 'invalid' as const;
 }

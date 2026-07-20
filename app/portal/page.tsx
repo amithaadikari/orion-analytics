@@ -5,11 +5,10 @@ import { requireClient } from '@/lib/auth';
 import BillingDocumentsCenter from '@/components/billing-documents-center';
 import ClientPortalInsights from '@/components/client-portal-insights';
 import ClientProfileSummary from '@/components/client-profile-summary';
-import PortalNotificationCenter from '@/components/portal-notification-center';
+import ClientServiceCenter from '@/components/client-service-center';
 import PortalWorkspaceShell from '@/components/portal-workspace-shell';
 import RegistrationTracker from '@/components/registration-tracker';
 import SoftwareAccessHub from '@/components/software-access-hub';
-import SupportTicketCenter from '@/components/support-ticket-center';
 import { countryFlag } from '@/lib/country';
 import { checkoutSelectionPath, normalizePlan, plans } from '@/lib/plans';
 import { normalizePortalTheme, portalThemeCookie } from '@/lib/portal-theme';
@@ -117,8 +116,7 @@ export default async function PortalPage() {
 
         <BillingDocumentsCenter client={{ plan: client.plan, status: client.status }} payments={payments || []} licenses={licenses || []} paymentsAvailable={!paymentsError} licensesAvailable={!licensesError} asOf={portalAsOf} />
 
-        <PortalNotificationCenter />
-        <SupportTicketCenter />
+        <ClientServiceCenter />
       </section>
       {user.user_metadata?.registration_source === 'orion_client_portal' && <RegistrationTracker plan={selectedPlan} />}
     </PortalWorkspaceShell>
