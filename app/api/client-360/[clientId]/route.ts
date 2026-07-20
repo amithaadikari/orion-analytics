@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { requireAdminApi } from '@/lib/auth';
 import { jsonError } from '@/lib/security';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { readClientProfile } from '@/lib/client-profile';
 
 const clientIdSchema = z.string().uuid();
 const writeSchema = z.discriminatedUnion('action', [
@@ -18,7 +19,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{clientId:st
   if(!id.success)return jsonError('Invalid client',400);
   const db=createSupabaseAdminClient();
   const [clientResult,licensesResult,paymentsResult,activityResult,remindersResult,communicationsResult,downloadsResult,ticketsResult,messagesResult]=await Promise.all([
-    db.from('clients').select('id,full_name,email,telegram_username,phone,country,plan,status,notes,reviewed_at,created_at,updated_at').eq('id',id.data).single(),
+    db.from('clients').select('id,auth_user_id,full_name,email,telegram_username,phone,country,plan,status,notes,reviewed_at,created_at,updated_at').eq('id',id.data).single(),
     db.from('licenses').select('id,license_key,platform,account_number,plan,status,issued_at,expires_at,created_at').eq('client_id',id.data).order('created_at',{ascending:false}).limit(500),
     db.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number,created_at').eq('client_id',id.data).order('created_at',{ascending:false}).limit(500),
     db.from('client_activity').select('id,action,details,actor_email,created_at').eq('client_id',id.data).order('created_at',{ascending:false}).limit(1000),
@@ -32,6 +33,22 @@ export async function GET(_request:Request,{params}:{params:Promise<{clientId:st
   const related=[licensesResult,paymentsResult,activityResult,remindersResult,communicationsResult,downloadsResult,ticketsResult,messagesResult];
   if(related.some(result=>result.error))return jsonError('Client 360 data is unavailable. Apply the command-suite migration.',500);
   const client=clientResult.data,licenses=licensesResult.data||[],payments=paymentsResult.data||[],reminders=remindersResult.data||[];
+  const clientView={id:client.id,full_name:client.full_name,email:client.email,telegram_username:client.telegram_username,phone:client.phone,country:client.country,plan:client.plan,status:client.status,notes:client.notes,reviewed_at:client.reviewed_at,created_at:client.created_at,updated_at:client.updated_at};
+  const canViewPortalProfile=auth.admin.role==='admin';
+  let profileMetadata:unknown=null,profileAvailable=canViewPortalProfile;
+  if(client.auth_user_id&&canViewPortalProfile){
+    const {data:authUser,error:profileError}=await db.auth.admin.getUserById(client.auth_user_id);
+    profileAvailable=!profileError&&Boolean(authUser?.user);
+    profileMetadata=authUser?.user?.user_metadata||null;
+  }
+  const lastProfileUpdate=(activityResult.data||[]).find(row=>row.action==='Client profile updated')?.created_at||null;
+  const profile={
+    ...readClientProfile(profileMetadata,{telegramUsername:client.telegram_username,phoneNumber:client.phone}),
+    updatedAt:lastProfileUpdate,
+    linked:Boolean(client.auth_user_id),
+    available:profileAvailable,
+    visible:canViewPortalProfile,
+  };
   const timeline=[
     {id:`registration:${client.id}`,type:'registration',title:'Client registered',detail:`${client.plan} plan · ${client.status}`,date:client.created_at,tone:'cyan'},
     ...licenses.map(row=>({id:`license:${row.id}`,type:'license',title:'License issued',detail:`${row.platform} ${row.plan} · ${row.status} · ${row.license_key}`,date:row.created_at||row.issued_at,tone:'gold'})),
@@ -42,7 +59,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{clientId:st
     ...(ticketsResult.data||[]).map(row=>({id:`ticket:${row.id}`,type:'ticket',title:`Support: ${row.subject}`,detail:`${row.category} · ${row.status}`,date:row.created_at,tone:'orange'})),
     ...(messagesResult.data||[]).map(row=>({id:`ticket-message:${row.id}`,type:'communication',title:`${row.author_type} support message`,detail:String(row.body).slice(0,180),date:row.created_at,tone:row.author_type==='Admin'?'green':'purple'})),
   ].filter(row=>row.date).sort((left,right)=>String(right.date).localeCompare(String(left.date))).slice(0,1200);
-  return Response.json({client,licenses,payments,activity:activityResult.data||[],reminders,communications:communicationsResult.data||[],downloads:downloadsResult.data||[],tickets:ticketsResult.data||[],timeline,health:healthSummary(client,licenses,payments,reminders)}, {headers:{'Cache-Control':'private, no-store'}});
+  return Response.json({client:clientView,profile,licenses,payments,activity:activityResult.data||[],reminders,communications:communicationsResult.data||[],downloads:downloadsResult.data||[],tickets:ticketsResult.data||[],timeline,health:healthSummary(client,licenses,payments,reminders)}, {headers:{'Cache-Control':'private, no-store'}});
 }
 
 export async function POST(request:Request,{params}:{params:Promise<{clientId:string}>}){

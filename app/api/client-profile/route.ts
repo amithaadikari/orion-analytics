@@ -3,7 +3,7 @@ import { rateLimit } from '@/lib/rate-limit';
 import { jsonError, readJson } from '@/lib/security';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { clientProfileSchema } from '@/lib/validation';
-import { serializeClientProfile, type ClientProfile } from '@/lib/client-profile';
+import { readClientProfile, serializeClientProfile, type ClientProfile } from '@/lib/client-profile';
 
 export async function PATCH(request: Request) {
   const session = await getPortalSession();
@@ -17,6 +17,10 @@ export async function PATCH(request: Request) {
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message || 'Invalid profile details');
 
   const profile: ClientProfile = parsed.data;
+  const previousProfile = readClientProfile(session.user.user_metadata, {
+    telegramUsername: session.client.telegram_username,
+    phoneNumber: session.client.phone,
+  });
   const previousTelegram = session.client.telegram_username || null;
   const previousPhone = session.client.phone || null;
   const nextTelegram = profile.telegramUsername || null;
@@ -46,13 +50,27 @@ export async function PATCH(request: Request) {
   }
 
   try {
-    await db.from('client_activity').insert({
+    const changedFields = profileChangeLabels(previousProfile, profile);
+    const { error: activityError } = await db.from('client_activity').insert({
       client_id: session.client.id,
       action: 'Client profile updated',
-      details: 'Portal profile preferences refreshed',
+      details: changedFields.length ? `Updated ${changedFields.join(', ')}` : 'Profile details confirmed',
       actor_email: session.user.email || null,
     });
+    if (activityError) console.error('Client profile activity log failed', activityError.message);
   } catch { /* Profile saving should not fail only because the activity log is unavailable. */ }
 
   return Response.json({ profile }, { headers: { 'Cache-Control': 'private, no-store' } });
+}
+
+function profileChangeLabels(previous: ClientProfile, next: ClientProfile) {
+  const changes: string[] = [];
+  if (previous.nickname !== next.nickname) changes.push('nickname');
+  if (previous.telegramUsername !== next.telegramUsername) changes.push('Telegram');
+  if (previous.phoneNumber !== next.phoneNumber) changes.push('phone');
+  if (previous.bio !== next.bio) changes.push('bio');
+  if (JSON.stringify(previous.brokers) !== JSON.stringify(next.brokers)) changes.push('brokers');
+  if (JSON.stringify(previous.tradingPairs) !== JSON.stringify(next.tradingPairs)) changes.push('markets');
+  if (previous.avatarKey !== next.avatarKey) changes.push('avatar');
+  return changes;
 }

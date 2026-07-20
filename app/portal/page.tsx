@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { requireClient } from '@/lib/auth';
 import ClientPortalInsights from '@/components/client-portal-insights';
 import ClientProfileEditor from '@/components/client-profile-editor';
+import ClientProfileSummary from '@/components/client-profile-summary';
 import PortalNotificationCenter from '@/components/portal-notification-center';
 import PortalWorkspaceShell from '@/components/portal-workspace-shell';
 import RegistrationTracker from '@/components/registration-tracker';
@@ -35,34 +36,38 @@ export default async function PortalPage() {
   return (
     <PortalWorkspaceShell clientName={client.full_name} clientDisplayName={displayName} clientAvatarKey={profile.avatarKey} clientPlan={client.plan} clientStatus={client.status} initialTheme={initialTheme}>
       <section className="portal-content portal-workspace-content" aria-labelledby="portal-title">
-        <div className="portal-hero portal-workspace-hero" id="overview">
-          <div className="portal-hero-copy">
-            <p className="eyebrow">Orion V5 · Secure client workspace</p>
-            <h1 id="portal-title">Everything you need, <span>{displayName}.</span></h1>
-            <p>Your setup, software access, payments, updates, and official support are now organized in one simple workspace.</p>
-            <div className="portal-hero-links"><a href="#setup">Continue setup <span aria-hidden="true">→</span></a><a href="#support">Get support</a></div>
+        <div className="portal-overview-view" id="overview" tabIndex={-1}>
+          <div className="portal-hero portal-workspace-hero">
+            <div className="portal-hero-copy">
+              <p className="eyebrow">Orion V5 · Secure client workspace</p>
+              <h1 id="portal-title">Everything you need, <span>{displayName}.</span></h1>
+              <p>Your setup, software access, payments, updates, and official support are now organized in one simple workspace.</p>
+              <div className="portal-hero-links"><a href="#setup">Continue setup <span aria-hidden="true">→</span></a><a href="#support">Get support</a></div>
+            </div>
+            <div className="portal-account-state portal-account-snapshot" aria-label={`${client.plan} plan, account status ${client.status}`}>
+              <div><small>Current plan</small><strong>{client.plan}</strong></div>
+              <span className={`portal-status ${client.status.toLowerCase()}`} role="status"><i aria-hidden="true" />{client.status}</span>
+              <p>Protected access · Orion V5</p>
+            </div>
           </div>
-          <div className="portal-account-state portal-account-snapshot" aria-label={`${client.plan} plan, account status ${client.status}`}>
-            <div><small>Current plan</small><strong>{client.plan}</strong></div>
-            <span className={`portal-status ${client.status.toLowerCase()}`} role="status"><i aria-hidden="true" />{client.status}</span>
-            <p>Protected access · Orion V5</p>
-          </div>
-        </div>
 
-        {client.status === 'Pending' && <div className="portal-approval-notice" role="status"><span className="portal-notice-mark" aria-hidden="true">!</span><div><strong>Paid plan awaiting approval</strong><span>Your portal account is active, but downloads and licensing remain locked until Orion verifies your payment.</span></div></div>}
-        {client.plan === 'Free' && (
-          <div className="portal-free-notice">
-            <span className="portal-notice-mark" aria-hidden="true">◇</span>
-            <div><strong>{selected ? `${selected.name} selection saved` : 'Free Orion account'}</strong><span>{selected ? `Review your ${selected.priceLabel} ${selected.license.toLowerCase()} before requesting official payment instructions.` : 'Choose an edition and review the full price before contacting Orion.'}</span></div>
-            <Link href={planSelectionPath}>{selected ? 'Review order' : 'Choose a plan'}<span>→</span></Link>
-          </div>
-        )}
+          {client.status === 'Pending' && <div className="portal-approval-notice" role="status"><span className="portal-notice-mark" aria-hidden="true">!</span><div><strong>Paid plan awaiting approval</strong><span>Your portal account is active, but downloads and licensing remain locked until Orion verifies your payment.</span></div></div>}
+          {client.plan === 'Free' && (
+            <div className="portal-free-notice">
+              <span className="portal-notice-mark" aria-hidden="true">◇</span>
+              <div><strong>{selected ? `${selected.name} selection saved` : 'Free Orion account'}</strong><span>{selected ? `Review your ${selected.priceLabel} ${selected.license.toLowerCase()} before requesting official payment instructions.` : 'Choose an edition and review the full price before contacting Orion.'}</span></div>
+              <Link href={planSelectionPath}>{selected ? 'Review order' : 'Choose a plan'}<span>→</span></Link>
+            </div>
+          )}
 
-        <div className="portal-metrics" aria-label="Account overview">
-          <PortalMetric icon="◇" label="Assigned licenses" value={licenses?.length || 0} tone="cyan" />
-          <PortalMetric icon="✦" label="Current plan" value={client.plan} tone="gold" />
-          <PortalMetric icon="▣" label="Recorded payments" value={payments?.length || 0} tone="green" />
-          <PortalMetric icon={countryFlag(client.country)} label="Registered country" value={client.country || 'Not set'} tone="cyan" />
+          <div className="portal-metrics" aria-label="Account overview">
+            <PortalMetric icon="◇" label="Assigned licenses" value={licenses?.length || 0} tone="cyan" />
+            <PortalMetric icon="✦" label="Current plan" value={client.plan} tone="gold" />
+            <PortalMetric icon="▣" label="Recorded payments" value={payments?.length || 0} tone="green" />
+            <PortalMetric icon={countryFlag(client.country)} label="Registered country" value={client.country || 'Not set'} tone="cyan" />
+          </div>
+
+          <ClientProfileSummary fullName={client.full_name} country={client.country || null} profile={profile} />
         </div>
 
         <ClientProfileEditor

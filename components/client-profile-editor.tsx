@@ -113,14 +113,14 @@ export default function ClientProfileEditor({ fullName, email, country, plan, st
   }
 
   return (
-    <section className="client-profile-editor" id="profile" aria-labelledby="client-profile-heading">
+    <section className="client-profile-editor" id="profile" tabIndex={-1} aria-labelledby="client-profile-heading">
       <header className="client-profile-heading">
         <div>
-          <p className="eyebrow">Personal account</p>
-          <h2 id="client-profile-heading">Your trading profile</h2>
-          <span>Personalize how your Orion workspace looks and keep your trading preferences together.</span>
+          <p className="eyebrow">Dedicated profile settings</p>
+          <h2 id="client-profile-heading">Edit your trading profile</h2>
+          <span>Update the details shown on Overview and shared with authorized Orion administrators.</span>
         </div>
-        <strong aria-hidden="true">ID</strong>
+        <strong aria-hidden="true">EDIT</strong>
       </header>
 
       <div className="client-profile-layout">
@@ -140,7 +140,7 @@ export default function ClientProfileEditor({ fullName, email, country, plan, st
             <span><AtSign size={13} aria-hidden="true" />{profile.telegramUsername ? `@${profile.telegramUsername}` : 'Telegram not added'}</span>
             <span><Phone size={13} aria-hidden="true" />{profile.phoneNumber || 'Phone not added'}</span>
           </div>
-          <small><ShieldCheck size={13} aria-hidden="true" />Visible only inside your secure Orion account.</small>
+          <small><ShieldCheck size={13} aria-hidden="true" />Visible to you and authorized Orion administrators.</small>
         </aside>
 
         <form className="client-profile-form" onSubmit={save} aria-busy={loading}>
