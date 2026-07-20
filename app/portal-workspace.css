@@ -67,7 +67,7 @@
   z-index: 100;
 }
 
-.portal-workspace-topbar {
+.portal-workspace-shell > .portal-workspace-topbar {
   position: sticky;
   z-index: 40;
   top: 0;
