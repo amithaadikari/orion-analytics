@@ -18,8 +18,10 @@ function payment(value: Partial<RevenuePaymentRecord> & Pick<RevenuePaymentRecor
 }
 
 describe('revenue intelligence calculations', () => {
-  it('formats revenue with two decimals and an explicit currency code', () => {
-    expect(formatMoneyWithCode(479, 'usd')).toBe('$479.00 USD');
+  it('keeps whole revenue amounts compact while preserving real cents', () => {
+    expect(formatMoneyWithCode(479, 'usd')).toBe('$479');
+    expect(formatMoneyWithCode(159.5, 'usd')).toBe('$159.50');
+    expect(formatMoneyWithCode(159.67, 'usd')).toBe('$159.67');
   });
 
   it('normalizes MRR by original currency using the latest completed payment and excludes Lifetime or inactive terms', () => {

@@ -328,7 +328,18 @@
 .allTimeCard > div:nth-child(2) { position: relative; z-index: 1; display: grid; gap: 5px; }
 .allTimeCard p { margin: 0; color: #a98639; font-size: 7px; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
 .allTimeCard h3 { margin: 0; font-size: 15px; letter-spacing: -.035em; }
-.allTimeCard > strong { position: relative; z-index: 1; overflow-wrap: anywhere; color: #ffe39a; font-size: clamp(20px, 1.8vw, 27px); font-variant-numeric: tabular-nums; letter-spacing: -.05em; }
+.allTimeCard > strong {
+  position: relative;
+  z-index: 1;
+  overflow-wrap: anywhere;
+  color: #ffe39a;
+  font-family: var(--font-display), Inter, ui-sans-serif, sans-serif;
+  font-size: clamp(31px, 2.9vw, 44px);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 700;
+  line-height: .98;
+  letter-spacing: -.065em;
+}
 .allTimeCard > span { position: relative; z-index: 1; color: #d1b86f; font-size: 8px; }
 .allTimeCard > small { position: relative; z-index: 1; color: #6d6550; font-size: 7px; line-height: 1.45; }
 
@@ -409,8 +420,12 @@
 
 .signalValue strong {
   overflow: hidden;
-  font-size: clamp(21px, 2vw, 29px);
-  letter-spacing: -.055em;
+  font-family: var(--font-display), Inter, ui-sans-serif, sans-serif;
+  font-size: clamp(17px, 1.45vw, 22px);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-weight: 650;
+  line-height: 1.05;
+  letter-spacing: -.045em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

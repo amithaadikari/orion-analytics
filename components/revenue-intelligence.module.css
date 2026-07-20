@@ -233,7 +233,9 @@
 
 .mrrCard strong {
   color: var(--cyan);
-  font: 700 clamp(19px, 2vw, 27px)/1.1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 700 clamp(19px, 2vw, 27px)/1.1 var(--font-display), Inter, ui-sans-serif, sans-serif;
+  font-variant-numeric: lining-nums tabular-nums;
+  letter-spacing: -.045em;
   overflow-wrap: anywhere;
 }
 
@@ -339,7 +341,7 @@
 .goalFacts dt,
 .goalForm label > span,
 .addGoalForm label > span { color: var(--muted); font: 600 7px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .07em; text-transform: uppercase; }
-.goalAmounts strong { overflow: hidden; color: var(--text); font: 700 clamp(14px, 1.7vw, 20px)/1.15 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; }
+.goalAmounts strong { overflow: hidden; color: var(--text); font: 700 clamp(14px, 1.7vw, 20px)/1.15 var(--font-display), Inter, ui-sans-serif, sans-serif; font-variant-numeric: lining-nums tabular-nums; letter-spacing: -.035em; text-overflow: ellipsis; }
 .goalAmounts > span:first-child strong { color: var(--goal-state); }
 
 .goalProgress { display: grid; gap: 7px; }
@@ -585,7 +587,8 @@
   color: var(--text);
   border: 1px solid rgba(255, 255, 255, .08);
   border-radius: 5px;
-  font: 600 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 650 9px/1 var(--font-display), Inter, ui-sans-serif, sans-serif;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .trendRegion {
@@ -743,7 +746,8 @@
 
 .tableWrap td {
   color: var(--text);
-  font: 600 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 600 9px/1.4 var(--font-display), Inter, ui-sans-serif, sans-serif;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .tableWrap td span,

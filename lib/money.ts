@@ -1,15 +1,16 @@
 export function formatMoneyWithCode(value: number, currency: string) {
   const code = currency.trim().toUpperCase() || 'UNSPECIFIED';
+  const roundedValue = Math.round(value * 100) / 100;
+  const fractionDigits = Number.isInteger(roundedValue) ? 0 : 2;
   try {
-    const amount = new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: code,
       currencyDisplay: 'narrowSymbol',
-      minimumFractionDigits: 2,
+      minimumFractionDigits: fractionDigits,
       maximumFractionDigits: 2,
-    }).format(value);
-    return `${amount} ${code}`;
+    }).format(roundedValue);
   } catch {
-    return `${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${code}`;
+    return `${roundedValue.toLocaleString('en-US', { minimumFractionDigits: fractionDigits, maximumFractionDigits: 2 })} ${code}`;
   }
 }
