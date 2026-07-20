@@ -12,6 +12,8 @@ import { countryFlag } from '@/lib/country';
 import { checkoutSelectionPath, normalizePlan, plans } from '@/lib/plans';
 import { normalizePortalTheme, portalThemeCookie } from '@/lib/portal-theme';
 import { clientProfileDisplayName, readClientProfile } from '@/lib/client-profile';
+import { createSupabaseAdminClient } from '@/lib/supabase/server';
+import { compatibleReleaseForPlan } from '@/lib/portal-activation';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,11 +29,21 @@ export default async function PortalPage() {
     phoneNumber: client.phone,
   });
   const displayName = clientProfileDisplayName(profile, client.full_name);
-  const [{ data: licenses }, { data: payments }, { data: releases }] = await Promise.all([
+  const admin = createSupabaseAdminClient();
+  const [licenseResult, paymentResult, releaseResult] = await Promise.all([
     supabase.from('licenses').select('id,license_key,platform,account_number,plan,status,issued_at,expires_at').eq('client_id', client.id).order('created_at', { ascending: false }),
-    supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number').eq('client_id', client.id).order('created_at', { ascending: false }),
+    supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number,created_at').eq('client_id', client.id).order('created_at', { ascending: false }),
     supabase.from('product_releases').select('id,version,title,release_notes,platform,download_url,released_at').eq('published', true).order('released_at', { ascending: false }),
   ]);
+  const { data: licenses, error: licensesError } = licenseResult;
+  const { data: payments, error: paymentsError } = paymentResult;
+  const { data: releases, error: releasesError } = releaseResult;
+  const currentReleaseId = compatibleReleaseForPlan(client.plan, licenses || [], releases || [])?.id;
+  const downloadResult = currentReleaseId
+    ? await admin.from('download_events').select('id,release_id,version,platform,downloaded_at').eq('client_id', client.id).eq('release_id', currentReleaseId).order('downloaded_at', { ascending: false }).limit(1)
+    : { data: [], error: null };
+  const { data: downloads, error: downloadsError } = downloadResult;
+  const activationDataAvailable = !licensesError && !paymentsError && !releasesError;
   const activeLicenseCount = licenses?.filter((license) => {
     const expired = license.expires_at && new Date(`${license.expires_at.slice(0, 10)}T23:59:59.999Z`).getTime() < Date.now();
     return license.status === 'Active' && !expired;
@@ -89,12 +101,7 @@ export default async function PortalPage() {
         </div>
 
         <PortalWorkspaceSection title="Setup & activation" eyebrow="Your next step" marker="01" anchorId="setup" description="Follow your real account progress and jump directly to the action you need.">
-          <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} showHeading={false} />
-          <div className="portal-setup-actions" aria-label="Setup shortcuts">
-            {client.plan === 'Free' ? <Link href={planSelectionPath}><span aria-hidden="true">01</span><div><small>Choose</small><strong>Review your Orion plan</strong><p>See the full price and what your selected edition includes.</p></div><b aria-hidden="true">→</b></Link> : <a href="#licenses"><span aria-hidden="true">01</span><div><small>Access</small><strong>View your license</strong><p>Check the account, platform, status, and expiry linked to your key.</p></div><b aria-hidden="true">→</b></a>}
-            <a href="#payments"><span aria-hidden="true">02</span><div><small>Verify</small><strong>Check payment records</strong><p>Confirm your payment status and download available documents.</p></div><b aria-hidden="true">→</b></a>
-            <a href="#support"><span aria-hidden="true">03</span><div><small>Support</small><strong>Ask Orion securely</strong><p>Keep setup, license, and payment questions in one official thread.</p></div><b aria-hidden="true">→</b></a>
-          </div>
+          <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} releases={releases || []} downloads={downloads || []} recordsAvailable={activationDataAvailable} downloadHistoryAvailable={!downloadsError} planSelectionPath={planSelectionPath} showHeading={false} />
         </PortalWorkspaceSection>
 
         <div className="portal-grid portal-resource-grid">
