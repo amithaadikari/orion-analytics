@@ -1,6 +1,7 @@
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { getEnv } from '@/lib/env';
 import { jsonError } from '@/lib/security';
+import { isMissingAccountSecurityRelation } from '@/lib/client-security';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,10 +13,21 @@ export async function GET(request: Request) {
   const { data: licenses, error } = await db.from('licenses').select('id,client_id,license_key,platform,plan,status,expires_at').not('expires_at', 'is', null);
   if (error) return jsonError('Unable to load licenses', 500);
   const clientIds = [...new Set((licenses || []).map(row => row.client_id))];
-  const { data: clients } = clientIds.length ? await db.from('clients').select('id,full_name,email,plan,status').in('id', clientIds) : { data: [] };
+  const [{ data: clients }, preferenceResult] = await Promise.all([
+    clientIds.length ? db.from('clients').select('id,full_name,email,plan,status').in('id', clientIds) : Promise.resolve({ data: [] }),
+    clientIds.length ? db.from('client_account_preferences').select('client_id,email_license_reminders').in('client_id', clientIds) : Promise.resolve({ data: [], error: null }),
+  ]);
   const clientMap = new Map((clients || []).map(client => [client.id, client]));
+  // During a rolling deployment the preference table may arrive just after the
+  // application. Default to delivery so existing reminders continue safely.
+  if (preferenceResult.error && !isMissingAccountSecurityRelation(preferenceResult.error)) {
+    return jsonError('License reminder preferences are temporarily unavailable; no emails were sent.', 503);
+  }
+  const reminderOptOuts = new Set(preferenceResult.error ? [] : (preferenceResult.data || [])
+    .filter(preference => preference.email_license_reminders === false)
+    .map(preference => preference.client_id));
   const today = new Date(), todayUtc = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  let expired = 0, sent = 0, skipped = 0, failed = 0;
+  let expired = 0, sent = 0, skipped = 0, optedOut = 0, failed = 0;
 
   for (const license of licenses || []) {
     const expiresOn = String(license.expires_at).slice(0, 10);
@@ -34,6 +46,7 @@ export async function GET(request: Request) {
       continue;
     }
     if (![30, 7, 1, 0].includes(days) || license.status !== 'Active' || !client?.email) continue;
+    if (reminderOptOuts.has(license.client_id)) { optedOut++; continue; }
     const { data: existing } = await db.from('license_reminders').select('id,sent_at').eq('license_id', license.id).eq('expires_on', expiresOn).eq('reminder_days', days).maybeSingle();
     if (existing?.sent_at) { skipped++; continue; }
     const subject = days === 0 ? `Your Orion ${license.plan} license expires today` : `Your Orion license expires in ${days} day${days === 1 ? '' : 's'}`;
@@ -48,7 +61,7 @@ export async function GET(request: Request) {
       failed++;
     }
   }
-  return Response.json({ ok: true, checked: licenses?.length || 0, expired, remindersSent: sent, duplicatesSkipped: skipped, failed });
+  return Response.json({ ok: true, checked: licenses?.length || 0, expired, remindersSent: sent, duplicatesSkipped: skipped, preferenceOptOutsSkipped: optedOut, failed });
 }
 
 function renewalEmail({name,plan,platform,key,expiresOn,days,portalUrl}:{name:string;plan:string;platform:string;key:string;expiresOn:string;days:number;portalUrl:string}) {

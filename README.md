@@ -28,10 +28,12 @@ Open `http://localhost:3000/login`. Create an email/password user in Supabase Au
 ## Supabase setup
 
 1. Create a Supabase project.
-2. Run the files in `supabase/migrations` in timestamp order. Existing projects should apply `20260724_orion_command_suite.sql`, `20260725_protect_release_sources.sql`, and `20260726_support_notification_ticket_links.sql` before enabling the Action Center, Revenue Intelligence, Client 360, exact support-reply links, Software Access Hub, and protected-download features.
+2. Run the files in `supabase/migrations` in timestamp order. Existing projects should apply `20260724_orion_command_suite.sql`, `20260725_protect_release_sources.sql`, `20260726_support_notification_ticket_links.sql`, and `20260727_client_account_security.sql` before enabling the command suite, exact support links, protected downloads, or Account Security settings.
 3. Enable email/password in Authentication → Providers.
 4. Create the first admin user, copy its Auth UUID, and insert it into `public.admins` with role `admin`.
 5. Put the project URL, anon key and service-role key in `.env.local` / Vercel Environment Variables.
+
+Before clients enroll authenticator MFA, complete the [Account security activation checklist](docs/account-security.md). It covers Supabase TOTP/password configuration, database assurance policies, testing, and the identity-verified lost-authenticator recovery process.
 
 The public Framer page never talks directly to Supabase. It only calls the rate-limited Next.js routes, and public roles have no read or insert policies.
 

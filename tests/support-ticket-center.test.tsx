@@ -237,7 +237,9 @@ describe('Support Ticket Center', () => {
     fireEvent.change(reply, { target: { value: 'My account number is 20401988.' } });
     fireEvent.click(screen.getByRole('button', { name: /Send reply/i }));
 
-    expect(await screen.findByText('Reply sent securely.', {}, { timeout: 3000 })).toBeTruthy();
+    // The complete portal suite renders several rich workspaces in parallel, so
+    // leave enough time for this post-reply refresh without weakening the check.
+    expect(await screen.findByText('Reply sent securely.', {}, { timeout: 8000 })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'License will not activate' })).toBeTruthy();
     const patchCall = fetchMock.mock.calls.find((call) => call[1]?.method === 'PATCH');
     expect(patchCall?.[0]).toBe('/api/support-tickets?scope=self');

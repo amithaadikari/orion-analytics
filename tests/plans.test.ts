@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkoutPath, checkoutSelectionPath, normalizePlan, planFromPath, safeAuthNext } from '@/lib/plans';
+import { checkoutPath, checkoutSelectionPath, normalizePlan, planFromPath, safeAuthNext, safeMfaNext } from '@/lib/plans';
 
 describe('client plan handoff', () => {
   it('normalizes only published Orion editions', () => {
@@ -11,6 +11,7 @@ describe('client plan handoff', () => {
   it('keeps authentication redirects on approved portal paths', () => {
     expect(safeAuthNext('/checkout?plan=basic')).toBe('/checkout?plan=basic');
     expect(safeAuthNext('/portal/profile')).toBe('/portal/profile');
+    expect(safeAuthNext('/portal/settings')).toBe('/portal/settings');
     expect(safeAuthNext('/reset-password')).toBe('/reset-password');
     expect(safeAuthNext('/invoice/550e8400-e29b-41d4-a716-446655440000')).toBe('/invoice/550e8400-e29b-41d4-a716-446655440000');
     expect(safeAuthNext('/receipt/550e8400-e29b-41d4-a716-446655440000')).toBe('/receipt/550e8400-e29b-41d4-a716-446655440000');
@@ -20,6 +21,10 @@ describe('client plan handoff', () => {
     expect(safeAuthNext('/\\evil.example')).toBe('/portal');
     expect(safeAuthNext('https://evil.example')).toBe('/portal');
     expect(safeAuthNext('/dashboard')).toBe('/portal');
+    expect(safeMfaNext('/dashboard')).toBe('/dashboard');
+    expect(safeMfaNext('/dashboard?section=payments')).toBe('/dashboard?section=payments');
+    expect(safeMfaNext('/portal/settings')).toBe('/portal/settings');
+    expect(safeMfaNext('//evil.example')).toBe('/portal');
   });
 
   it('builds and reads safe checkout paths', () => {

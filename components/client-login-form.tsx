@@ -6,6 +6,8 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import Link from 'next/link';
 import { checkoutPath, normalizePlan, planFromPath, safeAuthNext } from '@/lib/plans';
 import PasswordField from '@/components/password-field';
+import { getAuthAssurance } from '@/lib/auth-assurance';
+import { recordAccountSecurityEvent } from '@/lib/account-security-client';
 
 export default function ClientLoginForm() {
   const router = useRouter();
@@ -36,6 +38,13 @@ export default function ClientLoginForm() {
     if (selectedPlan) {
       await supabase.auth.updateUser({ data: { selected_plan: selectedPlan } });
     }
+    const assurance = await getAuthAssurance(supabase, result.data.user);
+    if (assurance.requiresChallenge) {
+      router.replace(`/mfa?next=${encodeURIComponent(next)}`);
+      router.refresh();
+      return;
+    }
+    await recordAccountSecurityEvent('session_started');
     router.replace(next);
     router.refresh();
   }
@@ -71,6 +80,7 @@ export default function ClientLoginForm() {
       </div>
       <div className="auth-form-status" aria-live="polite">
         {params.get('error') === 'not-linked' && <p className="form-error" role="alert">Your account is not linked to an Orion client profile. Contact support.</p>}
+        {params.get('error') === 'mfa-unavailable' && <p className="form-error" role="alert">Your authenticator could not be challenged here. Contact Orion support for identity-verified recovery.</p>}
         {params.get('reset') === 'success' && <p className="form-success" role="status">Password updated. Sign in with your new password.</p>}
         {error && <p className="form-error" role="alert">{error}</p>}
       </div>

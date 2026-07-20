@@ -54,7 +54,7 @@ export function normalizeTrackingId(value: unknown) {
   return /^[a-zA-Z0-9._:-]{8,180}$/.test(normalized) ? normalized : null;
 }
 
-const allowedAuthDestinations = new Set(['/portal', '/portal/profile', '/checkout', '/reset-password']);
+const allowedAuthDestinations = new Set(['/portal', '/portal/profile', '/portal/settings', '/checkout', '/reset-password']);
 const documentDestination = /^\/(?:invoice|receipt)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function safeAuthNext(value: unknown, fallback = '/portal') {
@@ -67,6 +67,17 @@ export function safeAuthNext(value: unknown, fallback = '/portal') {
   } catch {
     return fallback;
   }
+}
+
+export function safeMfaNext(value: unknown, fallback = '/portal') {
+  if (typeof value === 'string') {
+    try {
+      const origin = 'https://orion-auth.invalid';
+      const target = new URL(value, origin);
+      if (target.origin === origin && target.pathname === '/dashboard') return `${target.pathname}${target.search}`;
+    } catch { /* Fall through to the client destination allow-list. */ }
+  }
+  return safeAuthNext(value, fallback);
 }
 
 export function planFromPath(value: unknown) {

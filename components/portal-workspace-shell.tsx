@@ -10,6 +10,7 @@ import {
   PackageOpen,
   Palette,
   ReceiptText,
+  ShieldCheck,
   UserRound,
 } from 'lucide-react';
 import ClientAvatar from '@/components/client-avatar';
@@ -23,6 +24,7 @@ import type { ClientAvatarKey } from '@/lib/client-profile';
 const workspaceSections = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'profile', label: 'Profile', icon: UserRound },
+  { id: 'settings', label: 'Security', icon: ShieldCheck },
   { id: 'setup', label: 'Setup', icon: ListChecks },
   { id: 'licenses', label: 'Software', icon: PackageOpen },
   { id: 'payments', label: 'Billing', icon: ReceiptText },
@@ -31,7 +33,7 @@ const workspaceSections = [
 ] as const;
 
 type PortalWorkspaceShellProps = {
-  currentView: 'overview' | 'profile';
+  currentView: 'overview' | 'profile' | 'settings';
   clientName: string;
   clientDisplayName: string;
   clientAvatarKey: ClientAvatarKey;
@@ -48,7 +50,7 @@ export default function PortalWorkspaceShell({ currentView, clientName, clientDi
 
   useEffect(() => {
     setActiveSection(currentView);
-    if (currentView === 'profile') return;
+    if (currentView !== 'overview') return;
     const sections = workspaceSections
       .map(({ id }) => document.getElementById(id))
       .filter((section): section is HTMLElement => Boolean(section));
@@ -70,6 +72,7 @@ export default function PortalWorkspaceShell({ currentView, clientName, clientDi
 
   function sectionHref(id: (typeof workspaceSections)[number]['id']) {
     if (id === 'profile') return '/portal/profile';
+    if (id === 'settings') return '/portal/settings';
     if (currentView === 'overview') return `#${id}`;
     return id === 'overview' ? '/portal' : `/portal#${id}`;
   }
@@ -112,7 +115,7 @@ export default function PortalWorkspaceShell({ currentView, clientName, clientDi
 
           <nav className="portal-workspace-nav" aria-label="Portal navigation">
             {workspaceSections.map(({ id, label, icon: Icon }) => (
-              <Link className={activeSection === id ? 'is-active' : ''} href={sectionHref(id)} key={id} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? (id === 'profile' ? 'page' : 'location') : undefined}>
+              <Link className={activeSection === id ? 'is-active' : ''} href={sectionHref(id)} key={id} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? (id === 'profile' || id === 'settings' ? 'page' : 'location') : undefined}>
                 <span aria-hidden="true"><Icon size={16} /></span>
                 <strong>{label}</strong>
                 <i aria-hidden="true" />

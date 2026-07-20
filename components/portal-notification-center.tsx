@@ -12,6 +12,7 @@ import {
   Inbox,
   KeyRound,
   RefreshCw,
+  ShieldCheck,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -21,7 +22,7 @@ import {
 } from '@/components/portal-notifications-provider';
 import styles from './portal-notification-center.module.css';
 
-type NotificationFilter = 'all' | 'unread' | 'billing' | 'license' | 'support';
+type NotificationFilter = 'all' | 'unread' | 'billing' | 'license' | 'support' | 'security';
 type NotificationSummary = { unreadCount: number; totalCount: number; loaded: boolean };
 
 const filters: { id: NotificationFilter; label: string }[] = [
@@ -30,6 +31,7 @@ const filters: { id: NotificationFilter; label: string }[] = [
   { id: 'license', label: 'Licenses' },
   { id: 'billing', label: 'Billing' },
   { id: 'support', label: 'Support' },
+  { id: 'security', label: 'Security' },
 ];
 
 type PortalNotificationCenterProps = {
@@ -75,7 +77,7 @@ export default function PortalNotificationCenter({ className = '', embedded = fa
         {embedded ? (
           <div className={styles.compactTitle}><span aria-hidden="true"><Bell size={18} /></span><div><small>Account timeline</small><strong>Recent Orion updates</strong></div></div>
         ) : (
-          <div><p>Client updates</p><h2 id={headingId}>Notification center</h2><span>Payment, license, and support updates from your secure Orion account.</span></div>
+          <div><p>Client updates</p><h2 id={headingId}>Notification center</h2><span>Security, payment, license, and support updates from your Orion account.</span></div>
         )}
         <div className={styles.headerActions}>
           <strong className={styles.unreadCount} aria-label={`${unreadCount} unread notifications`}>{unreadCount}<small>Unread</small></strong>
@@ -95,7 +97,7 @@ export default function PortalNotificationCenter({ className = '', embedded = fa
       {loading ? (
         <div className={styles.loading} role="status"><span /><span /><span /><p>Loading secure updates…</p></div>
       ) : error && notifications.length === 0 ? null : notifications.length === 0 ? (
-        <EmptyState title="You’re up to date" text="New payment, license, and support updates will appear here when Orion records them." />
+        <EmptyState title="You’re up to date" text="New payment, license, support, and security updates will appear here when Orion records them." />
       ) : filtered.length === 0 ? (
         <EmptyState title={`No ${filters.find((option) => option.id === filter)?.label.toLowerCase()} updates`} text="Choose another filter to view the rest of your account activity." />
       ) : (
@@ -136,6 +138,7 @@ function KindIcon({ tone }: { tone: ReturnType<typeof kindTone> }) {
   if (tone === 'license') return <KeyRound size={18} />;
   if (tone === 'billing') return <CreditCard size={18} />;
   if (tone === 'support') return <Headphones size={18} />;
+  if (tone === 'security') return <ShieldCheck size={18} />;
   return <Sparkles size={18} />;
 }
 
@@ -144,6 +147,7 @@ function kindTone(kind: string) {
   if (value.includes('license')) return 'license' as const;
   if (value.includes('payment') || value.includes('billing')) return 'billing' as const;
   if (value.includes('support') || value.includes('ticket')) return 'support' as const;
+  if (value.includes('security') || value.includes('password') || value.includes('session')) return 'security' as const;
   return 'account' as const;
 }
 

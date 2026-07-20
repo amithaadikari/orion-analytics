@@ -10,6 +10,7 @@ import {
   Headphones,
   Inbox,
   KeyRound,
+  ShieldCheck,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -153,7 +154,7 @@ function NotificationCopy({ notification }: { notification: PortalNotification }
 }
 
 function KindIcon({ tone }: { tone: ReturnType<typeof kindTone> }) {
-  const Icon = tone === 'license' ? KeyRound : tone === 'billing' ? CreditCard : tone === 'support' ? Headphones : Sparkles;
+  const Icon = tone === 'license' ? KeyRound : tone === 'billing' ? CreditCard : tone === 'support' ? Headphones : tone === 'security' ? ShieldCheck : Sparkles;
   return <span className={styles.kind} data-kind={tone} aria-hidden="true"><Icon size={15} /></span>;
 }
 
@@ -162,6 +163,7 @@ function kindTone(kind: string) {
   if (value.includes('license')) return 'license' as const;
   if (value.includes('payment') || value.includes('billing')) return 'billing' as const;
   if (value.includes('support') || value.includes('ticket')) return 'support' as const;
+  if (value.includes('security') || value.includes('password') || value.includes('session')) return 'security' as const;
   return 'account' as const;
 }
 

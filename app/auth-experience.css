@@ -690,9 +690,34 @@
 .auth-password-match.is-pending { color: var(--orion-orange); }
 
 .orion-auth-shell .auth-form-links a,
+.orion-auth-shell .auth-form-links .auth-inline-button,
 .orion-auth-shell .auth-form-backlink a,
 .orion-auth-shell .auth-confirmation a {
   color: var(--auth-accent-bright);
+}
+
+.orion-auth-shell .auth-inline-button {
+  display: inline-flex;
+  min-height: 40px;
+  padding: 5px 0;
+  align-items: center;
+  appearance: none;
+  border: 0;
+  color: var(--auth-accent-bright);
+  background: transparent;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.orion-auth-shell .auth-inline-button:hover:not(:disabled) {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.orion-auth-shell .auth-inline-button:disabled {
+  opacity: .48;
+  cursor: wait;
 }
 
 .orion-auth-shell .auth-plan-context {
