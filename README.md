@@ -28,12 +28,14 @@ Open `http://localhost:3000/login`. Create an email/password user in Supabase Au
 ## Supabase setup
 
 1. Create a Supabase project.
-2. Run the files in `supabase/migrations` in timestamp order. Existing projects should apply `20260724_orion_command_suite.sql`, `20260725_protect_release_sources.sql`, `20260726_support_notification_ticket_links.sql`, and `20260727_client_account_security.sql` before enabling the command suite, exact support links, protected downloads, or Account Security settings.
+2. Run the files in `supabase/migrations` in timestamp order. Existing projects should apply `20260724_orion_command_suite.sql` through `20260729_secure_ea_release_center.sql` before enabling the command suite, exact support links, protected downloads, Account Security settings, or private EA releases.
 3. Enable email/password in Authentication → Providers.
 4. Create the first admin user, copy its Auth UUID, and insert it into `public.admins` with role `admin`.
 5. Put the project URL, anon key and service-role key in `.env.local` / Vercel Environment Variables.
 
 Before clients enroll authenticator MFA, complete the [Account security activation checklist](docs/account-security.md). It covers Supabase TOTP/password configuration, database assurance policies, testing, and the identity-verified lost-authenticator recovery process.
+
+Before publishing an EA build, complete the [Secure EA Release Center checklist](docs/secure-release-center.md). The first authorized upload creates or tightens the private `orion-ea-releases` Storage bucket automatically; never make this bucket public.
 
 The public Framer page never talks directly to Supabase. It only calls the rate-limited Next.js routes, and public roles have no read or insert policies.
 
@@ -64,7 +66,7 @@ The script stores only an anonymous visitor ID, session ID, campaign attribution
 ## Vercel deployment
 
 1. Import the `analytics` directory as the Vercel project root.
-2. Add every variable in `.env.example` for Preview and Production. Use a strong random `IP_HASH_SALT`. Set `PRODUCT_DOWNLOAD_HOSTS` to the exact comma-separated hostnames that may serve Orion release files; protected downloads reject every other host and redirect.
+2. Add every variable in `.env.example` for Preview and Production. Use a strong random `IP_HASH_SALT`. `PRODUCT_DOWNLOAD_HOSTS` is needed only while a legacy release still uses an approved external file host; new releases use private Supabase Storage.
 3. Set the production domain in the Framer script's `apiBase`.
 4. Add the analytics domain to any Framer CSP or security policy you use.
 5. Protect preview deployments or use a separate Supabase project; never use production service credentials in an unprotected preview.

@@ -15,6 +15,8 @@ import { normalizePortalTheme, portalThemeCookie } from '@/lib/portal-theme';
 import { clientProfileDisplayName, readClientProfile } from '@/lib/client-profile';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { compatibleReleaseForPlan } from '@/lib/portal-activation';
+import { releaseBucket } from '@/lib/release-files';
+import { isMissingReleaseStorageSchema } from '@/lib/release-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,12 +36,11 @@ export default async function PortalPage() {
   const [licenseResult, paymentResult, releaseResult] = await Promise.all([
     supabase.from('licenses').select('id,license_key,platform,account_number,plan,status,issued_at,expires_at').eq('client_id', client.id).order('created_at', { ascending: false }),
     supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number,created_at').eq('client_id', client.id).order('created_at', { ascending: false }),
-    admin.from('product_releases').select('id,version,title,release_notes,platform,download_url,released_at').eq('published', true).order('released_at', { ascending: false }),
+    loadPortalReleases(admin),
   ]);
   const { data: licenses, error: licensesError } = licenseResult;
   const { data: payments, error: paymentsError } = paymentResult;
-  const { data: releaseRows, error: releasesError } = releaseResult;
-  const releases = (releaseRows || []).map(({ download_url, ...release }) => ({ ...release, download_url: download_url ? 'protected' : null }));
+  const { data: releases, error: releasesError } = releaseResult;
   const currentRelease = compatibleReleaseForPlan(client.plan, licenses || [], releases);
   const currentReleaseId = currentRelease?.id;
   const [downloadResult, downloadHistoryResult] = await Promise.all([
@@ -121,6 +122,59 @@ export default async function PortalPage() {
       {user.user_metadata?.registration_source === 'orion_client_portal' && <RegistrationTracker plan={selectedPlan} />}
     </PortalWorkspaceShell>
   );
+}
+
+async function loadPortalReleases(admin: ReturnType<typeof createSupabaseAdminClient>) {
+  const modern = await admin.from('product_releases')
+    .select('id,version,title,release_notes,platform,download_url,released_at,promoted_at,asset_status,storage_bucket,storage_path,original_filename,file_size_bytes,sha256,archived_at')
+    .eq('published', true)
+    .is('archived_at', null)
+    .order('promoted_at', { ascending: false, nullsFirst: false });
+  if (modern.error && isMissingReleaseStorageSchema(modern.error)) {
+    const legacy = await admin.from('product_releases')
+      .select('id,version,title,release_notes,platform,download_url,released_at')
+      .eq('published', true)
+      .order('released_at', { ascending: false });
+    return {
+      data: (legacy.data || []).map(({ download_url, ...release }) => ({
+        ...release,
+        download_url: download_url ? 'protected' : null,
+      })),
+      error: legacy.error,
+    };
+  }
+  if (modern.error) return { data: [], error: modern.error };
+  const channels = await admin.from('release_channels').select('platform,current_release_id').not('current_release_id', 'is', null);
+  if (channels.error) return { data: [], error: channels.error };
+  const currentIds = new Set((channels.data || []).map((channel) => channel.current_release_id));
+  const currentPlatformMap = new Map<string, string[]>();
+  for (const channel of channels.data || []) {
+    if (!channel.current_release_id) continue;
+    const platforms = currentPlatformMap.get(channel.current_release_id) || [];
+    platforms.push(channel.platform);
+    currentPlatformMap.set(channel.current_release_id, platforms);
+  }
+  return {
+    data: (modern.data || [])
+      .filter((release) => currentIds.has(release.id))
+      .map((release) => {
+        const privateReady = release.storage_bucket === releaseBucket && Boolean(release.storage_path) && release.asset_status === 'ready';
+        return {
+          id: release.id,
+          version: release.version,
+          title: release.title,
+          release_notes: release.release_notes,
+          platform: release.platform,
+          current_platforms: currentPlatformMap.get(release.id) || [],
+          download_url: privateReady || release.download_url ? 'protected' : null,
+          released_at: release.promoted_at || release.released_at,
+          file_name: privateReady ? release.original_filename : null,
+          file_size: privateReady ? Number(release.file_size_bytes || 0) || null : null,
+          checksum_sha256: privateReady ? release.sha256 : null,
+        };
+      }),
+    error: null,
+  };
 }
 
 function PortalMetric({ icon, label, value, detail, tone }: { icon: React.ReactNode; label: string; value: string | number; detail: string; tone: 'gold' | 'cyan' | 'green' | 'violet' }) {

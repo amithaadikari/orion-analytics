@@ -21,6 +21,7 @@ import {
   compatibleReleaseForPlan,
   effectiveLicenseStatus,
   normalizeActivationValue,
+  releaseSupportsPlatform,
 } from '@/lib/portal-activation';
 import styles from './software-access-hub.module.css';
 
@@ -43,6 +44,10 @@ export type SoftwareRelease = {
   platform: string;
   download_url?: string | null;
   released_at: string;
+  file_name?: string | null;
+  file_size?: number | null;
+  checksum_sha256?: string | null;
+  current_platforms?: string[];
 };
 
 export type SoftwareDownloadActivity = {
@@ -74,13 +79,17 @@ export default function SoftwareAccessHub({ client, licenses, releases, download
   const accountExpired = accountStatus === 'expired';
   const accountPaused = ['suspended', 'disabled', 'inactive'].includes(accountStatus);
   const secureRelease = compatibleReleaseForPlan(client.plan, licenses, releases);
-  const matchingActiveLicense = secureRelease && normalizeActivationValue(secureRelease.platform) !== 'both'
-    ? activePlanLicenses.find((license) => normalizeActivationValue(license.platform) === normalizeActivationValue(secureRelease.platform))
-    : activePlanLicenses[0];
+  const secureReleaseChannels = new Set((secureRelease?.current_platforms || []).map(normalizeActivationValue));
+  const matchingActiveLicense = secureRelease
+    ? activePlanLicenses.find((license) => secureReleaseChannels.size
+      ? secureReleaseChannels.has(normalizeActivationValue(license.platform))
+      : normalizeActivationValue(secureRelease.platform) === 'both'
+        || normalizeActivationValue(license.platform) === normalizeActivationValue(secureRelease.platform))
+    : undefined;
   const primaryLicense = matchingActiveLicense || activePlanLicenses[0] || currentPlanLicenses[0];
   const additionalLicenses = licenses.filter((license) => license.id !== primaryLicense?.id);
   const releasePlatforms = new Set((activePlanLicenses.length ? activePlanLicenses : currentPlanLicenses).map((license) => normalizeActivationValue(license.platform)));
-  const displayRelease = releases.find((release) => normalizeActivationValue(release.platform) === 'both' || releasePlatforms.has(normalizeActivationValue(release.platform)));
+  const displayRelease = releases.find((release) => [...releasePlatforms].some((platform) => releaseSupportsPlatform(release, platform)));
   const accessReady = recordsAvailable && accountActive && Boolean(secureRelease);
   const primaryRelease = accessReady ? secureRelease : displayRelease;
   const additionalSecureReleases = accessReady && secureRelease
@@ -99,7 +108,7 @@ export default function SoftwareAccessHub({ client, licenses, releases, download
   const primaryStatus = primaryLicense ? effectiveLicenseStatus(primaryLicense) : 'pending';
   const expiry = licenseExpiry(primaryLicense?.expires_at, primaryLicense?.plan, primaryStatus);
   const licensePlatform = platformDetails(primaryLicense?.platform);
-  const setupPlatform = platformDetails(normalizeActivationValue(secureRelease?.platform || '') === 'both' || additionalSecureReleases.length > 0 ? 'Both' : primaryLicense?.platform);
+  const setupPlatform = platformDetails(additionalSecureReleases.length > 0 ? 'Both' : primaryLicense?.platform);
   const visibleActivity = downloadActivity.slice(0, 3);
   const olderActivity = downloadActivity.slice(3);
 
@@ -172,8 +181,10 @@ export default function SoftwareAccessHub({ client, licenses, releases, download
                 <span><small>Version</small><strong>{formatVersion(primaryRelease.version)}</strong></span>
                 <span><small>Platform</small><strong>{formatPlatform(primaryRelease.platform)}</strong></span>
                 <span><small>Released</small><strong>{formatDate(primaryRelease.released_at)}</strong></span>
+                {primaryRelease.file_size && <span><small>Package</small><strong>{formatFileSize(primaryRelease.file_size)}</strong></span>}
               </div>
               <p className={styles.releaseNotes}>{primaryRelease.release_notes || 'The latest Orion EA release approved for your licensed platform.'}</p>
+              {primaryRelease.file_name && <p className={styles.packageProof}><ShieldCheck size={13} aria-hidden="true" /><span><small>Verified package</small><strong>{primaryRelease.file_name}</strong>{primaryRelease.checksum_sha256 && <code>SHA-256 · {primaryRelease.checksum_sha256.slice(0, 12)}…</code>}</span></p>}
               {accessReady && secureRelease && (
                 <a className={styles.downloadButton} href={`/api/downloads/${secureRelease.id}`} aria-label={`Securely download ${secureRelease.title}, version ${secureRelease.version}`}>
                   <span><Download size={17} aria-hidden="true" />Secure download</span><strong>{formatVersion(secureRelease.version)}</strong>
@@ -226,6 +237,12 @@ export default function SoftwareAccessHub({ client, licenses, releases, download
   );
 }
 
+function formatFileSize(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return 'Verified';
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+}
+
 function GuideStep({ number, icon, title, text }: { number: string; icon: React.ReactNode; title: string; text: string }) {
   return <li><span className={styles.stepIcon} aria-hidden="true">{icon}</span><div><small>Step {number}</small><strong>{title}</strong><p>{text}</p></div><i aria-hidden="true" /></li>;
 }
@@ -262,7 +279,7 @@ function resolveHubState({ recordsAvailable, accountActive, accountPaused, accou
 function downloadableReleaseOptions(activeLicenses: SoftwareLicense[], releases: SoftwareRelease[]) {
   const platforms = [...new Set(activeLicenses.map((license) => normalizeActivationValue(license.platform)))];
   const options = platforms.flatMap((platform) => {
-    const release = releases.find((candidate) => Boolean(candidate.download_url) && ['both', platform].includes(normalizeActivationValue(candidate.platform)));
+    const release = releases.find((candidate) => Boolean(candidate.download_url) && releaseSupportsPlatform(candidate, platform));
     return release ? [{ platform, release }] : [];
   });
   const seen = new Set<string>();

@@ -499,7 +499,7 @@
 
 .releaseMeta {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(82px, 1fr));
   gap: 7px;
   margin-top: 10px;
 }
@@ -541,6 +541,48 @@
   line-height: 1.55;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+.packageProof {
+  display: flex;
+  margin: 10px 0 0;
+  padding: 10px;
+  align-items: flex-start;
+  gap: 9px;
+  color: var(--portal-accent-bright);
+  border: 1px solid rgba(var(--portal-accent-rgb), .14);
+  border-radius: 8px;
+  background: rgba(var(--portal-accent-rgb), .035);
+}
+
+.packageProof > span,
+.packageProof small,
+.packageProof strong,
+.packageProof code {
+  display: block;
+  min-width: 0;
+}
+
+.packageProof small {
+  color: #84928f;
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.packageProof strong {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #dce5e2;
+  font-size: 11.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.packageProof code {
+  margin-top: 4px;
+  color: #73817e;
+  font-size: 9.5px;
 }
 
 .downloadButton {

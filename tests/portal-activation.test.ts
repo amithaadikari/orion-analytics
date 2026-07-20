@@ -35,4 +35,14 @@ describe('portal activation release selection', () => {
 
     expect(compatibleReleaseForPlan('Basic', licenses, releases, Date.parse('2026-07-20T00:00:00Z'))).toBeUndefined();
   });
+
+  it('uses the current channel assignment when a Both package is live for only one platform', () => {
+    const licenses = [{ plan: 'Basic', platform: 'MT5', status: 'Active', expires_at: '2099-12-31' }];
+    const releases = [
+      { id: 'mt4-only-current', platform: 'Both', current_platforms: ['MT4'], download_url: 'protected' },
+      { id: 'mt5-current', platform: 'MT5', current_platforms: ['MT5'], download_url: 'protected' },
+    ];
+
+    expect(compatibleReleaseForPlan('Basic', licenses, releases)?.id).toBe('mt5-current');
+  });
 });

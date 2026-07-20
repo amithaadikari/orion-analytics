@@ -9,6 +9,7 @@ export type ActivationRelease = {
   id: string;
   platform: string;
   download_url?: string | null;
+  current_platforms?: string[];
 };
 
 export function effectiveLicenseStatus(license: ActivationLicense, asOf = Date.now()) {
@@ -29,7 +30,15 @@ export function activeLicensesForPlan<T extends ActivationLicense>(plan: string,
 export function compatibleReleaseForPlan<T extends ActivationRelease>(plan: string, licenses: ActivationLicense[], releases: T[], asOf = Date.now()) {
   const activePlatforms = new Set(activeLicensesForPlan(plan, licenses, asOf).map((license) => normalizeActivationValue(license.platform)));
   if (activePlatforms.size === 0) return undefined;
-  return releases.find((release) => Boolean(release.download_url) && (normalizeActivationValue(release.platform) === 'both' || activePlatforms.has(normalizeActivationValue(release.platform))));
+  return releases.find((release) => Boolean(release.download_url) && [...activePlatforms].some((platform) => releaseSupportsPlatform(release, platform)));
+}
+
+export function releaseSupportsPlatform(release: ActivationRelease, platform: string) {
+  const requested = normalizeActivationValue(platform);
+  const currentPlatforms = (release.current_platforms || []).map(normalizeActivationValue).filter((value) => value === 'mt4' || value === 'mt5');
+  if (currentPlatforms.length) return currentPlatforms.some((value) => value === requested);
+  const releasePlatform = normalizeActivationValue(release.platform);
+  return releasePlatform === 'both' || releasePlatform === requested;
 }
 
 export function normalizeActivationValue(value: string) {
