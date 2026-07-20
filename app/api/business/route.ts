@@ -3,6 +3,7 @@ import { requireAdminApi } from '@/lib/auth';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { jsonError } from '@/lib/security';
 import { sendPaymentReceipt } from '@/lib/receipt-email';
+import { generateLicenseKey, hashLicenseKey, licenseKeyVersion, normalizeLicenseKey } from '@/lib/license-keys';
 
 const clientSchema = z.object({
   full_name: z.string().trim().min(2).max(120), email: z.string().trim().email().or(z.literal('')).optional(),
@@ -10,7 +11,7 @@ const clientSchema = z.object({
   auth_user_id: z.preprocess((value) => value === '' ? null : value, z.string().uuid().nullable().optional()),
   plan: z.enum(['Free', 'Basic', 'Premium', 'Lifetime']), status: z.enum(['Pending', 'Active', 'Expired', 'Suspended']), notes: z.string().trim().max(2000).optional()
 });
-const licenseSchema = z.object({ client_id: z.string().uuid(), license_key: z.string().trim().min(8).max(120), platform: z.enum(['MT4', 'MT5']), account_number: z.string().trim().max(80).optional(), plan: z.enum(['Basic', 'Premium', 'Lifetime']), status: z.enum(['Active', 'Expired', 'Suspended']), expires_at: z.string().nullable().optional() });
+const licenseSchema = z.object({ client_id: z.string().uuid(), license_key: z.string().trim().min(8).max(120).optional(), platform: z.enum(['MT4', 'MT5']), account_number: z.string().trim().max(80).optional(), plan: z.enum(['Basic', 'Premium', 'Lifetime']), status: z.enum(['Active', 'Expired', 'Suspended']), expires_at: z.string().nullable().optional() });
 const optionalUuid = z.preprocess((value) => value === '' ? null : value, z.string().uuid().nullable().optional());
 const paymentBaseSchema = z.object({ client_id: z.string().uuid(), license_id: optionalUuid, plan: z.enum(['Basic','Premium','Lifetime']), method: z.enum(['Crypto','Bank Transfer','Card','PayPal','Wise','Skrill','Cash','Other']), status: z.enum(['Pending','Paid','Failed','Refunded','Disputed','Manually verified']), amount: z.coerce.number().min(0).max(100000000), currency: z.string().trim().length(3).transform((value) => value.toUpperCase()), payment_date: z.string().nullable().optional(), reference_id: z.string().trim().max(160).optional(), notes: z.string().trim().max(1000).optional() });
 const paymentSchema = paymentBaseSchema.superRefine((payment, context) => {
@@ -60,7 +61,16 @@ export async function POST(request: Request) {
     const linkError = await validatePaymentLink(db, parsed.data);
     if (linkError) return jsonError(linkError);
   }
-  const payload = normalizeLicenseStatus(resource, clean(parsed.data)); const { data, error } = await db.from(table).insert(payload).select('*').single();
+  const basePayload = normalizeLicenseStatus(resource, clean(parsed.data));
+  let payload = basePayload;
+  if (resource === 'license') {
+    try {
+      payload = await prepareNewLicense(db, basePayload);
+    } catch (error) {
+      return jsonError(error instanceof Error ? error.message : 'Unable to generate license key', 400);
+    }
+  }
+  const { data, error } = await db.from(table).insert(payload).select('*').single();
   if (error) return jsonError(error.message, 400);
   const clientId = resource === 'client' ? data.id : data.client_id;
   await db.from('client_activity').insert({ client_id: clientId, action, details: describe(resource, data), actor_email: auth.admin!.email });
@@ -126,6 +136,23 @@ function normalizeLicenseStatus(resource: string, value: Record<string, unknown>
   return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() < Date.now() ? { ...value, status: 'Expired' } : value;
 }
 function describe(resource: string, data: Record<string, unknown>) { if (resource === 'payment') return `${data.status} · ${data.currency} ${data.amount} · ${data.method}`; if (resource === 'license') return `${data.license_key} · ${data.platform} · ${data.status}`; return `${data.full_name} · ${data.plan} · ${data.status}`; }
+
+async function prepareNewLicense(db: ReturnType<typeof createSupabaseAdminClient>, value: Record<string, unknown>) {
+  const supplied = typeof value.license_key === 'string' ? normalizeLicenseKey(value.license_key) : '';
+  if (supplied) {
+    const version = licenseKeyVersion(supplied);
+    if (!version) throw new Error('License key must use the legacy ORI format or the new ORN-XXXX-XXXX-XXXX-XXXX format');
+    return { ...value, license_key: supplied, key_version: version, key_hash: hashLicenseKey(supplied) };
+  }
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const licenseKey = generateLicenseKey();
+    const { data, error } = await db.from('licenses').select('id').eq('license_key', licenseKey).maybeSingle();
+    if (error) throw new Error('Unable to verify license-key uniqueness');
+    if (!data) return { ...value, license_key: licenseKey, key_version: 'v2', key_hash: hashLicenseKey(licenseKey) };
+  }
+  throw new Error('Unable to generate a unique license key');
+}
 
 async function validatePaymentLink(db: ReturnType<typeof createSupabaseAdminClient>, payment: { client_id?: string; license_id?: string | null; plan?: string }) {
   if (!payment.license_id) return null;
