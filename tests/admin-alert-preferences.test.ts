@@ -16,4 +16,13 @@ describe('administrator header alert preferences', () => {
       supportAlerts: true,
     })).toBe(9);
   });
+
+  it('always includes suspended accounts when optional alerts are muted', () => {
+    expect(preferredQueueCount(counts, {
+      registrationAlerts: false,
+      paymentAlerts: false,
+      licenseAlerts: false,
+      supportAlerts: false,
+    })).toBe(2);
+  });
 });

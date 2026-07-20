@@ -670,52 +670,6 @@
 
 /* Admin action center */
 
-.command-queue-badge {
-  position: relative;
-  display: inline-grid;
-  min-width: 104px;
-  height: 38px;
-  padding: 0 10px;
-  grid-template-columns: auto auto 1fr;
-  align-items: center;
-  gap: 7px;
-  color: #dfe7e8;
-  border-color: rgba(246, 196, 83, .18);
-  background: linear-gradient(120deg, rgba(246, 196, 83, .07), rgba(255, 255, 255, .025));
-  font-family: var(--font-mono), ui-monospace, monospace;
-}
-
-.command-queue-badge::after {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 5px;
-  height: 5px;
-  content: "";
-  border-radius: 50%;
-  background: var(--orion-orange);
-  box-shadow: 0 0 9px rgba(255, 159, 67, .7);
-  animation: command-live-pulse 2s ease-in-out infinite;
-}
-
-.command-queue-badge > span:first-child {
-  color: var(--orion-gold);
-}
-
-.command-queue-badge strong {
-  min-width: 18px;
-  color: var(--orion-gold-bright);
-  font-size: 12px;
-  text-align: center;
-}
-
-.command-queue-badge > span:last-child {
-  color: #869397;
-  font-size: 9px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-
 .admin-action-center {
   position: relative;
   margin-top: 19px;
@@ -2111,11 +2065,6 @@
     background: rgba(246, 196, 83, .025);
   }
 
-  .command-queue-badge:hover {
-    border-color: rgba(246, 196, 83, .32);
-    background: rgba(246, 196, 83, .055);
-  }
-
   .admin-action-category:hover {
     transform: translateY(-3px);
     border-color: color-mix(in srgb, var(--action-accent) 34%, transparent);
@@ -2310,15 +2259,6 @@
 }
 
 @media (max-width: 520px) {
-  .command-queue-badge {
-    min-width: 34px;
-    padding-inline: 8px;
-  }
-
-  .command-queue-badge > span:last-child {
-    display: none;
-  }
-
   .admin-action-center {
     padding: 19px 15px;
     border-radius: 11px;
@@ -2766,7 +2706,6 @@
   .command-engine-sweep,
   .command-engine-node,
   .command-telemetry-state--live i,
-  .command-queue-badge::after,
   .admin-action-center-count::before,
   .admin-action-category,
   .admin-action-feed-item,

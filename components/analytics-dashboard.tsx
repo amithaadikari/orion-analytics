@@ -24,7 +24,8 @@ import {
 import { Area, AreaChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { countryFlag } from '@/lib/country';
 import BusinessDashboard from '@/components/business-dashboard';
-import AdminActionCenter, { preferredQueueCount, type AlertCounts } from '@/components/admin-action-center';
+import AdminActionCenter, { type AlertCounts } from '@/components/admin-action-center';
+import AdminNotificationPanel from '@/components/admin-notification-panel';
 import AdvancedAnalytics, { type AdvancedFilterPatch } from '@/components/advanced-analytics';
 import CommandPalette from '@/components/command-palette';
 import ReleaseManager from '@/components/release-manager';
@@ -139,21 +140,6 @@ export default function Dashboard({ admin, account, initialTheme = 'royal', init
   const toggleTheme = useCallback(() => applyTheme(theme === 'royal' ? 'black' : 'royal'), [applyTheme, theme]);
   const updateAdminProfile = useCallback((profile: AdminProfile) => setAdminProfile(profile), []);
   const updateAdminPreferences = useCallback((preferences: AdminAccountPreferences) => setAccountPreferences(preferences), []);
-  const queueCount = useMemo(() => alertCounts ? preferredQueueCount(alertCounts, accountPreferences) : null, [accountPreferences, alertCounts]);
-  useEffect(() => {
-    if (admin?.role !== 'admin') return;
-    const controller = new AbortController();
-    void fetch('/api/action-center', { cache: 'no-store', credentials: 'same-origin', signal: controller.signal })
-      .then(async (response) => response.ok ? response.json() : null)
-      .then((payload: unknown) => {
-        if (controller.signal.aborted || !payload || typeof payload !== 'object' || !('alerts' in payload)) return;
-        const alerts = (payload as { alerts?: Partial<AlertCounts> }).alerts;
-        if (!alerts || !['registrations', 'payments', 'licenses', 'support', 'suspended'].every((key) => typeof alerts[key as keyof AlertCounts] === 'number')) return;
-        setAlertCounts(alerts as AlertCounts);
-      })
-      .catch(() => { /* The header truthfully stays unavailable while its queue cannot be read. */ });
-    return () => controller.abort();
-  }, [admin?.role]);
   const commitSection = useCallback((section: string, historyMode: 'push' | 'replace' | 'none' = 'push') => {
     const next = normalizeSection(section);
     const current = tabRef.current;
@@ -286,16 +272,12 @@ export default function Dashboard({ admin, account, initialTheme = 'royal', init
             <span>{theme === 'royal' ? 'Royal' : 'Black'}</span>
           </button>
           {admin?.role === 'admin' && (
-            <button
-              type="button"
-              className="glass-button command-queue-badge"
-              onClick={() => navigateNormally('overview')}
-              aria-label={queueCount === null ? 'Open the action queue. Queue status is loading or unavailable.' : `Open the action queue. ${queueCount} ${queueCount === 1 ? 'item' : 'items'} need attention.`}
-            >
-              <span aria-hidden="true">⌁</span>
-              <strong>{queueCount ?? '—'}</strong>
-              <span>Queue</span>
-            </button>
+            <AdminNotificationPanel
+              counts={alertCounts}
+              preferences={accountPreferences}
+              onCountsChange={setAlertCounts}
+              onNavigate={navigateFromActionCenter}
+            />
           )}
           <AdminProfileMenu admin={admin ? { ...admin, displayName: adminProfile.displayName, avatarKey: adminProfile.avatarKey } : null} onNavigate={navigateNormally} />
         </div>
