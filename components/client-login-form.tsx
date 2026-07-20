@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import Link from 'next/link';
 import { checkoutPath, normalizePlan, planFromPath, safeAuthNext } from '@/lib/plans';
+import PasswordField from '@/components/password-field';
 
 export default function ClientLoginForm() {
   const router = useRouter();
@@ -63,21 +64,7 @@ export default function ClientLoginForm() {
           />
         </span>
       </label>
-      <label className="auth-field" htmlFor="client-password">
-        <span className="auth-field-label">Password</span>
-        <span className="auth-input-shell">
-          <span className="auth-input-icon" aria-hidden="true">⌁</span>
-          <input
-            id="client-password"
-            type="password"
-            autoComplete="current-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </span>
-      </label>
+      <PasswordField id="client-password" label="Password" autoComplete="current-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} />
       <div className="auth-link-row auth-form-links">
         <Link href={`/client-register?${registerParams}`}>Create account</Link>
         <Link href="/forgot-password">Forgot password?</Link>

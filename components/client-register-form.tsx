@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { countryFlag, countryOptions } from '@/lib/country';
 import { checkoutPath, normalizeTrackingId, planKeys, plans, type PlanKey } from '@/lib/plans';
 import { primeTrackingContext, trackFunnelEvent } from '@/lib/client-tracking';
+import PasswordField from '@/components/password-field';
 
 type Props = {
   initialPlan: PlanKey | null;
@@ -180,36 +181,8 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
             </select>
           </span>
         </label>
-        <label className="auth-field" htmlFor="register-password">
-          <span className="auth-field-label">Password</span>
-          <span className="auth-input-shell">
-            <span className="auth-input-icon" aria-hidden="true">⌁</span>
-            <input
-              id="register-password"
-              type="password"
-              required
-              minLength={10}
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          </span>
-        </label>
-        <label className="auth-field" htmlFor="register-confirm-password">
-          <span className="auth-field-label">Confirm password</span>
-          <span className="auth-input-shell">
-            <span className="auth-input-icon" aria-hidden="true">⌁</span>
-            <input
-              id="register-confirm-password"
-              type="password"
-              required
-              minLength={10}
-              autoComplete="new-password"
-              value={confirm}
-              onChange={(event) => setConfirm(event.target.value)}
-            />
-          </span>
-        </label>
+        <PasswordField id="register-password" label="Password" autoComplete="new-password" minLength={10} value={password} showStrength onChange={(event) => setPassword(event.target.value)} />
+        <PasswordField id="register-confirm-password" label="Confirm password" autoComplete="new-password" minLength={10} value={confirm} matchValue={password} onChange={(event) => setConfirm(event.target.value)} />
         <p className="registration-notice auth-notice"><span aria-hidden="true">◇</span>Your account starts on the Free plan. Your selected paid edition is a purchase preference only until payment and the matching license are verified.</p>
         <div className="auth-form-status" aria-live="polite">
           {error && <p className="form-error" role="alert">{error}</p>}

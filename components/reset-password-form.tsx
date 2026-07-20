@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
+import PasswordField from '@/components/password-field';
 
 export default function ResetPasswordForm() {
   const router = useRouter();
@@ -37,37 +38,8 @@ export default function ResetPasswordForm() {
 
   return (
     <form className="login-form orion-auth-form" onSubmit={submit} aria-busy={loading}>
-      <label className="auth-field" htmlFor="new-password">
-        <span className="auth-field-label">New password</span>
-        <span className="auth-input-shell">
-          <span className="auth-input-icon" aria-hidden="true">⌁</span>
-          <input
-            id="new-password"
-            type="password"
-            autoComplete="new-password"
-            minLength={10}
-            required
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </span>
-      </label>
-      <label className="auth-field" htmlFor="confirm-password">
-        <span className="auth-field-label">Confirm password</span>
-        <span className="auth-input-shell">
-          <span className="auth-input-icon" aria-hidden="true">⌁</span>
-          <input
-            id="confirm-password"
-            type="password"
-            autoComplete="new-password"
-            minLength={10}
-            required
-            value={confirm}
-            onChange={(event) => setConfirm(event.target.value)}
-          />
-        </span>
-      </label>
-      <div className="auth-password-hint"><span aria-hidden="true">◇</span> At least 10 characters</div>
+      <PasswordField id="new-password" label="New password" autoComplete="new-password" minLength={10} value={password} showStrength onChange={(event) => setPassword(event.target.value)} />
+      <PasswordField id="confirm-password" label="Confirm password" autoComplete="new-password" minLength={10} value={confirm} matchValue={password} onChange={(event) => setConfirm(event.target.value)} />
       <div className="auth-form-status" aria-live="polite">
         {error && <p className="form-error" role="alert">{error}</p>}
       </div>

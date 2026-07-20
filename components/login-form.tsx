@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
+import PasswordField from '@/components/password-field';
 
 export default function LoginForm() {
   const router = useRouter();
@@ -43,21 +44,7 @@ export default function LoginForm() {
           />
         </span>
       </label>
-      <label className="auth-field" htmlFor="admin-password">
-        <span className="auth-field-label">Password</span>
-        <span className="auth-input-shell">
-          <span className="auth-input-icon" aria-hidden="true">⌁</span>
-          <input
-            id="admin-password"
-            type="password"
-            autoComplete="current-password"
-            required
-            minLength={8}
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-          />
-        </span>
-      </label>
+      <PasswordField id="admin-password" label="Password" autoComplete="current-password" minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} />
       <div className="auth-form-status" aria-live="polite">
         {params.get('error') === 'not-approved' && <p className="form-error" role="alert">Your account is not on the approved admin list.</p>}
         {error && <p className="form-error" role="alert">{error}</p>}

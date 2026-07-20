@@ -5,8 +5,9 @@ export default function ResetPasswordPage() {
   return (
     <AuthLayout
       kind="client"
+      mode="reset"
       eyebrow="Secure password update"
-      title="Create a new password."
+      title="Secure your account again."
       subtitle="Choose a unique password with at least 10 characters to secure your Orion account."
     >
       <ResetPasswordForm />

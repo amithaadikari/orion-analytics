@@ -6,9 +6,10 @@ export default function LoginPage() {
   return (
     <AuthLayout
       kind="admin"
-      eyebrow="Private workspace"
-      title="Welcome back to Orion."
-      subtitle="Sign in to review acquisition, customer operations and conversion performance."
+      mode="login"
+      eyebrow="Administrator access"
+      title="Enter the Orion command center."
+      subtitle="Sign in through the protected administrator route to review live performance and manage Orion operations."
       footer="Approved Orion administrators only. Visitor data is anonymous and access is protected by Supabase Auth."
     >
       <Suspense fallback={<div className="auth-loading muted" role="status">Loading secure sign-in…</div>}>

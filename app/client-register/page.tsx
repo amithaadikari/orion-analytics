@@ -17,8 +17,9 @@ export default async function ClientRegisterPage({ searchParams }: PageProps) {
     <AuthLayout
       kind="client"
       wide
-      eyebrow="Create your account"
-      title="Begin your Orion access."
+      mode="register"
+      eyebrow="New client account"
+      title="Create your secure Orion workspace."
       subtitle={plan
         ? `Your ${plan.name} selection stays attached through email confirmation, sign-in and final order review.`
         : 'Create your free account now. You can select an Orion edition before or after registration.'}
