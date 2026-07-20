@@ -11,13 +11,17 @@ import {
   ListChecks,
   Palette,
   ReceiptText,
+  UserRound,
 } from 'lucide-react';
+import ClientAvatar from '@/components/client-avatar';
 import LogoutButton from '@/components/logout-button';
 import OrionBrand from '@/components/orion-brand';
-import { clientInitials, portalThemeCookie, type PortalTheme } from '@/lib/portal-theme';
+import { portalThemeCookie, type PortalTheme } from '@/lib/portal-theme';
+import type { ClientAvatarKey } from '@/lib/client-profile';
 
 const workspaceSections = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'setup', label: 'Setup', icon: ListChecks },
   { id: 'licenses', label: 'Licenses', icon: KeyRound },
   { id: 'downloads', label: 'Downloads', icon: Download },
@@ -28,13 +32,15 @@ const workspaceSections = [
 
 type PortalWorkspaceShellProps = {
   clientName: string;
+  clientDisplayName: string;
+  clientAvatarKey: ClientAvatarKey;
   clientPlan: string;
   clientStatus: string;
   initialTheme: PortalTheme;
   children: ReactNode;
 };
 
-export default function PortalWorkspaceShell({ clientName, clientPlan, clientStatus, initialTheme, children }: PortalWorkspaceShellProps) {
+export default function PortalWorkspaceShell({ clientName, clientDisplayName, clientAvatarKey, clientPlan, clientStatus, initialTheme, children }: PortalWorkspaceShellProps) {
   const [theme, setTheme] = useState<PortalTheme>(initialTheme);
   const [activeSection, setActiveSection] = useState<(typeof workspaceSections)[number]['id']>('overview');
   const sectionVisibility = useRef(new Map<string, number>());
@@ -77,10 +83,10 @@ export default function PortalWorkspaceShell({ clientName, clientPlan, clientSta
             <span>{theme === 'gold' ? 'Royal Gold' : 'Aurora Blue'}</span>
             <i aria-hidden="true" />
           </button>
-          <div className="portal-profile-summary">
-            <span aria-hidden="true">{clientInitials(clientName)}</span>
-            <div><small>Client account</small><strong>{clientName}</strong></div>
-          </div>
+          <a className="portal-profile-summary" href="#profile" aria-label="Open your Orion profile">
+            <ClientAvatar avatarKey={clientAvatarKey} size="small" />
+            <div><small>Client profile</small><strong>{clientDisplayName}</strong></div>
+          </a>
           <LogoutButton redirectTo="/client-login" />
         </div>
       </header>
@@ -88,8 +94,8 @@ export default function PortalWorkspaceShell({ clientName, clientPlan, clientSta
       <div className="portal-workspace-frame">
         <aside className="portal-workspace-sidebar" aria-label="Client workspace sections">
           <div className="portal-sidebar-account">
-            <span className="portal-sidebar-avatar" aria-hidden="true">{clientInitials(clientName)}</span>
-            <div><small>Signed in</small><strong>{clientName}</strong><p>{clientPlan} plan</p></div>
+            <ClientAvatar avatarKey={clientAvatarKey} size="small" />
+            <div><small>{clientDisplayName === clientName ? 'Signed in' : clientName}</small><strong>{clientDisplayName}</strong><p>{clientPlan} plan</p></div>
             <b data-status={clientStatus.toLowerCase()}>{clientStatus}</b>
           </div>
 

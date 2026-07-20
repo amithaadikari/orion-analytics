@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { requireClient } from '@/lib/auth';
 import ClientPortalInsights from '@/components/client-portal-insights';
+import ClientProfileEditor from '@/components/client-profile-editor';
 import PortalNotificationCenter from '@/components/portal-notification-center';
 import PortalWorkspaceShell from '@/components/portal-workspace-shell';
 import RegistrationTracker from '@/components/registration-tracker';
@@ -9,6 +10,7 @@ import SupportTicketCenter from '@/components/support-ticket-center';
 import { countryFlag } from '@/lib/country';
 import { checkoutSelectionPath, normalizePlan, plans } from '@/lib/plans';
 import { normalizePortalTheme, portalThemeCookie } from '@/lib/portal-theme';
+import { clientProfileDisplayName, readClientProfile } from '@/lib/client-profile';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +21,11 @@ export default async function PortalPage() {
   const selectedPlan = normalizePlan(user.user_metadata?.selected_plan);
   const selected = selectedPlan ? plans[selectedPlan] : null;
   const planSelectionPath = checkoutSelectionPath(selectedPlan);
+  const profile = readClientProfile(user.user_metadata, {
+    telegramUsername: client.telegram_username,
+    phoneNumber: client.phone,
+  });
+  const displayName = clientProfileDisplayName(profile, client.full_name);
   const [{ data: licenses }, { data: payments }, { data: releases }] = await Promise.all([
     supabase.from('licenses').select('id,license_key,platform,account_number,plan,status,issued_at,expires_at').eq('client_id', client.id).order('created_at', { ascending: false }),
     supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number').eq('client_id', client.id).order('created_at', { ascending: false }),
@@ -26,12 +33,12 @@ export default async function PortalPage() {
   ]);
 
   return (
-    <PortalWorkspaceShell clientName={client.full_name} clientPlan={client.plan} clientStatus={client.status} initialTheme={initialTheme}>
+    <PortalWorkspaceShell clientName={client.full_name} clientDisplayName={displayName} clientAvatarKey={profile.avatarKey} clientPlan={client.plan} clientStatus={client.status} initialTheme={initialTheme}>
       <section className="portal-content portal-workspace-content" aria-labelledby="portal-title">
         <div className="portal-hero portal-workspace-hero" id="overview">
           <div className="portal-hero-copy">
             <p className="eyebrow">Orion V5 · Secure client workspace</p>
-            <h1 id="portal-title">Everything you need, <span>{client.full_name.split(' ')[0]}.</span></h1>
+            <h1 id="portal-title">Everything you need, <span>{displayName}.</span></h1>
             <p>Your setup, software access, payments, updates, and official support are now organized in one simple workspace.</p>
             <div className="portal-hero-links"><a href="#setup">Continue setup <span aria-hidden="true">→</span></a><a href="#support">Get support</a></div>
           </div>
@@ -57,6 +64,15 @@ export default async function PortalPage() {
           <PortalMetric icon="▣" label="Recorded payments" value={payments?.length || 0} tone="green" />
           <PortalMetric icon={countryFlag(client.country)} label="Registered country" value={client.country || 'Not set'} tone="cyan" />
         </div>
+
+        <ClientProfileEditor
+          fullName={client.full_name}
+          email={client.email || null}
+          country={client.country || null}
+          plan={client.plan}
+          status={client.status}
+          initialProfile={profile}
+        />
 
         <PortalWorkspaceSection title="Setup & activation" eyebrow="Your next step" marker="01" anchorId="setup" description="Follow your real account progress and jump directly to the action you need.">
           <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} showHeading={false} />

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { clientAvatarKeys, clientProfileLimits } from '@/lib/client-profile';
 
 const id = z.string().regex(/^[a-zA-Z0-9._:-]{8,180}$/);
 const optionalText = (max = 500) => z.string().max(max).optional().nullable();
@@ -42,3 +43,34 @@ export const metaSchema = z.object({
   event_source_url: optionalText(2000), visitor_id: id.optional(), fbp: optionalText(250), fbc: optionalText(250),
   metadata: z.record(z.unknown()).optional()
 });
+
+const telegramUsername = z.string().trim().max(80)
+  .transform((value) => value.replace(/^@/, ''));
+
+const phoneNumber = z.string().trim().max(40);
+
+const uniqueList = (maxItems: number, maxLength: number, uppercase = false) => z.array(z.string().trim().min(2).max(maxLength))
+  .max(maxItems)
+  .transform((values) => {
+    const seen = new Set<string>();
+    return values.reduce<string[]>((result, value) => {
+      const next = uppercase ? value.toUpperCase() : value;
+      const identity = next.toLowerCase();
+      if (!seen.has(identity)) {
+        seen.add(identity);
+        result.push(next);
+      }
+      return result;
+    }, []);
+  });
+
+export const clientProfileSchema = z.object({
+  nickname: z.string().trim().max(clientProfileLimits.nickname),
+  telegramUsername,
+  phoneNumber,
+  bio: z.string().trim().max(clientProfileLimits.bio),
+  brokers: uniqueList(clientProfileLimits.brokers, 40),
+  tradingPairs: uniqueList(clientProfileLimits.tradingPairs, 20, true)
+    .refine((values) => values.every((value) => /^[A-Z0-9./_-]{2,20}$/.test(value)), 'Use valid market symbols such as XAUUSD or BTCUSD.'),
+  avatarKey: z.enum(clientAvatarKeys),
+}).strict();

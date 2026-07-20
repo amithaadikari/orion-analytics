@@ -9,7 +9,7 @@ export async function getPortalSession() {
 
   const [{ data: adminRecord }, { data: client }] = await Promise.all([
     supabase.from('admins').select('id,role,email').eq('user_id', user.id).maybeSingle(),
-    supabase.from('clients').select('id,full_name,email,plan,status').eq('auth_user_id', user.id).maybeSingle(),
+    supabase.from('clients').select('id,full_name,email,telegram_username,phone,plan,status').eq('auth_user_id', user.id).maybeSingle(),
   ]);
   const admin = adminRecord && ['admin', 'analyst'].includes(adminRecord.role) ? adminRecord : null;
 

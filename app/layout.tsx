@@ -5,6 +5,7 @@ import './v2.css';
 import './orion-royal.css';
 import './orion-command.css';
 import './portal-workspace.css';
+import './client-profile.css';
 import './auth-experience.css';
 
 const display = Sora({

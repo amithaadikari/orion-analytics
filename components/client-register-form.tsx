@@ -22,7 +22,8 @@ function authLink(path: string, plan: PlanKey | null, next: string) {
 export default function ClientRegisterForm({ initialPlan }: Props) {
   const router = useRouter();
   const selectedPlan = initialPlan;
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [country, setCountry] = useState('');
   const [password, setPassword] = useState('');
@@ -60,6 +61,17 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
     event.preventDefault();
     markStarted();
     setError('');
+    const cleanFirstName = firstName.trim();
+    const cleanLastName = lastName.trim();
+    const fullName = `${cleanFirstName} ${cleanLastName}`;
+    if (!cleanFirstName || !cleanLastName) {
+      setError('Enter both your first name and last name.');
+      return;
+    }
+    if (fullName.length > 120) {
+      setError('Your combined first and last name must be 120 characters or fewer.');
+      return;
+    }
     if (password.length < 10) {
       setError('Use at least 10 characters for your password.');
       return;
@@ -79,7 +91,9 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
       options: {
         emailRedirectTo: callback.toString(),
         data: {
-          full_name: fullName.trim(),
+          first_name: cleanFirstName,
+          last_name: cleanLastName,
+          full_name: fullName,
           country,
           selected_plan: selectedPlan,
           registration_source: 'orion_client_portal',
@@ -117,18 +131,33 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
 
   return (
     <form className="login-form register-form orion-auth-form" onSubmit={submit} onFocusCapture={markStarted} aria-busy={loading}>
-        <label className="auth-field" htmlFor="register-name">
-          <span className="auth-field-label">Full name</span>
+        <label className="auth-field" htmlFor="register-first-name">
+          <span className="auth-field-label">First name</span>
           <span className="auth-input-shell">
             <span className="auth-input-icon" aria-hidden="true">◎</span>
             <input
-              id="register-name"
+              id="register-first-name"
               required
-              minLength={2}
-              maxLength={120}
-              autoComplete="name"
-              value={fullName}
-              onChange={(event) => setFullName(event.target.value)}
+              minLength={1}
+              maxLength={60}
+              autoComplete="given-name"
+              value={firstName}
+              onChange={(event) => setFirstName(event.target.value)}
+            />
+          </span>
+        </label>
+        <label className="auth-field" htmlFor="register-last-name">
+          <span className="auth-field-label">Last name</span>
+          <span className="auth-input-shell">
+            <span className="auth-input-icon" aria-hidden="true">◎</span>
+            <input
+              id="register-last-name"
+              required
+              minLength={1}
+              maxLength={60}
+              autoComplete="family-name"
+              value={lastName}
+              onChange={(event) => setLastName(event.target.value)}
             />
           </span>
         </label>
@@ -146,7 +175,7 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
             />
           </span>
         </label>
-        <label className="wide auth-field" htmlFor="register-country">
+        <label className="auth-field" htmlFor="register-country">
           <span className="auth-field-label">Country</span>
           <span className="auth-input-shell auth-select-shell">
             <span className="auth-input-icon" aria-hidden="true">◇</span>
