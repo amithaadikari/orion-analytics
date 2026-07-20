@@ -23,6 +23,7 @@ type ClientPortalInsightsProps = {
   client: ClientFacts;
   licenses: LicenseFact[];
   payments: PaymentFact[];
+  showHeading?: boolean;
 };
 
 type JourneyState = 'complete' | 'current' | 'waiting' | 'attention';
@@ -30,7 +31,7 @@ type JourneyState = 'complete' | 'current' | 'waiting' | 'attention';
 const confirmedPaymentStatuses = new Set(['paid', 'manually verified']);
 const attentionPaymentStatuses = new Set(['failed', 'refunded', 'disputed']);
 
-export default function ClientPortalInsights({ client, licenses, payments }: ClientPortalInsightsProps) {
+export default function ClientPortalInsights({ client, licenses, payments, showHeading = true }: ClientPortalInsightsProps) {
   const effectiveLicenseStatuses = licenses.map(effectiveLicenseStatus);
   const licenseCounts = {
     active: effectiveLicenseStatuses.filter((status) => status === 'active').length,
@@ -102,14 +103,14 @@ export default function ClientPortalInsights({ client, licenses, payments }: Cli
   });
 
   return (
-    <section className="portal-insights" aria-labelledby="portal-insights-title">
-      <header className="portal-insights-heading">
+    <section className={`portal-insights${showHeading ? '' : ' portal-insights--embedded'}`} aria-labelledby={showHeading ? 'portal-insights-title' : undefined} aria-label={showHeading ? undefined : 'Activation and account activity'}>
+      {showHeading && <header className="portal-insights-heading">
         <div>
           <p className="eyebrow">Live workspace facts</p>
           <h2 id="portal-insights-title">Activation and account activity</h2>
         </div>
         <p>Based only on the plan, account, license, and payment records in your secure workspace.</p>
-      </header>
+      </header>}
 
       <div className="portal-insights-grid">
         <article className="portal-insight-card portal-insight-card--journey" aria-labelledby="portal-readiness-title">

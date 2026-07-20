@@ -225,8 +225,8 @@ export default function SalesCommandCenter({ clients, licenses, payments, search
   }
 
   return (
-    <section className={styles.shell} aria-label="Sales revenue performance">
-      <h2 className={styles.srOnly}>Revenue performance</h2>
+    <section className={styles.shell} aria-labelledby="completed-sales-analysis-title">
+      <h2 className={styles.srOnly} id="completed-sales-analysis-title">Completed sales analysis</h2>
       <div className={styles.controlBar}>
         <div className={styles.currencyPicker} aria-label="Revenue currency">
           <small>Viewing currency</small>

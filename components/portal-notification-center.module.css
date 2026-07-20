@@ -5,9 +5,9 @@
   padding: clamp(20px, 3vw, 30px);
   overflow: hidden;
   color: #edf2f2;
-  border: 1px solid rgba(246, 196, 83, .14);
+  border: 1px solid rgba(var(--portal-accent-rgb, 246, 196, 83), .14);
   border-radius: 12px;
-  background: radial-gradient(circle at 92% 0, rgba(246, 196, 83, .09), transparent 17rem), linear-gradient(150deg, rgba(8, 11, 11, .97), rgba(1, 3, 3, .99));
+  background: radial-gradient(circle at 92% 0, rgba(var(--portal-accent-rgb, 246, 196, 83), .09), transparent 17rem), linear-gradient(150deg, rgba(8, 11, 11, .97), rgba(1, 3, 3, .99));
   box-shadow: inset 0 1px rgba(255, 255, 255, .035), 0 24px 65px rgba(0, 0, 0, .23);
 }
 
@@ -20,8 +20,8 @@
   height: 1px;
   content: "";
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(246, 196, 83, .22), #f6c453, rgba(66, 217, 255, .22), transparent);
-  box-shadow: 0 0 16px rgba(246, 196, 83, .13);
+  background: linear-gradient(90deg, transparent, rgba(var(--portal-accent-rgb, 246, 196, 83), .22), var(--portal-accent, #f6c453), rgba(var(--portal-secondary-rgb, 66, 217, 255), .22), transparent);
+  box-shadow: 0 0 16px rgba(var(--portal-accent-rgb, 246, 196, 83), .13);
   animation: notificationDataFlow 7s cubic-bezier(.45, 0, .2, 1) infinite;
 }
 
@@ -46,7 +46,7 @@
 
 .header p {
   margin: 0;
-  color: #f6c453;
+  color: var(--portal-accent, #f6c453);
   font: 600 9px/1.2 var(--font-mono, monospace);
   letter-spacing: .13em;
   text-transform: uppercase;
@@ -79,10 +79,10 @@
   min-height: 54px;
   place-items: center;
   align-content: center;
-  color: #ffe39a;
-  border: 1px solid rgba(246, 196, 83, .2);
+  color: var(--portal-accent-bright, #ffe39a);
+  border: 1px solid rgba(var(--portal-accent-rgb, 246, 196, 83), .2);
   border-radius: 9px;
-  background: rgba(246, 196, 83, .045);
+  background: rgba(var(--portal-accent-rgb, 246, 196, 83), .045);
   font: 600 18px/1 var(--font-mono, monospace);
 }
 
@@ -91,7 +91,7 @@
   inset: -4px;
   content: "";
   pointer-events: none;
-  border: 1px solid rgba(246, 196, 83, .13);
+  border: 1px solid rgba(var(--portal-accent-rgb, 246, 196, 83), .13);
   border-radius: 12px;
   animation: notificationCountPulse 3.8s ease-in-out infinite;
 }
@@ -120,8 +120,8 @@
 .headerActions button:hover,
 .actions button:hover,
 .error button:hover {
-  color: #ffe39a;
-  border-color: rgba(246, 196, 83, .25);
+  color: var(--portal-accent-bright, #ffe39a);
+  border-color: rgba(var(--portal-accent-rgb, 246, 196, 83), .25);
 }
 
 .headerActions button:disabled,
@@ -155,8 +155,8 @@
 .item:nth-child(n + 4) { animation-delay: .1s; }
 
 .unread {
-  border-color: rgba(246, 196, 83, .18);
-  background: linear-gradient(90deg, rgba(246, 196, 83, .045), rgba(255, 255, 255, .012));
+  border-color: rgba(var(--portal-accent-rgb, 246, 196, 83), .18);
+  background: linear-gradient(90deg, rgba(var(--portal-accent-rgb, 246, 196, 83), .045), rgba(255, 255, 255, .012));
 }
 
 .unread::before {
@@ -167,8 +167,8 @@
   width: 2px;
   content: "";
   border-radius: 2px;
-  background: #f6c453;
-  box-shadow: 0 0 14px rgba(246, 196, 83, .55);
+  background: var(--portal-accent, #f6c453);
+  box-shadow: 0 0 14px rgba(var(--portal-accent-rgb, 246, 196, 83), .55);
   animation: notificationUnreadPulse 3s ease-in-out infinite;
 }
 
@@ -178,10 +178,10 @@
   height: 38px;
   flex: 0 0 38px;
   place-items: center;
-  color: #ffe39a;
-  border: 1px solid rgba(246, 196, 83, .19);
+  color: var(--portal-accent-bright, #ffe39a);
+  border: 1px solid rgba(var(--portal-accent-rgb, 246, 196, 83), .19);
   border-radius: 9px;
-  background: rgba(246, 196, 83, .045);
+  background: rgba(var(--portal-accent-rgb, 246, 196, 83), .045);
 }
 
 .kind[data-kind="payment"] { color: #ffbd75; border-color: rgba(255, 159, 67, .2); background: rgba(255, 159, 67, .045); }
@@ -218,8 +218,8 @@
 
 .copy i {
   padding: 3px 5px;
-  color: #ffe39a;
-  border: 1px solid rgba(246, 196, 83, .2);
+  color: var(--portal-accent-bright, #ffe39a);
+  border: 1px solid rgba(var(--portal-accent-rgb, 246, 196, 83), .2);
   border-radius: 999px;
   font: 600 9px/1 var(--font-mono, monospace);
   letter-spacing: .06em;
@@ -244,8 +244,8 @@
 
 .actions button:first-child {
   color: #1a1202;
-  border-color: #f6c453;
-  background: #f6c453;
+  border-color: var(--portal-accent, #f6c453);
+  background: var(--portal-accent, #f6c453);
 }
 
 .error {
@@ -272,7 +272,7 @@
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, .055);
   border-radius: 9px;
-  background: linear-gradient(100deg, rgba(255, 255, 255, .02), rgba(246, 196, 83, .06), rgba(255, 255, 255, .02));
+  background: linear-gradient(100deg, rgba(255, 255, 255, .02), rgba(var(--portal-accent-rgb, 246, 196, 83), .06), rgba(255, 255, 255, .02));
   background-size: 200% 100%;
   animation: notificationLoading 1.2s linear infinite;
 }
@@ -322,8 +322,8 @@
 }
 
 @keyframes notificationUnreadPulse {
-  0%, 100% { opacity: .6; box-shadow: 0 0 8px rgba(246, 196, 83, .3); }
-  50% { opacity: 1; box-shadow: 0 0 17px rgba(246, 196, 83, .62); }
+  0%, 100% { opacity: .6; box-shadow: 0 0 8px rgba(var(--portal-accent-rgb, 246, 196, 83), .3); }
+  50% { opacity: 1; box-shadow: 0 0 17px rgba(var(--portal-accent-rgb, 246, 196, 83), .62); }
 }
 
 @keyframes notificationLicenseScan {
@@ -333,8 +333,8 @@
 }
 
 @keyframes notificationNewPulse {
-  0%, 100% { border-color: rgba(246, 196, 83, .16); box-shadow: none; }
-  50% { border-color: rgba(246, 196, 83, .32); box-shadow: 0 0 10px rgba(246, 196, 83, .08); }
+  0%, 100% { border-color: rgba(var(--portal-accent-rgb, 246, 196, 83), .16); box-shadow: none; }
+  50% { border-color: rgba(var(--portal-accent-rgb, 246, 196, 83), .32); box-shadow: 0 0 10px rgba(var(--portal-accent-rgb, 246, 196, 83), .08); }
 }
 
 @keyframes notificationSuccessIn {

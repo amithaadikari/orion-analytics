@@ -1,17 +1,21 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { requireClient } from '@/lib/auth';
 import ClientPortalInsights from '@/components/client-portal-insights';
 import PortalNotificationCenter from '@/components/portal-notification-center';
-import PortalTopbar from '@/components/portal-topbar';
+import PortalWorkspaceShell from '@/components/portal-workspace-shell';
 import RegistrationTracker from '@/components/registration-tracker';
 import SupportTicketCenter from '@/components/support-ticket-center';
 import { countryFlag } from '@/lib/country';
 import { checkoutPath, normalizePlan, plans } from '@/lib/plans';
+import { normalizePortalTheme, portalThemeCookie } from '@/lib/portal-theme';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PortalPage() {
   const { supabase, user, client } = await requireClient();
+  const cookieStore = await cookies();
+  const initialTheme = normalizePortalTheme(cookieStore.get(portalThemeCookie)?.value);
   const selectedPlan = normalizePlan(user.user_metadata?.selected_plan);
   const selected = selectedPlan ? plans[selectedPlan] : null;
   const [{ data: licenses }, { data: payments }, { data: releases }] = await Promise.all([
@@ -21,19 +25,19 @@ export default async function PortalPage() {
   ]);
 
   return (
-    <main className="portal-shell">
-      <a className="portal-skip-link" href="#portal-content">Skip to client workspace</a>
-      <PortalTopbar clientName={client.full_name} />
-      <section className="portal-content" id="portal-content" aria-labelledby="portal-title">
-        <div className="portal-hero">
+    <PortalWorkspaceShell clientName={client.full_name} clientPlan={client.plan} clientStatus={client.status} initialTheme={initialTheme}>
+      <section className="portal-content portal-workspace-content" aria-labelledby="portal-title">
+        <div className="portal-hero portal-workspace-hero" id="overview">
           <div className="portal-hero-copy">
-            <p className="eyebrow">Orion V5 / Client command center</p>
-            <h1 id="portal-title">Welcome back, <span>{client.full_name.split(' ')[0]}.</span></h1>
-            <p>See your plan, license status, payment records, product updates, and next steps in one secure workspace.</p>
+            <p className="eyebrow">Orion V5 · Secure client workspace</p>
+            <h1 id="portal-title">Everything you need, <span>{client.full_name.split(' ')[0]}.</span></h1>
+            <p>Your setup, software access, payments, updates, and official support are now organized in one simple workspace.</p>
+            <div className="portal-hero-links"><a href="#setup">Continue setup <span aria-hidden="true">→</span></a><a href="#support">Get support</a></div>
           </div>
-          <div className="portal-account-state" aria-label={`Account status: ${client.status}`}>
-            <small>Account status</small>
-            <span className={`portal-status ${client.status.toLowerCase()}`} role="status">{client.status}</span>
+          <div className="portal-account-state portal-account-snapshot" aria-label={`${client.plan} plan, account status ${client.status}`}>
+            <div><small>Current plan</small><strong>{client.plan}</strong></div>
+            <span className={`portal-status ${client.status.toLowerCase()}`} role="status"><i aria-hidden="true" />{client.status}</span>
+            <p>Protected access · Orion V5</p>
           </div>
         </div>
 
@@ -53,15 +57,20 @@ export default async function PortalPage() {
           <PortalMetric icon={countryFlag(client.country)} label="Registered country" value={client.country || 'Not set'} tone="cyan" />
         </div>
 
-        <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} />
+        <PortalWorkspaceSection title="Setup & activation" eyebrow="Your next step" marker="01" anchorId="setup" description="Follow your real account progress and jump directly to the action you need.">
+          <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} showHeading={false} />
+          <div className="portal-setup-actions" aria-label="Setup shortcuts">
+            {client.plan === 'Free' ? <Link href={checkoutPath(selectedPlan)}><span aria-hidden="true">01</span><div><small>Choose</small><strong>Review your Orion plan</strong><p>See the full price and what your selected edition includes.</p></div><b aria-hidden="true">→</b></Link> : <a href="#licenses"><span aria-hidden="true">01</span><div><small>Access</small><strong>View your license</strong><p>Check the account, platform, status, and expiry linked to your key.</p></div><b aria-hidden="true">→</b></a>}
+            <a href="#payments"><span aria-hidden="true">02</span><div><small>Verify</small><strong>Check payment records</strong><p>Confirm your payment status and download available documents.</p></div><b aria-hidden="true">→</b></a>
+            <a href="#support"><span aria-hidden="true">03</span><div><small>Support</small><strong>Ask Orion securely</strong><p>Keep setup, license, and payment questions in one official thread.</p></div><b aria-hidden="true">→</b></a>
+          </div>
+        </PortalWorkspaceSection>
 
-        <PortalNotificationCenter />
-
-        <div className="portal-grid">
-          <PortalPanel title="Your licenses" eyebrow="Software access" marker="01" anchorId="licenses">
+        <div className="portal-grid portal-resource-grid">
+          <PortalPanel title="Your licenses" eyebrow="Software access" marker="02" anchorId="licenses">
             <div className="portal-records">{licenses?.map((license) => <LicenseRecord key={license.id} license={license} />) || null}{!licenses?.length && <Empty text="No license has been assigned yet." />}</div>
           </PortalPanel>
-          <PortalPanel title="Downloads & updates" eyebrow="Licensed releases" marker="02">
+          <PortalPanel title="Downloads & updates" eyebrow="Licensed releases" marker="03" anchorId="downloads">
             <div className="portal-records">
               {releases?.map((release) => (
                 <article className="release-record" key={release.id}>
@@ -72,25 +81,19 @@ export default async function PortalPage() {
               {!releases?.length && <Empty text="Downloads become available after an active license is assigned." />}
             </div>
           </PortalPanel>
-          <PortalPanel title="Payment history" eyebrow="Transactions" marker="03" anchorId="payments" wide>
+          <PortalPanel title="Payment history" eyebrow="Transactions & documents" marker="04" anchorId="payments" wide>
             {payments?.length ? <div className="portal-table" role="table" aria-label="Payment history">
               <div className="portal-table-head portal-table-head--documents" role="row"><span role="columnheader">Date</span><span role="columnheader">Plan</span><span role="columnheader">Method</span><span role="columnheader">Amount</span><span role="columnheader">Status</span><span role="columnheader">Documents</span></div>
               {payments.map((payment) => <div className="portal-table-row portal-table-row--documents" role="row" key={payment.id}><span role="cell" data-label="Date">{payment.payment_date ? new Date(`${payment.payment_date}T00:00:00`).toLocaleDateString() : '—'}</span><strong role="cell" data-label="Plan">{payment.plan}</strong><span role="cell" data-label="Method">{payment.method}</span><span role="cell" data-label="Amount">{payment.currency} {Number(payment.amount).toLocaleString()}</span><span className={`payment-status ${payment.status.toLowerCase().replace(/\s+/g, '-')}`} role="cell" data-label="Status">{payment.status}</span><span className="portal-document-links" role="cell" data-label="Documents"><Link href={`/invoice/${payment.id}`}>Invoice</Link>{payment.receipt_number && <Link href={`/receipt/${payment.id}`}>Receipt</Link>}</span></div>)}
             </div> : <Empty text="No payment history yet." />}
           </PortalPanel>
-          <PortalPanel title="Your activation path" eyebrow="Setup & official support" marker="04" wide>
-            <div className="portal-help" role="list" aria-label="Orion activation steps">
-              <article role="listitem"><span aria-hidden="true">01</span><div><small>CHOOSE</small><strong>Review your plan</strong><p>Choose an Orion edition and confirm the full price in your secure order summary.</p>{client.plan === 'Free' && <Link href={checkoutPath(selectedPlan)}>Open order summary →</Link>}</div></article>
-              <article role="listitem"><span aria-hidden="true">02</span><div><small>VERIFY</small><strong>Verify payment</strong><p>Follow only the official payment instructions provided by Orion support.</p></div></article>
-              <article role="listitem"><span aria-hidden="true">03</span><div><small>ACTIVATE</small><strong>Activate your license</strong><p>After payment verification, Orion assigns the license for your registered trading account.</p><a href="https://t.me/authenticacademy" target="_blank" rel="noopener noreferrer">Open official support ↗</a></div></article>
-            </div>
-          </PortalPanel>
         </div>
 
+        <PortalNotificationCenter />
         <SupportTicketCenter />
       </section>
       {user.user_metadata?.registration_source === 'orion_client_portal' && <RegistrationTracker plan={selectedPlan} />}
-    </main>
+    </PortalWorkspaceShell>
   );
 }
 
@@ -100,7 +103,12 @@ function PortalMetric({ icon, label, value, tone }: { icon: string; label: strin
 
 function PortalPanel({ title, eyebrow, marker, anchorId, wide = false, children }: { title: string; eyebrow: string; marker: string; anchorId?: string; wide?: boolean; children: React.ReactNode }) {
   const headingId = `portal-panel-${marker}`;
-  return <section className={`portal-panel ${wide ? 'wide' : ''}`} id={anchorId} aria-labelledby={headingId}><header className="portal-panel-heading"><div><p className="eyebrow">{eyebrow}</p><h2 id={headingId}>{title}</h2></div><span aria-hidden="true">{marker}</span></header>{children}</section>;
+  return <section className={`portal-panel portal-workspace-panel ${wide ? 'wide' : ''}`} id={anchorId} aria-labelledby={headingId}><header className="portal-panel-heading"><div><p className="eyebrow">{eyebrow}</p><h2 id={headingId}>{title}</h2></div><span aria-hidden="true">{marker}</span></header>{children}</section>;
+}
+
+function PortalWorkspaceSection({ title, eyebrow, marker, anchorId, description, children }: { title: string; eyebrow: string; marker: string; anchorId: string; description: string; children: React.ReactNode }) {
+  const headingId = `portal-section-${anchorId}`;
+  return <section className="portal-workspace-section" id={anchorId} aria-labelledby={headingId}><header className="portal-workspace-section-heading"><div><p className="eyebrow">{eyebrow}</p><h2 id={headingId}>{title}</h2><span>{description}</span></div><strong aria-hidden="true">{marker}</strong></header>{children}</section>;
 }
 
 function LicenseRecord({ license }: { license: { license_key: string; platform: string; account_number?: string; plan: string; status: string; issued_at: string; expires_at?: string } }) {

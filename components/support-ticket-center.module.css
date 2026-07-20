@@ -5,9 +5,9 @@
   padding: clamp(20px, 3vw, 30px);
   overflow: hidden;
   color: #edf2f2;
-  border: 1px solid rgba(66, 217, 255, .14);
+  border: 1px solid rgba(var(--portal-secondary-rgb, 66, 217, 255), .14);
   border-radius: 12px;
-  background: radial-gradient(circle at 90% 0, rgba(66, 217, 255, .08), transparent 18rem), linear-gradient(150deg, rgba(8, 11, 11, .97), rgba(1, 3, 3, .99));
+  background: radial-gradient(circle at 90% 0, rgba(var(--portal-secondary-rgb, 66, 217, 255), .08), transparent 18rem), linear-gradient(150deg, rgba(8, 11, 11, .97), rgba(1, 3, 3, .99));
   box-shadow: inset 0 1px rgba(255, 255, 255, .035), 0 24px 65px rgba(0, 0, 0, .23);
 }
 
@@ -20,8 +20,8 @@
   height: 1px;
   content: "";
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(66, 217, 255, .3), #42d9ff, rgba(57, 242, 138, .22), transparent);
-  box-shadow: 0 0 15px rgba(66, 217, 255, .14);
+  background: linear-gradient(90deg, transparent, rgba(var(--portal-secondary-rgb, 66, 217, 255), .3), var(--portal-secondary, #42d9ff), rgba(57, 242, 138, .22), transparent);
+  box-shadow: 0 0 15px rgba(var(--portal-secondary-rgb, 66, 217, 255), .14);
   animation: ticketDataFlow 8s cubic-bezier(.45, 0, .2, 1) infinite;
 }
 
@@ -49,7 +49,7 @@
 .header p,
 .threadHeader p {
   margin: 0;
-  color: #42d9ff;
+  color: var(--portal-secondary, #42d9ff);
   font: 600 9px/1.2 var(--font-mono, monospace);
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -82,10 +82,10 @@
   min-height: 54px;
   place-items: center;
   align-content: center;
-  color: #7ce8ff;
-  border: 1px solid rgba(66, 217, 255, .2);
+  color: var(--portal-secondary-bright, #7ce8ff);
+  border: 1px solid rgba(var(--portal-secondary-rgb, 66, 217, 255), .2);
   border-radius: 9px;
-  background: rgba(66, 217, 255, .04);
+  background: rgba(var(--portal-secondary-rgb, 66, 217, 255), .04);
   font: 600 18px/1 var(--font-mono, monospace);
 }
 
@@ -94,7 +94,7 @@
   inset: -4px;
   content: "";
   pointer-events: none;
-  border: 1px solid rgba(66, 217, 255, .13);
+  border: 1px solid rgba(var(--portal-secondary-rgb, 66, 217, 255), .13);
   border-radius: 12px;
   animation: ticketCountPulse 4s ease-in-out infinite;
 }
@@ -114,9 +114,9 @@
   min-height: 38px;
   padding: 0 13px;
   color: #071010;
-  border: 1px solid #42d9ff;
+  border: 1px solid var(--portal-secondary, #42d9ff);
   border-radius: 8px;
-  background: #42d9ff;
+  background: var(--portal-secondary, #42d9ff);
   font: 600 9px/1 var(--font-mono, monospace);
   cursor: pointer;
 }
@@ -162,9 +162,9 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   margin-top: 20px;
   padding: 18px;
   gap: 13px;
-  border: 1px solid rgba(66, 217, 255, .16);
+  border: 1px solid rgba(var(--portal-secondary-rgb, 66, 217, 255), .16);
   border-radius: 10px;
-  background: rgba(66, 217, 255, .025);
+  background: rgba(var(--portal-secondary-rgb, 66, 217, 255), .025);
   animation: ticketIn .38s cubic-bezier(.2, .75, .24, 1) both;
 }
 
@@ -176,8 +176,8 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   height: 1px;
   content: "";
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(124, 232, 255, .8), transparent);
-  box-shadow: 0 0 10px rgba(66, 217, 255, .22);
+  background: linear-gradient(90deg, transparent, rgba(var(--portal-secondary-bright-rgb, 124, 232, 255), .8), transparent);
+  box-shadow: 0 0 10px rgba(var(--portal-secondary-rgb, 66, 217, 255), .22);
   animation: ticketFormScan 5.4s ease-in-out infinite;
 }
 
@@ -223,8 +223,8 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
 .newTicket textarea:focus,
 .manage select:focus,
 .reply textarea:focus {
-  border-color: rgba(66, 217, 255, .55);
-  box-shadow: 0 0 0 3px rgba(66, 217, 255, .07);
+  border-color: rgba(var(--portal-secondary-rgb, 66, 217, 255), .55);
+  box-shadow: 0 0 0 3px rgba(var(--portal-secondary-rgb, 66, 217, 255), .07);
 }
 
 .newTicket > button {
@@ -268,7 +268,7 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
 
 .ticketList button:hover,
 .ticketList .selected {
-  background: linear-gradient(90deg, rgba(66, 217, 255, .055), transparent);
+  background: linear-gradient(90deg, rgba(var(--portal-secondary-rgb, 66, 217, 255), .055), transparent);
 }
 
 .ticketList .selected::before {
@@ -278,8 +278,8 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   left: 0;
   width: 2px;
   content: "";
-  background: #42d9ff;
-  box-shadow: 0 0 12px rgba(66, 217, 255, .6);
+  background: var(--portal-secondary, #42d9ff);
+  box-shadow: 0 0 12px rgba(var(--portal-secondary-rgb, 66, 217, 255), .6);
   animation: ticketSelectedPulse 3s ease-in-out infinite;
 }
 
@@ -291,7 +291,7 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   height: 1px;
   content: "";
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(66, 217, 255, .42), transparent);
+  background: linear-gradient(90deg, transparent, rgba(var(--portal-secondary-rgb, 66, 217, 255), .42), transparent);
   background-size: 200% 100%;
   animation: ticketSelectedFlow 3.6s linear infinite;
 }
@@ -310,8 +310,8 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #42d9ff;
-  box-shadow: 0 0 10px rgba(66, 217, 255, .7);
+  background: var(--portal-secondary, #42d9ff);
+  box-shadow: 0 0 10px rgba(var(--portal-secondary-rgb, 66, 217, 255), .7);
 }
 
 .ticketList .selected i:not([data-status="closed"]) {
@@ -339,7 +339,7 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
 
 .ticketList b {
   justify-self: start;
-  color: #7ce8ff;
+  color: var(--portal-secondary-bright, #7ce8ff);
   font: 600 9px/1.3 var(--font-mono, monospace);
   text-transform: uppercase;
 }
@@ -366,7 +366,7 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
 
 .threadHeader > b {
   flex: none;
-  color: #7ce8ff;
+  color: var(--portal-secondary-bright, #7ce8ff);
   font: 600 9px/1.3 var(--font-mono, monospace);
   letter-spacing: .05em;
   text-transform: uppercase;
@@ -404,9 +404,9 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
 
 .messages .clientMessage {
   justify-self: end;
-  border-color: rgba(66, 217, 255, .14);
+  border-color: rgba(var(--portal-secondary-rgb, 66, 217, 255), .14);
   border-radius: 10px 10px 3px 10px;
-  background: rgba(66, 217, 255, .035);
+  background: rgba(var(--portal-secondary-rgb, 66, 217, 255), .035);
 }
 
 .messages li > div { justify-content: space-between; gap: 15px; }
@@ -458,7 +458,7 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   min-height: 300px;
   border: 1px solid rgba(255, 255, 255, .055);
   border-radius: 9px;
-  background: linear-gradient(100deg, rgba(255, 255, 255, .02), rgba(66, 217, 255, .055), rgba(255, 255, 255, .02));
+  background: linear-gradient(100deg, rgba(255, 255, 255, .02), rgba(var(--portal-secondary-rgb, 66, 217, 255), .055), rgba(255, 255, 255, .02));
   background-size: 200% 100%;
   animation: ticketLoading 1.2s linear infinite;
 }
@@ -472,12 +472,12 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
   place-items: center;
   align-content: center;
   text-align: center;
-  border: 1px dashed rgba(66, 217, 255, .14);
+  border: 1px dashed rgba(var(--portal-secondary-rgb, 66, 217, 255), .14);
   border-radius: 9px;
-  background: rgba(66, 217, 255, .015);
+  background: rgba(var(--portal-secondary-rgb, 66, 217, 255), .015);
 }
 
-.empty > span { color: #7ce8ff; font-size: 24px; }
+.empty > span { color: var(--portal-secondary-bright, #7ce8ff); font-size: 24px; }
 .empty strong { margin-top: 10px; }
 .empty p { max-width: 48ch; margin: 7px 0 0; }
 
@@ -508,8 +508,8 @@ button:disabled:is(.header button, .newTicket button, .manage button, .reply but
 }
 
 @keyframes ticketSelectedPulse {
-  0%, 100% { opacity: .62; box-shadow: 0 0 7px rgba(66, 217, 255, .28); }
-  50% { opacity: 1; box-shadow: 0 0 15px rgba(66, 217, 255, .62); }
+  0%, 100% { opacity: .62; box-shadow: 0 0 7px rgba(var(--portal-secondary-rgb, 66, 217, 255), .28); }
+  50% { opacity: 1; box-shadow: 0 0 15px rgba(var(--portal-secondary-rgb, 66, 217, 255), .62); }
 }
 
 @keyframes ticketSelectedFlow {

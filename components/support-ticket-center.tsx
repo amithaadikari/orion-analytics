@@ -22,7 +22,7 @@ const categories = ['General', 'License', 'Payment', 'Setup', 'Technical'];
 const priorities = ['Low', 'Normal', 'High', 'Urgent'];
 const statuses = ['Open', 'Waiting on client', 'In progress', 'Resolved', 'Closed'];
 
-export default function SupportTicketCenter({ className = '' }: { className?: string }) {
+export default function SupportTicketCenter({ className = '', embedded = false }: { className?: string; embedded?: boolean }) {
   const [data, setData] = useState<TicketResponse>({ actor: { type: 'client', canManage: false }, tickets: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,7 +125,7 @@ export default function SupportTicketCenter({ className = '' }: { className?: st
   return (
     <section className={`${styles.center} ${className}`.trim()} id="support" aria-labelledby="support-center-title" aria-busy={loading}>
       <header className={styles.header}>
-        <div><p>Official assistance</p><h2 id="support-center-title">Support tickets</h2><span>Keep setup, license, and payment questions inside your secure Orion workspace.</span></div>
+        {embedded ? <h2 className="orion-visually-hidden" id="support-center-title">Ticket workspace</h2> : <div><p>Official assistance</p><h2 id="support-center-title">Support tickets</h2><span>Keep setup, license, and payment questions inside your secure Orion workspace.</span></div>}
         <div className={styles.headerActions}>
           <strong>{data.tickets.filter((ticket) => !['Resolved', 'Closed'].includes(ticket.status)).length}<small>Active</small></strong>
           {!loading && data.actor.type === 'client' && <button type="button" onClick={() => setShowNew((value) => !value)}>{showNew ? 'Cancel' : 'New ticket'}</button>}

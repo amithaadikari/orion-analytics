@@ -2814,6 +2814,56 @@
   }
 }
 
+/* One page introduction, followed by compact operational controls. */
+
+.orion-visually-hidden {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  clip: rect(0 0 0 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.business-toolbar--controls {
+  min-height: 64px;
+  margin-top: 22px;
+  padding: 10px 0;
+  justify-content: flex-end;
+  border-top: 1px solid rgba(66, 217, 255, .09);
+  border-bottom: 1px solid rgba(66, 217, 255, .065);
+}
+
+.business-toolbar--controls .business-actions {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.business-toolbar-count {
+  min-height: 42px;
+  padding: 0 11px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--orion-muted);
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 9px;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 9px;
+}
+
+.command-section-view #support > header {
+  justify-content: flex-end;
+}
+
+@media (max-width: 780px) {
+  .business-toolbar--controls,
+  .business-toolbar--controls .business-actions {
+    justify-content: flex-start;
+  }
+}
+
 /* Refined command navigation, compact sales hierarchy and switchable themes. */
 
 .command-page-heading--compact h1 {
