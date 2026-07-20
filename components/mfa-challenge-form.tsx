@@ -4,7 +4,7 @@ import React, { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
-import { recordAccountSecurityEvent } from '@/lib/account-security-client';
+import { recordAccountSecurityEvent, recordAdminAccountSecurityEvent } from '@/lib/account-security-client';
 
 type Props = {
   factors: Array<{ id: string; label: string }>;
@@ -36,7 +36,7 @@ export default function MfaChallengeForm({ factors, next, signInPath }: Props) {
       return;
     }
     setCode('');
-    await recordAccountSecurityEvent('session_started');
+    await (signInPath === '/login' ? recordAdminAccountSecurityEvent : recordAccountSecurityEvent)('session_started');
     router.replace(next);
     router.refresh();
   }

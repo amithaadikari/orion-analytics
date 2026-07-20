@@ -3,6 +3,7 @@ import { requireAdminApi } from '@/lib/auth';
 import { jsonError } from '@/lib/security';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { readClientProfile } from '@/lib/client-profile';
+import { securityDeviceLabel } from '@/lib/client-security';
 
 const clientIdSchema = z.string().uuid();
 const writeSchema = z.discriminatedUnion('action', [
@@ -36,10 +37,44 @@ export async function GET(_request:Request,{params}:{params:Promise<{clientId:st
   const clientView={id:client.id,full_name:client.full_name,email:client.email,telegram_username:client.telegram_username,phone:client.phone,country:client.country,plan:client.plan,status:client.status,notes:client.notes,reviewed_at:client.reviewed_at,created_at:client.created_at,updated_at:client.updated_at};
   const canViewPortalProfile=auth.admin.role==='admin';
   let profileMetadata:unknown=null,profileAvailable=canViewPortalProfile;
+  let security:Record<string,unknown>={visible:false};
   if(client.auth_user_id&&canViewPortalProfile){
-    const {data:authUser,error:profileError}=await db.auth.admin.getUserById(client.auth_user_id);
-    profileAvailable=!profileError&&Boolean(authUser?.user);
+    const [authUserSettled,factorSettled,securityEventSettled]=await Promise.allSettled([
+      db.auth.admin.getUserById(client.auth_user_id),
+      db.auth.admin.mfa.listFactors({userId:client.auth_user_id}),
+      db.from('client_security_events')
+        .select('id,event_type,title,browser,os,device,country,created_at')
+        .eq('client_id',id.data)
+        .order('created_at',{ascending:false})
+        .limit(1),
+    ]);
+    const authUserResult=authUserSettled.status==='fulfilled'?authUserSettled.value:null;
+    const factorResult=factorSettled.status==='fulfilled'?factorSettled.value:null;
+    const securityEventResult=securityEventSettled.status==='fulfilled'?securityEventSettled.value:null;
+    const authUser=authUserResult?.data;
+    profileAvailable=Boolean(authUserResult&&!authUserResult.error&&authUser?.user);
     profileMetadata=authUser?.user?.user_metadata||null;
+    const factorAvailable=Boolean(factorResult&&!factorResult.error);
+    const verifiedTotp=factorAvailable&&(factorResult?.data?.factors||[]).some(factor=>factor.factor_type==='totp'&&factor.status==='verified');
+    const activityAvailable=Boolean(securityEventResult&&!securityEventResult.error);
+    const lastSecurityEvent=activityAvailable?securityEventResult?.data?.[0]:null;
+    security={
+      visible:true,
+      portalState:profileAvailable?'linked':'unavailable',
+      mfaStatus:factorAvailable?(verifiedTotp?'enabled':'not_enabled'):'unavailable',
+      lastSignInAt:profileAvailable?authUser?.user?.last_sign_in_at||null:null,
+      signInAvailable:profileAvailable,
+      activityAvailable,
+      lastActivity:lastSecurityEvent?{
+        id:lastSecurityEvent.id,
+        type:lastSecurityEvent.event_type,
+        title:lastSecurityEvent.title,
+        createdAt:lastSecurityEvent.created_at,
+        device:securityDeviceLabel(lastSecurityEvent),
+      }:null,
+    };
+  }else if(canViewPortalProfile){
+    security={visible:true,portalState:'unlinked',mfaStatus:'not_applicable',lastSignInAt:null,signInAvailable:false,activityAvailable:false,lastActivity:null};
   }
   const lastProfileUpdate=(activityResult.data||[]).find(row=>row.action==='Client profile updated')?.created_at||null;
   const profile={
@@ -59,7 +94,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{clientId:st
     ...(ticketsResult.data||[]).map(row=>({id:`ticket:${row.id}`,type:'ticket',title:`Support: ${row.subject}`,detail:`${row.category} · ${row.status}`,date:row.created_at,tone:'orange'})),
     ...(messagesResult.data||[]).map(row=>({id:`ticket-message:${row.id}`,type:'communication',title:`${row.author_type} support message`,detail:String(row.body).slice(0,180),date:row.created_at,tone:row.author_type==='Admin'?'green':'purple'})),
   ].filter(row=>row.date).sort((left,right)=>String(right.date).localeCompare(String(left.date))).slice(0,1200);
-  return Response.json({client:clientView,profile,licenses,payments,activity:activityResult.data||[],reminders,communications:communicationsResult.data||[],downloads:downloadsResult.data||[],tickets:ticketsResult.data||[],timeline,health:healthSummary(client,licenses,payments,reminders)}, {headers:{'Cache-Control':'private, no-store'}});
+  return Response.json({client:clientView,profile,security,licenses,payments,activity:activityResult.data||[],reminders,communications:communicationsResult.data||[],downloads:downloadsResult.data||[],tickets:ticketsResult.data||[],timeline,health:healthSummary(client,licenses,payments,reminders)}, {headers:{'Cache-Control':'private, no-store'}});
 }
 
 export async function POST(request:Request,{params}:{params:Promise<{clientId:string}>}){

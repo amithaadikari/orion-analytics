@@ -51,6 +51,7 @@ export async function GET() {
     expiringLicenseRows,
     suspendedClientCount,
     suspendedClientRows,
+    supportAlertCount,
   ] = await Promise.all([
     db.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'Pending').is('reviewed_at', null),
     db.from('clients').select('id,full_name,country,plan,status,created_at').eq('status', 'Pending').is('reviewed_at', null).order('created_at', { ascending: true }).limit(8),
@@ -62,6 +63,7 @@ export async function GET() {
     db.from('licenses').select('id,client_id,platform,plan,expires_at').eq('status', 'Active').gte('expires_at', expiryStart).lte('expires_at', expiryEnd).order('expires_at', { ascending: true }).limit(8),
     db.from('clients').select('id', { count: 'exact', head: true }).eq('status', 'Suspended'),
     db.from('clients').select('id,full_name,country,plan,status,created_at').eq('status', 'Suspended').order('created_at', { ascending: false }).limit(8),
+    db.from('support_tickets').select('id', { count: 'exact', head: true }).in('status', ['Open', 'In progress']),
   ]);
 
   const reviewSchemaMissing = [pendingRegistrationCount, pendingRegistrationRows, freeRegistrationCount, freeRegistrationRows]
@@ -75,7 +77,7 @@ export async function GET() {
     ]);
   }
 
-  const results = [pendingRegistrationCount, pendingRegistrationRows, freeRegistrationCount, freeRegistrationRows, pendingPaymentCount, pendingPaymentRows, expiringLicenseCount, expiringLicenseRows, suspendedClientCount, suspendedClientRows];
+  const results = [pendingRegistrationCount, pendingRegistrationRows, freeRegistrationCount, freeRegistrationRows, pendingPaymentCount, pendingPaymentRows, expiringLicenseCount, expiringLicenseRows, suspendedClientCount, suspendedClientRows, supportAlertCount];
   if (results.some((result) => result.error)) return jsonError('Unable to load the action center', 500);
 
   const payments = (pendingPaymentRows.data || []) as PaymentQueueRow[];
@@ -98,10 +100,18 @@ export async function GET() {
     payments: Number(pendingPaymentCount.count || 0),
     licenses: Number(expiringLicenseCount.count || 0),
     suspended: Number(suspendedClientCount.count || 0),
+    support: Number(supportAlertCount.count || 0),
   };
 
   return Response.json({
-    counts: { ...counts, total: counts.registrations + counts.payments + counts.licenses + counts.suspended },
+    counts: { ...counts, total: counts.registrations + counts.payments + counts.licenses + counts.suspended + counts.support },
+    alerts: {
+      registrations: counts.registrations,
+      payments: counts.payments,
+      licenses: counts.licenses,
+      support: counts.support,
+      suspended: counts.suspended,
+    },
     queues: {
       registrations: registrations.map((row) => ({
         id: row.id,

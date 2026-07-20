@@ -1,15 +1,18 @@
 'use client';
 
-import { FormEvent, useCallback, useEffect, useState, type CSSProperties } from 'react';
+import React, { FormEvent, useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { KeyRound, Laptop, ShieldCheck, Smartphone } from 'lucide-react';
 import ClientAvatar from '@/components/client-avatar';
 import type { ClientProfile } from '@/lib/client-profile';
 import styles from './client-360.module.css';
 
 type AdminProfile=ClientProfile&{updatedAt:string|null;linked:boolean;available:boolean;visible:boolean};
-type Data={client:{full_name:string;email?:string|null;country?:string|null;notes?:string|null};profile:AdminProfile;health:{score:number;label:string;tone:string;reasons:string[]};timeline:{id:string;title:string;detail:string;date:string;tone:string}[];reminders:{id:string;title:string;notes?:string;due_at:string;status:string}[];communications:{id:string;channel:string;direction:string;subject:string;body?:string;occurred_at:string}[]};
+type ClientSecurity={visible:boolean;portalState?:'linked'|'unlinked'|'unavailable';mfaStatus?:'enabled'|'not_enabled'|'unavailable'|'not_applicable';lastSignInAt?:string|null;signInAvailable?:boolean;activityAvailable?:boolean;lastActivity?:{id:string;type:string;title:string;createdAt:string;device:string}|null};
+type Client360Tab='profile'|'security'|'timeline'|'reminders'|'communications'|'notes';
+type Data={client:{full_name:string;email?:string|null;country?:string|null;notes?:string|null};profile:AdminProfile;security?:ClientSecurity;health:{score:number;label:string;tone:string;reasons:string[]};timeline:{id:string;title:string;detail:string;date:string;tone:string}[];reminders:{id:string;title:string;notes?:string;due_at:string;status:string}[];communications:{id:string;channel:string;direction:string;subject:string;body?:string;occurred_at:string}[]};
 
 export default function Client360Panel({clientId,canWrite}:{clientId:string;canWrite:boolean}){
- const [data,setData]=useState<Data|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[tab,setTab]=useState<'profile'|'timeline'|'reminders'|'communications'|'notes'>(canWrite?'profile':'timeline'),[form,setForm]=useState<'reminder'|'communication'|null>(null),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
+ const [data,setData]=useState<Data|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[tab,setTab]=useState<Client360Tab>(canWrite?'profile':'timeline'),[form,setForm]=useState<'reminder'|'communication'|null>(null),[saving,setSaving]=useState(false),[notice,setNotice]=useState('');
  const load=useCallback(async()=>{setLoading(true);setError('');try{const response=await fetch(`/api/client-360/${clientId}`,{cache:'no-store'}),payload=await response.json().catch(()=>null);if(!response.ok)throw new Error(payload?.error||'Client 360 is unavailable.');setData(payload)}catch(reason){setError(reason instanceof Error?reason.message:'Client 360 is unavailable.')}finally{setLoading(false)}},[clientId]);
  useEffect(()=>{void load()},[load]);
  async function write(payload:Record<string,unknown>){setSaving(true);setError('');setNotice('');try{const response=await fetch(`/api/client-360/${clientId}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)}),body=await response.json().catch(()=>null);if(!response.ok)throw new Error(body?.error||'Unable to save.');setForm(null);setNotice('Client 360 updated.');await load()}catch(reason){setError(reason instanceof Error?reason.message:'Unable to save.')}finally{setSaving(false)}}
@@ -21,15 +24,52 @@ export default function Client360Panel({clientId,canWrite}:{clientId:string;canW
  const healthColor=data.health.tone==='green'?'#39f28a':data.health.tone==='gold'?'#f6c453':data.health.tone==='orange'?'#ff9f43':'#ff566d';
  const healthStyle={'--health-score':data.health.score,'--health-color':healthColor} as CSSProperties;
  return <section className={styles.shell} aria-labelledby="client-360-title"><header className={styles.header}><div><p className="eyebrow">Client 360°</p><h3 id="client-360-title">Operational health and history</h3></div><div className={styles.health} style={healthStyle} aria-label={`${data.health.score} out of 100, ${data.health.label}`}><strong>{data.health.score}</strong><small>{data.health.label}</small></div></header><ul className={styles.healthReasons}>{data.health.reasons.map(reason=><li key={reason}>{reason}</li>)}</ul>
-  <nav className={styles.tabs} aria-label="Client 360 sections">{((data.profile.visible?['profile','timeline','reminders','communications','notes']:['timeline','reminders','communications','notes']) as Array<'profile'|'timeline'|'reminders'|'communications'|'notes'>).map(value=><button type="button" data-active={tab===value} aria-pressed={tab===value} onClick={()=>setTab(value)} key={value}>{value[0].toUpperCase()+value.slice(1)}</button>)}</nav>
+  <div className={styles.tabs} role="group" aria-label="Client 360 sections">{client360Tabs(data).map(value=><button id={`client-360-${value}-control`} type="button" data-active={tab===value} aria-pressed={tab===value} aria-controls="client-360-active-panel" onClick={()=>setTab(value)} key={value}>{value[0].toUpperCase()+value.slice(1)}</button>)}</div>
   {notice&&<p className={styles.notice} role="status">{notice}</p>}{error&&<p className={styles.formError} role="alert">{error}</p>}
+  <div className={styles.tabPanel} id="client-360-active-panel" role="region" aria-labelledby={`client-360-${tab}-control`} tabIndex={0}>
   {tab==='profile'&&data.profile.visible&&<AdminPortalProfile client={data.client} profile={data.profile}/>}
+  {tab==='security'&&data.security?.visible&&<ClientSecuritySummary security={data.security}/>}
   {tab==='timeline'&&(data.timeline.length?<ol className={styles.timeline}>{data.timeline.map(item=><li className={styles.event} data-tone={item.tone} key={item.id}><i aria-hidden="true"/><div><strong>{item.title}</strong><span>{item.detail}</span></div><time dateTime={item.date}>{new Date(item.date).toLocaleString()}</time></li>)}</ol>:<p className={styles.empty}>No timeline records yet.</p>)}
   {tab==='reminders'&&<><div className={styles.toolbar}><span/>{canWrite&&<button type="button" onClick={()=>setForm(form==='reminder'?null:'reminder')}>＋ Reminder</button>}</div>{form==='reminder'&&<form className={styles.form} onSubmit={submitReminder}><label><span>Title</span><input name="title" required maxLength={180}/></label><label><span>Due date</span><input name="due_at" type="datetime-local" required/></label><label className={styles.wide}><span>Notes</span><textarea name="notes" maxLength={1000}/></label><button className={styles.wide} disabled={saving}>{saving?'Saving…':'Save reminder'}</button></form>}<ul className={styles.list}>{data.reminders.map(item=><li className={styles.item} key={item.id}><div><strong>{item.title}</strong><time>{new Date(item.due_at).toLocaleString()}</time>{item.notes&&<p>{item.notes}</p>}<span>{item.status}</span></div>{canWrite&&item.status==='Open'&&<button type="button" onClick={()=>void write({action:'set-reminder-status',reminder_id:item.id,status:'Done'})}>Mark done</button>}</li>)}</ul>{!data.reminders.length&&<p className={styles.empty}>No admin reminders.</p>}</>}
   {tab==='communications'&&<><div className={styles.toolbar}><span/>{canWrite&&<button type="button" onClick={()=>setForm(form==='communication'?null:'communication')}>＋ Log communication</button>}</div>{form==='communication'&&<form className={styles.form} onSubmit={submitCommunication}><label><span>Channel</span><select name="channel"><option>Email</option><option>Telegram</option><option>Phone</option><option>Portal</option><option>Other</option></select></label><label><span>Direction</span><select name="direction"><option>Outbound</option><option>Inbound</option><option>Internal</option></select></label><label><span>Subject</span><input name="subject" required maxLength={180}/></label><label><span>Date and time</span><input name="occurred_at" type="datetime-local" required/></label><label className={styles.wide}><span>Details</span><textarea name="body" maxLength={4000}/></label><button className={styles.wide} disabled={saving}>{saving?'Saving…':'Log communication'}</button></form>}<ul className={styles.list}>{data.communications.map(item=><li className={styles.item} key={item.id}><div><strong>{item.subject}</strong><span>{item.channel} · {item.direction}</span>{item.body&&<p>{item.body}</p>}<time>{new Date(item.occurred_at).toLocaleString()}</time></div></li>)}</ul>{!data.communications.length&&<p className={styles.empty}>No communication history recorded.</p>}</>}
   {tab==='notes'&&<form className={styles.notes} onSubmit={event=>{event.preventDefault();const values=new FormData(event.currentTarget);void write({action:'update-notes',notes:values.get('notes')})}}><textarea name="notes" defaultValue={data.client.notes||''} maxLength={2000} aria-label="Internal client notes" disabled={!canWrite}/>{canWrite&&<button disabled={saving}>{saving?'Saving…':'Save internal notes'}</button>}</form>}
+  </div>
  </section>
 }
+
+function client360Tabs(data:Data):Client360Tab[]{
+ const values:Client360Tab[]=[];
+ if(data.profile.visible)values.push('profile');
+ if(data.security?.visible)values.push('security');
+ return [...values,'timeline','reminders','communications','notes'];
+}
+
+function ClientSecuritySummary({security}:{security:ClientSecurity}){
+ const portalLabel=security.portalState==='linked'?'Linked':security.portalState==='unlinked'?'Not linked':'Unavailable';
+ const portalDetail=security.portalState==='linked'?'Client authentication account is connected.':security.portalState==='unlinked'?'No portal authentication account exists for this client.':'Portal account status could not be verified.';
+ const mfaLabel=security.mfaStatus==='enabled'?'Enabled':security.mfaStatus==='not_enabled'?'Not enabled':security.mfaStatus==='not_applicable'?'Not applicable':'Unavailable';
+ const mfaDetail=security.mfaStatus==='enabled'?'A verified TOTP authenticator currently protects sign-in.':security.mfaStatus==='not_enabled'?'No verified authenticator is currently enrolled.':security.mfaStatus==='not_applicable'?'Authenticator status begins after the portal account is linked.':'Authenticator status could not be verified.';
+ const signInLabel=security.signInAvailable?(security.lastSignInAt?formatSecurityDate(security.lastSignInAt):'Never recorded'):security.portalState==='unlinked'?'Not applicable':'Unavailable';
+ return <section className={styles.securityPanel} aria-labelledby="client-security-title">
+  <header className={styles.securityHeader}><span aria-hidden="true"><ShieldCheck size={20}/><i/></span><div><small>Administrator-only summary</small><h4 id="client-security-title">Portal security status</h4><p>Current authentication facts and the latest sanitized Orion security record. Supabase Auth remains authoritative.</p></div></header>
+  <div className={styles.securityFacts}>
+   <SecurityFact icon={<KeyRound size={17}/>} label="Portal account" value={portalLabel} detail={portalDetail} tone={security.portalState==='linked'?'green':security.portalState==='unlinked'?'muted':'orange'}/>
+   <SecurityFact icon={<Smartphone size={17}/>} label="Authenticator" value={mfaLabel} detail={mfaDetail} tone={security.mfaStatus==='enabled'?'green':security.mfaStatus==='not_enabled'?'gold':'muted'}/>
+   <SecurityFact icon={<Laptop size={17}/>} label="Last successful sign-in" value={signInLabel} detail={security.lastSignInAt&&security.signInAvailable?'Authoritative Supabase account timestamp.':'No sign-in time is being inferred.'} tone="cyan"/>
+  </div>
+  <div className={styles.latestSecurity}>
+   <div><span aria-hidden="true"><ShieldCheck size={17}/></span><div><small>Latest recorded Orion security activity</small><strong>{security.lastActivity?.title||(!security.activityAvailable?'Unavailable':'No security activity recorded yet')}</strong><p>{security.lastActivity?security.lastActivity.device:security.activityAvailable?'The forward-only activity feed has no event for this account.':'The sanitized activity store could not be read or is not applicable.'}</p></div></div>
+   {security.lastActivity&&<time dateTime={security.lastActivity.createdAt}>{formatSecurityDate(security.lastActivity.createdAt)}</time>}
+  </div>
+  <p className={styles.securityPrivacy}>No session identifiers, IP hashes, authenticator details, secrets, recovery material, or full browser strings are shown here.</p>
+ </section>;
+}
+
+function SecurityFact({icon,label,value,detail,tone}:{icon:ReactNode;label:string;value:string;detail:string;tone:string}){
+ return <article className={styles.securityFact} data-tone={tone}><span aria-hidden="true">{icon}</span><div><small>{label}</small><strong>{value}</strong><p>{detail}</p></div><i aria-hidden="true"/></article>;
+}
+
+function formatSecurityDate(value:string){const date=new Date(value);return Number.isNaN(date.getTime())?'Date unavailable':date.toLocaleString()}
 
 function AdminPortalProfile({client,profile}:{client:Data['client'];profile:AdminProfile}){
  const completed=Boolean(profile.updatedAt),displayName=profile.nickname||client.full_name;

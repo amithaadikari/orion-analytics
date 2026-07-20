@@ -26,7 +26,7 @@ import type { AccountSecurityEvent } from '@/lib/account-security-client';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import styles from './client-account-settings.module.css';
 
-type SecurityActivity = {
+export type SecurityActivity = {
   id: string;
   type: string;
   title: string;
@@ -41,7 +41,7 @@ type SecurityResponse = {
   activities: SecurityActivity[];
 };
 
-type Enrollment = { factorId: string; qrCode: string; secret: string };
+export type Enrollment = { factorId: string; qrCode: string; secret: string };
 
 type Props = {
   email: string;
@@ -184,11 +184,11 @@ export default function ClientAccountSettings({
   );
 }
 
-function StatusCard({ icon, label, value, detail, tone }: { icon: React.ReactNode; label: string; value: string; detail: string; tone: string }) {
+export function StatusCard({ icon, label, value, detail, tone }: { icon: React.ReactNode; label: string; value: string; detail: string; tone: string }) {
   return <article className={styles.statusCard} data-tone={tone}><span aria-hidden="true">{icon}</span><div><small>{label}</small><strong>{value}</strong><p>{detail}</p></div><i aria-hidden="true" /></article>;
 }
 
-function PasswordPanel({ onRecorded }: { onRecorded: (activity: SecurityActivity | undefined) => void }) {
+export function PasswordPanel({ onRecorded, endpoint = '/api/account-security' }: { onRecorded: (activity: SecurityActivity | undefined) => void; endpoint?: '/api/account-security' | '/api/admin-account-security' }) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -240,7 +240,7 @@ function PasswordPanel({ onRecorded }: { onRecorded: (activity: SecurityActivity
     clearSecrets();
     setMessage({ type: 'success', text: 'Password changed successfully. Your current session remains protected.' });
     try {
-      const response = await fetch('/api/account-security', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'password_changed' }) });
+      const response = await fetch(endpoint, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ event: 'password_changed' }) });
       const payload = await response.json().catch(() => null) as { activity?: SecurityActivity } | null;
       if (response.ok) onRecorded(payload?.activity);
     } catch { /* Password success is authoritative even if the local activity feed is unavailable. */ }
@@ -278,7 +278,7 @@ function PasswordPanel({ onRecorded }: { onRecorded: (activity: SecurityActivity
   );
 }
 
-function MfaPanel({ factorId, setFactorId, enrollment, enrollmentRef, setEnrollment, canEnroll, onRecord }: {
+export function MfaPanel({ factorId, setFactorId, enrollment, enrollmentRef, setEnrollment, canEnroll, onRecord, context = 'client' }: {
   factorId: string | null;
   setFactorId: (value: string | null) => void;
   enrollment: Enrollment | null;
@@ -286,6 +286,7 @@ function MfaPanel({ factorId, setFactorId, enrollment, enrollmentRef, setEnrollm
   setEnrollment: (value: Enrollment | null) => void;
   canEnroll: boolean;
   onRecord: (event: AccountSecurityEvent) => Promise<void>;
+  context?: 'client' | 'admin';
 }) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -402,7 +403,7 @@ function MfaPanel({ factorId, setFactorId, enrollment, enrollmentRef, setEnrollm
       {factorId ? (
         <div className={styles.mfaEnabled}>
           <div className={styles.protectedState}><span><ShieldCheck size={22} aria-hidden="true" /></span><div><small>Current state</small><strong>Authenticator enabled</strong><p>A fresh six-digit code is required after password sign-in.</p></div></div>
-          <div className={styles.recoveryNote}><ShieldAlert size={16} aria-hidden="true" /><p>If you lose the authenticator, contact Orion support for identity-verified recovery. Supabase TOTP does not provide recovery codes here.</p></div>
+          <div className={styles.recoveryNote}><ShieldAlert size={16} aria-hidden="true" /><p>{context === 'admin' ? 'If you lose the authenticator, use Orion’s approved administrator recovery process with another authorized owner. Supabase TOTP does not provide recovery codes here.' : 'If you lose the authenticator, contact Orion support for identity-verified recovery. Supabase TOTP does not provide recovery codes here.'}</p></div>
           {message && <p className={message.type === 'error' ? styles.error : styles.success} role={message.type === 'error' ? 'alert' : 'status'}>{message.text}</p>}
           {!confirmDisable ? <button ref={removeTriggerRef} className={styles.dangerLink} type="button" onClick={() => setConfirmDisable(true)}>Remove this authenticator</button> : <div className={styles.confirmDanger}><p>If this is your final verified authenticator, the account returns to password-only access.</p><button ref={removeConfirmRef} type="button" disabled={loading} onClick={() => void disableMfa()}>{loading ? 'Removing…' : 'Yes, remove it'}</button><button type="button" disabled={loading} onClick={() => { setConfirmDisable(false); window.setTimeout(() => removeTriggerRef.current?.focus(), 0); }}>Keep protection</button></div>}
         </div>
@@ -418,7 +419,7 @@ function MfaPanel({ factorId, setFactorId, enrollment, enrollmentRef, setEnrollm
       ) : (
         <div className={styles.mfaEmpty}>
           <div className={styles.mfaDiagram} aria-hidden="true"><span><LockKeyhole size={18} /></span><i /><span><Smartphone size={18} /></span><i /><span><ShieldCheck size={18} /></span></div>
-          <ul><li><CheckCircle2 size={14} aria-hidden="true" />Blocks password-only portal access</li><li><CheckCircle2 size={14} aria-hidden="true" />Codes refresh every 30 seconds</li><li><CheckCircle2 size={14} aria-hidden="true" />Secrets stay between you and Supabase</li></ul>
+          <ul><li><CheckCircle2 size={14} aria-hidden="true" />Blocks password-only {context === 'admin' ? 'administrator' : 'portal'} access</li><li><CheckCircle2 size={14} aria-hidden="true" />Codes refresh every 30 seconds</li><li><CheckCircle2 size={14} aria-hidden="true" />Secrets stay between you and Supabase</li></ul>
           {message && <p className={message.type === 'error' ? styles.error : styles.success} role={message.type === 'error' ? 'alert' : 'status'}>{message.text}</p>}
           <button ref={setupTriggerRef} className={styles.primaryButton} type="button" disabled={loading || !canEnroll} onClick={() => void startEnrollment()}>{loading ? 'Preparing…' : canEnroll ? 'Set up authenticator' : 'Setup temporarily unavailable'}</button>
         </div>
@@ -427,7 +428,7 @@ function MfaPanel({ factorId, setFactorId, enrollment, enrollmentRef, setEnrollm
   );
 }
 
-function SessionPanel({ currentDevice, lastSignInAt, onRecord }: { currentDevice: string; lastSignInAt: string | null; onRecord: (event: AccountSecurityEvent) => Promise<void> }) {
+export function SessionPanel({ currentDevice, lastSignInAt, onRecord }: { currentDevice: string; lastSignInAt: string | null; onRecord: (event: AccountSecurityEvent) => Promise<void> }) {
   const [confirm, setConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
@@ -497,7 +498,7 @@ function PreferencesPanel({ loading, available, preferences, onPreferences }: { 
   );
 }
 
-function ActivityPanel({ loading, available, activities }: { loading: boolean; available: boolean; activities: SecurityActivity[] }) {
+export function ActivityPanel({ loading, available, activities }: { loading: boolean; available: boolean; activities: SecurityActivity[] }) {
   return (
     <section className={`${styles.panel} ${styles.activityPanel}`} aria-labelledby="security-activity-title">
       <PanelHeading id="security-activity-title" icon={<RefreshCw size={18} />} eyebrow="Forward-only record" title="Recent security activity" detail="New Orion security events appear here with normalized device details. Raw IP addresses and full browser strings are not stored." />
@@ -513,11 +514,11 @@ function SecurityActivityIcon({ type }: { type: string }) {
   return <ShieldCheck size={16} />;
 }
 
-function PanelHeading({ id, icon, eyebrow, title, detail }: { id: string; icon: React.ReactNode; eyebrow: string; title: string; detail: string }) {
+export function PanelHeading({ id, icon, eyebrow, title, detail }: { id: string; icon: React.ReactNode; eyebrow: string; title: string; detail: string }) {
   return <header className={styles.panelHeading}><span aria-hidden="true">{icon}</span><div><small>{eyebrow}</small><h3 id={id}>{title}</h3><p>{detail}</p></div></header>;
 }
 
-function formatDate(value: string | null | undefined, fallback: string) {
+export function formatDate(value: string | null | undefined, fallback: string) {
   if (!value) return fallback;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return fallback;

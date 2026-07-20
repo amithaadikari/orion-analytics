@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import PasswordField from '@/components/password-field';
 import { getAuthAssurance } from '@/lib/auth-assurance';
-import { recordAccountSecurityEvent } from '@/lib/account-security-client';
+import { recordAdminAccountSecurityEvent } from '@/lib/account-security-client';
 import { safeMfaNext } from '@/lib/plans';
 
 export default function LoginForm() {
@@ -34,7 +34,7 @@ export default function LoginForm() {
       router.refresh();
       return;
     }
-    await recordAccountSecurityEvent('session_started');
+    await recordAdminAccountSecurityEvent('session_started');
     router.replace(next);
     router.refresh();
   }

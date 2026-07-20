@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ExternalLink, History, Settings2 } from 'lucide-react';
 import LogoutButton from '@/components/logout-button';
+import ClientAvatar from '@/components/client-avatar';
 
 type AdminProfileMenuProps = {
-  admin: { email?: string | null; role?: string | null } | null;
+  admin: { email?: string | null; role?: string | null; displayName?: string | null; avatarKey?: string | null } | null;
   onNavigate: (section: string) => void;
 };
 
@@ -28,12 +29,14 @@ export default function AdminProfileMenu({ admin, onNavigate }: AdminProfileMenu
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
-  const displayName = useMemo(() => readableIdentity(admin?.email), [admin?.email]);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const displayName = useMemo(() => admin?.displayName?.trim() || readableIdentity(admin?.email), [admin?.displayName, admin?.email]);
   const initials = useMemo(() => identityInitials(displayName), [displayName]);
   const roleLabel = admin?.role === 'admin' ? 'Administrator' : 'Analytics viewer';
 
   useEffect(() => {
     if (!open) return;
+    dialogRef.current?.querySelector<HTMLElement>('button:not([disabled]), a[href]')?.focus();
     const closeFromOutside = (event: PointerEvent) => {
       if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
     };
@@ -57,16 +60,16 @@ export default function AdminProfileMenu({ admin, onNavigate }: AdminProfileMenu
 
   return (
     <div className="command-profile" ref={rootRef}>
-      <button ref={triggerRef} type="button" className="command-profile-trigger" aria-expanded={open} aria-controls="command-profile-menu" onClick={() => setOpen((value) => !value)}>
-        <span className="command-profile-avatar" aria-hidden="true">{initials}<i /></span>
+      <button ref={triggerRef} type="button" className="command-profile-trigger" aria-label={`Open administrator profile for ${displayName}`} aria-haspopup="dialog" aria-expanded={open} aria-controls="command-profile-menu" onClick={() => setOpen((value) => !value)}>
+        {admin?.avatarKey ? <ClientAvatar avatarKey={admin.avatarKey} size="small" className="command-profile-trading-avatar" /> : <span className="command-profile-avatar" aria-hidden="true">{initials}<i /></span>}
         <span className="command-profile-copy"><strong>{displayName}</strong><small>{roleLabel}</small></span>
         <ChevronDown className="command-profile-chevron" size={15} aria-hidden="true" />
       </button>
       {open && (
-        <div className="command-profile-menu" id="command-profile-menu" aria-label="Administrator profile options">
-          <header><span className="command-profile-avatar command-profile-avatar--large" aria-hidden="true">{initials}<i /></span><div><strong>{displayName}</strong><small>{admin?.email || 'Secure Orion account'}</small><b>{roleLabel}</b></div></header>
+        <div ref={dialogRef} className="command-profile-menu" id="command-profile-menu" role="dialog" aria-modal="false" aria-label="Administrator profile options">
+          <header>{admin?.avatarKey ? <ClientAvatar avatarKey={admin.avatarKey} size="medium" className="command-profile-trading-avatar command-profile-trading-avatar--large" /> : <span className="command-profile-avatar command-profile-avatar--large" aria-hidden="true">{initials}<i /></span>}<div><strong>{displayName}</strong><small>{admin?.email || 'Secure Orion account'}</small><b>{roleLabel}</b></div></header>
           <div className="command-profile-links">
-            <button type="button" onClick={() => navigate('settings')}><Settings2 size={16} aria-hidden="true" /><span><strong>Settings</strong><small>Appearance, privacy and connections</small></span></button>
+            <button type="button" onClick={() => navigate('settings')}><Settings2 size={16} aria-hidden="true" /><span><strong>Profile & security</strong><small>Identity, authenticator and alerts</small></span></button>
             <button type="button" onClick={() => navigate('activity')}><History size={16} aria-hidden="true" /><span><strong>Audit trail</strong><small>Review administrative activity</small></span></button>
             <a href="https://orionscalper.com" target="_blank" rel="noreferrer"><ExternalLink size={16} aria-hidden="true" /><span><strong>Orion website</strong><small>Open the public customer site</small></span></a>
           </div>

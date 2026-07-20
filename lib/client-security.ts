@@ -88,17 +88,19 @@ type SecurityBucket = { count: number; resetAt: number };
 const securityBuckets = new Map<string, SecurityBucket>();
 
 /** Best-effort instance limiter. Production edge-wide throttling should also be enabled. */
-export function accountSecurityRateLimit(request: Request, userId: string) {
+export function accountSecurityRateLimit(request: Request, userId: string, options: { scope?: string; limit?: number } = {}) {
   const now = Date.now();
   if (securityBuckets.size > 2_000) {
     for (const [key, bucket] of securityBuckets) if (bucket.resetAt <= now) securityBuckets.delete(key);
   }
-  const key = `${userId}:${hashIp(getClientIp(request))}`;
+  const scope = options.scope?.replace(/[^a-z0-9_-]/gi, '').slice(0, 40) || 'account-security';
+  const limit = Math.max(1, Math.min(60, options.limit || 8));
+  const key = `${scope}:${userId}:${hashIp(getClientIp(request))}`;
   const current = securityBuckets.get(key);
   if (!current || current.resetAt <= now) {
     securityBuckets.set(key, { count: 1, resetAt: now + 15 * 60_000 });
     return true;
   }
   current.count += 1;
-  return current.count <= 8;
+  return current.count <= limit;
 }

@@ -8,12 +8,13 @@ const mocks = vi.hoisted(() => ({
   challengeAndVerify: vi.fn(),
   signOut: vi.fn(),
   record: vi.fn(),
+  recordAdmin: vi.fn(),
   replace: vi.fn(),
   refresh: vi.fn(),
 }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: mocks.replace, refresh: mocks.refresh }) }));
 vi.mock('@/lib/supabase/browser', () => ({ createSupabaseBrowserClient: () => ({ auth: { mfa: { challengeAndVerify: mocks.challengeAndVerify }, signOut: mocks.signOut } }) }));
-vi.mock('@/lib/account-security-client', () => ({ recordAccountSecurityEvent: mocks.record }));
+vi.mock('@/lib/account-security-client', () => ({ recordAccountSecurityEvent: mocks.record, recordAdminAccountSecurityEvent: mocks.recordAdmin }));
 
 import MfaChallengeForm from '@/components/mfa-challenge-form';
 
@@ -54,5 +55,15 @@ describe('MFA sign-in challenge', () => {
 
     finishVerification({ error: null });
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith('/portal'));
+  });
+
+  it('records an administrator session through the administrator security endpoint', async () => {
+    mocks.challengeAndVerify.mockResolvedValue({ error: null });
+    mocks.recordAdmin.mockResolvedValue(true);
+    render(<MfaChallengeForm factors={[{ id: 'factor-1', label: 'Orion Authenticator' }]} next="/dashboard" signInPath="/login" />);
+    fireEvent.change(screen.getByLabelText(/Six-digit authenticator code/i), { target: { value: '654321' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Verify & continue' }));
+    await waitFor(() => expect(mocks.recordAdmin).toHaveBeenCalledWith('session_started'));
+    expect(mocks.record).not.toHaveBeenCalled();
   });
 });

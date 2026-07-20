@@ -1,10 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 
 type AdminActionCenterProps = {
   onNavigate: (section: string, filter: string) => void;
-  onQueueCountChange: (count: number | null) => void;
+  onAlertCountsChange?: (counts: AlertCounts | null) => void;
+};
+
+export type AdminAlertPreferences = {
+  registrationAlerts: boolean;
+  paymentAlerts: boolean;
+  licenseAlerts: boolean;
+  supportAlerts: boolean;
 };
 
 type QueueCounts = {
@@ -12,7 +19,16 @@ type QueueCounts = {
   payments: number;
   licenses: number;
   suspended: number;
+  support: number;
   total: number;
+};
+
+export type AlertCounts = {
+  registrations: number;
+  payments: number;
+  licenses: number;
+  support: number;
+  suspended: number;
 };
 
 type QueueItemBase = {
@@ -55,6 +71,7 @@ type SuspendedQueueItem = QueueItemBase & {
 
 type ActionCenterResponse = {
   counts: QueueCounts;
+  alerts?: AlertCounts;
   queues: {
     registrations: RegistrationQueueItem[];
     payments: PaymentQueueItem[];
@@ -117,9 +134,18 @@ const categoryDefinitions = [
     filter: 'Suspended',
     action: 'Review clients',
   },
+  {
+    key: 'support' as const,
+    label: 'Support conversations',
+    description: 'Open or active client tickets',
+    icon: '◇',
+    section: 'support',
+    filter: 'Open',
+    action: 'Open support desk',
+  },
 ] as const;
 
-export default function AdminActionCenter({ onNavigate, onQueueCountChange }: AdminActionCenterProps) {
+export default function AdminActionCenter({ onNavigate, onAlertCountsChange }: AdminActionCenterProps) {
   const [data, setData] = useState<ActionCenterResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -130,17 +156,14 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
   const [actionNotice, setActionNotice] = useState('');
   const [extensionDays, setExtensionDays] = useState<30 | 90 | 365>(30);
   const navigateRef = useRef(onNavigate);
-  const countChangeRef = useRef(onQueueCountChange);
-  const lastReportedCount = useRef<number | null | undefined>(undefined);
+  const alertCountsChangeRef = useRef(onAlertCountsChange);
   const actionConfirmRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     navigateRef.current = onNavigate;
   }, [onNavigate]);
 
-  useEffect(() => {
-    countChangeRef.current = onQueueCountChange;
-  }, [onQueueCountChange]);
+  useEffect(() => { alertCountsChangeRef.current = onAlertCountsChange; }, [onAlertCountsChange]);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -179,12 +202,15 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
     return () => controller.abort();
   }, [load]);
 
-  const queueCount = data?.counts.total ?? null;
   useEffect(() => {
-    if (lastReportedCount.current === queueCount) return;
-    lastReportedCount.current = queueCount;
-    countChangeRef.current(queueCount);
-  }, [queueCount]);
+    alertCountsChangeRef.current?.(data ? data.alerts || {
+      registrations: data.counts.registrations,
+      payments: data.counts.payments,
+      licenses: data.counts.licenses,
+      support: data.counts.support,
+      suspended: data.counts.suspended,
+    } : null);
+  }, [data]);
 
   const navigate = useCallback((section: string, filter: string) => {
     navigateRef.current(section, filter);
@@ -333,10 +359,15 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
               </li>
             ))}
           </ol>
+        ) : data.counts.total > 0 ? (
+          <div className="admin-action-center-clear" role="status">
+            <span aria-hidden="true">↗</span>
+            <div><strong>Support conversations need attention</strong><p>Open the Support conversations card above to review active client tickets.</p></div>
+          </div>
         ) : (
           <div className="admin-action-center-clear" role="status">
             <span aria-hidden="true">✓</span>
-            <div><strong>All review queues are clear</strong><p>No registration reviews, pending payments, expiring active licenses, or suspended clients are currently listed.</p></div>
+            <div><strong>All review queues are clear</strong><p>No registration reviews, pending payments, expiring active licenses, suspended clients, or open support conversations are currently listed.</p></div>
           </div>
         )}
       </section>
@@ -359,6 +390,15 @@ export default function AdminActionCenter({ onNavigate, onQueueCountChange }: Ad
       )}
     </>
   );
+}
+
+export function preferredQueueCount(counts: AlertCounts, preferences?: AdminAlertPreferences) {
+  if (!preferences) return counts.registrations + counts.payments + counts.licenses + counts.support + counts.suspended;
+  return (preferences.registrationAlerts ? counts.registrations : 0)
+    + (preferences.paymentAlerts ? counts.payments : 0)
+    + (preferences.licenseAlerts ? counts.licenses : 0)
+    + (preferences.supportAlerts ? counts.support : 0)
+    + counts.suspended;
 }
 
 function ActionCenterHeader({ count }: { count: number | null }) {
@@ -499,10 +539,14 @@ function isActionCenterResponse(value: unknown): value is ActionCenterResponse {
   const counts = value.counts;
   const queues = value.queues;
   if (!isObject(counts) || !isObject(queues)) return false;
-  const countKeys: (keyof QueueCounts)[] = ['registrations', 'payments', 'licenses', 'suspended', 'total'];
+  const countKeys: (keyof QueueCounts)[] = ['registrations', 'payments', 'licenses', 'suspended', 'support', 'total'];
   const queueKeys: QueueCategory[] = ['registrations', 'payments', 'licenses', 'suspended'];
+  const alerts = value.alerts;
+  const alertsValid = alerts === undefined || (isObject(alerts)
+    && ['registrations', 'payments', 'licenses', 'support', 'suspended'].every((key) => isNonNegativeNumber(alerts[key])));
   return countKeys.every((key) => isNonNegativeNumber(counts[key]))
-    && queueKeys.every((key) => Array.isArray(queues[key]));
+    && queueKeys.every((key) => Array.isArray(queues[key]))
+    && alertsValid;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
