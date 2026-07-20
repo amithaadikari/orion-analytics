@@ -1,11 +1,11 @@
 'use client';
 
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser';
 import { countryFlag, countryOptions } from '@/lib/country';
-import { checkoutPath, normalizeTrackingId, planKeys, plans, type PlanKey } from '@/lib/plans';
+import { checkoutPath, normalizeTrackingId, type PlanKey } from '@/lib/plans';
 import { primeTrackingContext, trackFunnelEvent } from '@/lib/client-tracking';
 import PasswordField from '@/components/password-field';
 
@@ -21,7 +21,7 @@ function authLink(path: string, plan: PlanKey | null, next: string) {
 
 export default function ClientRegisterForm({ initialPlan }: Props) {
   const router = useRouter();
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey | null>(initialPlan);
+  const selectedPlan = initialPlan;
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [country, setCountry] = useState('');
@@ -31,7 +31,6 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const started = useRef(false);
-  const selected = selectedPlan ? plans[selectedPlan] : null;
   const next = checkoutPath(selectedPlan);
 
   useEffect(() => {
@@ -50,29 +49,6 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
     window.history.replaceState(null, '', `${cleanUrl.pathname}${cleanUrl.search}`);
     if (initialPlan && !sourceEventId) void trackFunnelEvent('PlanSelected', initialPlan, {}, `orion_plan_selected_${initialPlan}`);
   }, [initialPlan]);
-
-  function choosePlan(plan: PlanKey) {
-    setSelectedPlan(plan);
-    const params = new URLSearchParams(window.location.search);
-    params.set('plan', plan);
-    window.history.replaceState(null, '', `${window.location.pathname}?${params}`);
-    void trackFunnelEvent('PlanSelected', plan);
-  }
-
-  function movePlan(event: KeyboardEvent<HTMLButtonElement>, current: PlanKey) {
-    const keys = ['ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp', 'Home', 'End'];
-    if (!keys.includes(event.key)) return;
-    event.preventDefault();
-    const index = planKeys.indexOf(current);
-    const nextIndex = event.key === 'Home'
-      ? 0
-      : event.key === 'End'
-        ? planKeys.length - 1
-        : (index + (event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1) + planKeys.length) % planKeys.length;
-    const nextPlan = planKeys[nextIndex];
-    choosePlan(nextPlan);
-    requestAnimationFrame(() => document.getElementById(`registration-plan-${nextPlan}`)?.focus());
-  }
 
   function markStarted() {
     if (started.current) return;
@@ -133,15 +109,14 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
       <div className="auth-message auth-confirmation registration-confirmation" role="status" aria-live="polite">
         <span className="auth-confirmation-icon" aria-hidden="true">✓</span>
         <strong>Confirm your email</strong>
-        <p>We sent a secure confirmation link to {email}. Open it to activate your free Orion account and continue to {selected ? `your ${selected.name} order review` : 'the client portal'}.</p>
+        <p>We sent a secure confirmation link to {email}. Open it to activate your Orion account and continue securely.</p>
         <Link href={authLink('/client-login', selectedPlan, next)}>Return to sign in <span aria-hidden="true">→</span></Link>
       </div>
     );
   }
 
   return (
-    <div className="register-flow">
-      <form className="login-form register-form orion-auth-form" onSubmit={submit} onFocusCapture={markStarted} aria-busy={loading}>
+    <form className="login-form register-form orion-auth-form" onSubmit={submit} onFocusCapture={markStarted} aria-busy={loading}>
         <label className="auth-field" htmlFor="register-name">
           <span className="auth-field-label">Full name</span>
           <span className="auth-input-shell">
@@ -183,44 +158,15 @@ export default function ClientRegisterForm({ initialPlan }: Props) {
         </label>
         <PasswordField id="register-password" label="Password" autoComplete="new-password" minLength={10} value={password} showStrength onChange={(event) => setPassword(event.target.value)} />
         <PasswordField id="register-confirm-password" label="Confirm password" autoComplete="new-password" minLength={10} value={confirm} matchValue={password} onChange={(event) => setConfirm(event.target.value)} />
-        <p className="registration-notice auth-notice"><span aria-hidden="true">◇</span>Your account starts on the Free plan. Your selected paid edition is a purchase preference only until payment and the matching license are verified.</p>
+        <p className="registration-notice auth-notice"><span aria-hidden="true">◇</span>Registration creates your secure client account only. Package review and payment happen separately after sign-in.</p>
         <div className="auth-form-status" aria-live="polite">
           {error && <p className="form-error" role="alert">{error}</p>}
         </div>
         <button className="primary-button auth-submit" type="submit" disabled={loading}>
-          <span>{loading ? 'Creating account…' : selected ? `Create account for ${selected.name}` : 'Create free Orion account'}</span>
+          <span>{loading ? 'Creating account…' : 'Create secure account'}</span>
           <span className="auth-submit-icon" aria-hidden="true">↗</span>
         </button>
         <div className="auth-form-link auth-form-backlink"><Link href={authLink('/client-login', selectedPlan, next)}>Already registered? Sign in <span aria-hidden="true">→</span></Link></div>
-      </form>
-
-      <aside className="register-plan-panel orion-register-plan" aria-labelledby="selected-plan-title">
-        <div className="orion-register-plan-heading">
-          <span className="orion-register-plan-icon" aria-hidden="true">✦</span>
-          <div><p className="eyebrow">Your selected edition</p><p>Choose the access level that fits your trading setup.</p></div>
-        </div>
-        <div className="register-plan-picker" role="radiogroup" aria-label="Choose an Orion edition">
-          {planKeys.map((key) => (
-            <button id={`registration-plan-${key}`} key={key} type="button" role="radio" aria-checked={selectedPlan === key} tabIndex={selectedPlan === key || (!selectedPlan && key === planKeys[0]) ? 0 : -1} className={selectedPlan === key ? 'active' : ''} onClick={() => choosePlan(key)} onKeyDown={(event) => movePlan(event, key)} disabled={loading}>
-              <span>{plans[key].name}</span><strong>{plans[key].priceLabel}</strong><small>{plans[key].license}</small>
-            </button>
-          ))}
-        </div>
-        {selected ? (
-          <div className="register-plan-summary" aria-live="polite">
-            <div><span><small>ORION V5</small><strong id="selected-plan-title">{selected.name}</strong></span><b>{selected.priceLabel}<small> USD</small></b></div>
-            <p>{selected.description}</p>
-            <ul>{selected.highlights.map((highlight) => <li key={highlight}><span aria-hidden="true">✓</span>{highlight}</li>)}</ul>
-            <dl><div><dt>License</dt><dd>{selected.license}</dd></div><div><dt>Account access</dt><dd>1 registered MT5 live account</dd></div></dl>
-          </div>
-        ) : (
-          <div className="register-plan-empty">
-            <strong id="selected-plan-title">No paid edition selected</strong>
-            <p>You can create a Free account now or choose an edition above. No payment is taken on this page.</p>
-          </div>
-        )}
-        <p className="register-plan-security"><span aria-hidden="true">◇</span>No payment is collected during registration. You will review the edition and official payment guidance after signing in.</p>
-      </aside>
-    </div>
+    </form>
   );
 }

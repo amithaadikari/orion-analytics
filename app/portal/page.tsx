@@ -7,7 +7,7 @@ import PortalWorkspaceShell from '@/components/portal-workspace-shell';
 import RegistrationTracker from '@/components/registration-tracker';
 import SupportTicketCenter from '@/components/support-ticket-center';
 import { countryFlag } from '@/lib/country';
-import { checkoutPath, normalizePlan, plans } from '@/lib/plans';
+import { checkoutSelectionPath, normalizePlan, plans } from '@/lib/plans';
 import { normalizePortalTheme, portalThemeCookie } from '@/lib/portal-theme';
 
 export const dynamic = 'force-dynamic';
@@ -18,6 +18,7 @@ export default async function PortalPage() {
   const initialTheme = normalizePortalTheme(cookieStore.get(portalThemeCookie)?.value);
   const selectedPlan = normalizePlan(user.user_metadata?.selected_plan);
   const selected = selectedPlan ? plans[selectedPlan] : null;
+  const planSelectionPath = checkoutSelectionPath(selectedPlan);
   const [{ data: licenses }, { data: payments }, { data: releases }] = await Promise.all([
     supabase.from('licenses').select('id,license_key,platform,account_number,plan,status,issued_at,expires_at').eq('client_id', client.id).order('created_at', { ascending: false }),
     supabase.from('client_payments').select('id,plan,method,status,amount,currency,payment_date,reference_id,receipt_number').eq('client_id', client.id).order('created_at', { ascending: false }),
@@ -46,7 +47,7 @@ export default async function PortalPage() {
           <div className="portal-free-notice">
             <span className="portal-notice-mark" aria-hidden="true">◇</span>
             <div><strong>{selected ? `${selected.name} selection saved` : 'Free Orion account'}</strong><span>{selected ? `Review your ${selected.priceLabel} ${selected.license.toLowerCase()} before requesting official payment instructions.` : 'Choose an edition and review the full price before contacting Orion.'}</span></div>
-            <Link href={checkoutPath(selectedPlan)}>{selected ? 'Review order' : 'Choose a plan'}<span>→</span></Link>
+            <Link href={planSelectionPath}>{selected ? 'Review order' : 'Choose a plan'}<span>→</span></Link>
           </div>
         )}
 
@@ -60,7 +61,7 @@ export default async function PortalPage() {
         <PortalWorkspaceSection title="Setup & activation" eyebrow="Your next step" marker="01" anchorId="setup" description="Follow your real account progress and jump directly to the action you need.">
           <ClientPortalInsights client={{ plan: client.plan, status: client.status }} licenses={licenses || []} payments={payments || []} showHeading={false} />
           <div className="portal-setup-actions" aria-label="Setup shortcuts">
-            {client.plan === 'Free' ? <Link href={checkoutPath(selectedPlan)}><span aria-hidden="true">01</span><div><small>Choose</small><strong>Review your Orion plan</strong><p>See the full price and what your selected edition includes.</p></div><b aria-hidden="true">→</b></Link> : <a href="#licenses"><span aria-hidden="true">01</span><div><small>Access</small><strong>View your license</strong><p>Check the account, platform, status, and expiry linked to your key.</p></div><b aria-hidden="true">→</b></a>}
+            {client.plan === 'Free' ? <Link href={planSelectionPath}><span aria-hidden="true">01</span><div><small>Choose</small><strong>Review your Orion plan</strong><p>See the full price and what your selected edition includes.</p></div><b aria-hidden="true">→</b></Link> : <a href="#licenses"><span aria-hidden="true">01</span><div><small>Access</small><strong>View your license</strong><p>Check the account, platform, status, and expiry linked to your key.</p></div><b aria-hidden="true">→</b></a>}
             <a href="#payments"><span aria-hidden="true">02</span><div><small>Verify</small><strong>Check payment records</strong><p>Confirm your payment status and download available documents.</p></div><b aria-hidden="true">→</b></a>
             <a href="#support"><span aria-hidden="true">03</span><div><small>Support</small><strong>Ask Orion securely</strong><p>Keep setup, license, and payment questions in one official thread.</p></div><b aria-hidden="true">→</b></a>
           </div>

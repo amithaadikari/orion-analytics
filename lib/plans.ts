@@ -77,3 +77,7 @@ export function planFromPath(value: unknown) {
 export function checkoutPath(plan: PlanKey | null) {
   return plan ? `/checkout?plan=${plan}` : '/portal';
 }
+
+export function checkoutSelectionPath(plan: PlanKey | null) {
+  return plan ? checkoutPath(plan) : '/checkout';
+}

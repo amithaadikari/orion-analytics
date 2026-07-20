@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkoutPath, normalizePlan, planFromPath, safeAuthNext } from '@/lib/plans';
+import { checkoutPath, checkoutSelectionPath, normalizePlan, planFromPath, safeAuthNext } from '@/lib/plans';
 
 describe('client plan handoff', () => {
   it('normalizes only published Orion editions', () => {
@@ -19,6 +19,9 @@ describe('client plan handoff', () => {
 
   it('builds and reads safe checkout paths', () => {
     expect(checkoutPath('lifetime')).toBe('/checkout?plan=lifetime');
+    expect(checkoutPath(null)).toBe('/portal');
+    expect(checkoutSelectionPath(null)).toBe('/checkout');
+    expect(checkoutSelectionPath('basic')).toBe('/checkout?plan=basic');
     expect(planFromPath('/checkout?plan=premium')).toBe('premium');
     expect(planFromPath('/checkout?plan=enterprise')).toBeNull();
     expect(planFromPath('//evil.example?plan=premium')).toBeNull();

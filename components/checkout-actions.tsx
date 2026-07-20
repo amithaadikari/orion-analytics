@@ -17,6 +17,7 @@ export default function CheckoutActions({ plan }: Props) {
     };
 
     void syncIntent();
+    void trackFunnelEvent('PlanSelected', plan, {}, `orion_plan_selected_${plan}`);
     void trackFunnelEvent('CheckoutStarted', plan, {}, `orion_checkout_started_${plan}`);
   }, [plan]);
 

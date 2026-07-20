@@ -70,7 +70,7 @@ const stories: Record<AuthKind, Story> = {
 
 const stages: Record<AuthMode, Array<{ label: string; icon: LucideIcon }>> = {
   login: [{ label: 'Identify', icon: UserRound }, { label: 'Verify', icon: ShieldCheck }, { label: 'Enter workspace', icon: BadgeCheck }],
-  register: [{ label: 'Account details', icon: UserRound }, { label: 'Choose edition', icon: KeyRound }, { label: 'Confirm email', icon: MailCheck }],
+  register: [{ label: 'Your details', icon: UserRound }, { label: 'Secure account', icon: KeyRound }, { label: 'Confirm email', icon: MailCheck }],
   recover: [{ label: 'Account email', icon: UserRound }, { label: 'Secure link', icon: MailCheck }, { label: 'Reset access', icon: KeyRound }],
   reset: [{ label: 'New password', icon: KeyRound }, { label: 'Secure account', icon: ShieldCheck }, { label: 'Sign in again', icon: BadgeCheck }],
 };
