@@ -152,7 +152,7 @@ export default function LicenseRuntimeCenter() {
 
           <form key={`install-${selected.id}-${selected.installation?.id || 'new'}`} onSubmit={submitInstallation}>
             <div><span className={styles.icon}><Laptop size={18} /></span><span><small>One active installation seat</small><strong>{selected.installation ? 'Move to another device' : 'Pair this installation'}</strong></span></div>
-            <p>Attach V5.3 on the new terminal, copy the <b>ORION INSTALLATION ID</b> from the Experts log, then pair it here. Replacing it deactivates the old installation.</p>
+            <p>Attach the secure V5.1 build on the new terminal, copy the <b>ORION INSTALLATION ID</b> from the Experts log, then pair it here. Replacing it deactivates the old installation.</p>
             <label><span>Installation ID from EA</span><input name="installationId" autoComplete="off" spellCheck={false} required pattern="ORN-INST-[A-HJ-NP-Z2-9]{4}(-[A-HJ-NP-Z2-9]{4}){5}" placeholder="ORN-INST-XXXX-XXXX-XXXX-XXXX-XXXX-XXXX" /></label>
             <label><span>Device label</span><input name="deviceLabel" minLength={2} maxLength={60} required placeholder="Example: Home laptop MT5" /></label>
             <label><span>Type <b>{installationConfirmation}</b> to confirm</span><input name="confirmation" autoComplete="off" required /></label>

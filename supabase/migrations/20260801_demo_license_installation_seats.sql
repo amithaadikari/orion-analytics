@@ -1,4 +1,4 @@
--- Orion V5.3 per-license Demo bindings and one transferable installation seat.
+-- Orion V5.1 secure per-license Demo bindings and one transferable installation seat.
 --
 -- The existing registered Real-account workflow remains authoritative and is
 -- intentionally not modified here. Runtime validation requires the existing

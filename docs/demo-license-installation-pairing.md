@@ -1,4 +1,4 @@
-# Orion V5.3 Demo and installation pairing
+# Orion V5.1 secure Demo and installation pairing
 
 ## Product rules
 
@@ -14,7 +14,7 @@
 
 ## Pairing flow
 
-1. The client downloads and attaches Orion V5.3 to MetaTrader.
+1. The client downloads and attaches the secure Orion V5.1 build to MetaTrader.
 2. The EA creates an opaque `ORN-INST-...` identifier inside that terminal's private Files sandbox and shows it in the Experts log.
 3. The client signs in with MFA, selects the license in the License Pairing Center, and submits that Installation ID.
 4. The server normalizes and hashes the ID. PostgreSQL stores only its SHA-256 hash and a short display hint.
@@ -54,14 +54,14 @@ Transport failures use the EA's bounded grace period only after a successful val
 
 ## Deployment order
 
-1. Compile and upload the V5.3 `.ex5` to the private Release Center as a Draft. Do not promote it until the cutover window.
+1. Compile and upload the secure V5.1 `.ex5` to the private Release Center as a Draft. Do not promote it until the cutover window.
 2. Announce a short licensing maintenance window. The final API intentionally rejects the older four-field request, and V5.2 cannot be secured because its Demo path is local and keyless.
 3. Apply `supabase/migrations/20260801_demo_license_installation_seats.sql` in Supabase.
 4. Deploy the Next.js application and verify `/api/license/validate` is available without exposing a Vercel login page.
-5. Immediately publish/promote V5.3, retire V5.2, and ask clients to download V5.3.
-6. Each client registers Demo details where needed and pairs the Installation ID shown by V5.3. Real users must pair an installation too.
+5. Immediately publish/promote the secure V5.1 build, retire the older four-field and keyless-Demo builds, and ask clients to download the new V5.1 package.
+6. Each client registers Demo details where needed and pairs the Installation ID shown by the secure V5.1 build. Real users must pair an installation too.
 
-Do not deploy the strict six-field validator until the compiled V5.3 release is ready. Deploying it earlier immediately blocks V5.1/V5.2 validation and creates avoidable downtime.
+Do not deploy the strict six-field validator until the compiled secure V5.1 release is ready. Deploying it earlier immediately blocks older four-field and keyless-Demo builds and creates avoidable downtime.
 
 Applying source code does not apply the Supabase migration, and applying the migration does not deploy Vercel. Verify both separately.
 
