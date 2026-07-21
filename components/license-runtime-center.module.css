@@ -546,9 +546,14 @@
 
 .primaryButton {
   color: #080a0b;
-  border: 1px solid var(--portal-secondary);
-  background: linear-gradient(135deg, var(--portal-secondary-deep), var(--portal-secondary));
-  box-shadow: 0 8px 24px rgba(var(--portal-secondary-rgb), 0.09);
+  border: 1px solid var(--portal-secondary-bright, #7ce8ff);
+  background-color: var(--portal-secondary, #42d9ff);
+  background-image: linear-gradient(
+    135deg,
+    var(--portal-secondary, #42d9ff),
+    var(--portal-secondary-bright, #7ce8ff)
+  );
+  box-shadow: 0 8px 24px rgba(var(--portal-secondary-rgb), 0.16);
 }
 
 .secondaryButton {
@@ -561,12 +566,13 @@
 .secondaryButton:disabled,
 .dialogClose:disabled,
 .closeEdit:disabled {
-  color: #747a82;
-  border-color: rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.035);
+  color: #9aa1ab;
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.045);
+  background-image: none;
   box-shadow: none;
   cursor: not-allowed;
-  opacity: 0.72;
+  opacity: 1;
 }
 
 .editForm {

@@ -7,15 +7,26 @@ import { loadTradingAccountSnapshot, publicTradingAccountError } from '@/lib/tra
 
 export const dynamic = 'force-dynamic';
 
-const accountSchema = z.object({
+const accountFields = {
   requestId: z.string().uuid(),
   accountNumber: z.string().trim().regex(/^[0-9]{4,24}$/, 'Enter a 4 to 24 digit real account number'),
   broker: z.string().trim().min(2).max(120),
   brokerServer: z.string().trim().min(2).max(160),
   platform: z.enum(['MT4', 'MT5']),
   currency: z.string().trim().regex(/^[A-Za-z]{3}$/).transform((value) => value.toUpperCase()).optional().or(z.literal('')),
+};
+
+const accountIntentSchema = z.object({
+  ...accountFields,
+  intent: z.enum(['Register', 'Replace']),
+}).strict();
+
+const accountLegacySchema = z.object({
+  ...accountFields,
   confirmation: z.enum(['REGISTER ACCOUNT', 'CHANGE ACCOUNT']),
 }).strict();
+
+const accountSchema = z.union([accountIntentSchema, accountLegacySchema]);
 
 export async function GET() {
   const session = await getPortalSession();
@@ -50,9 +61,12 @@ export async function POST(request: Request) {
     const known = error as { message?: string; status?: number };
     return jsonError(known.message || 'Trading accounts are temporarily unavailable.', known.status || 500);
   }
-  const expectedConfirmation = before.currentAccount ? 'CHANGE ACCOUNT' : 'REGISTER ACCOUNT';
-  if (parsed.data.confirmation !== expectedConfirmation) {
-    return jsonError(`Type ${expectedConfirmation} to confirm this permanent license-binding change.`);
+  const expectedIntent = before.currentAccount ? 'Replace' : 'Register';
+  if (accountIntent(parsed.data) !== expectedIntent) {
+    return privateJson({
+      error: 'The real account status changed. Review the current account details and try again.',
+      code: 'ACCOUNT_STATE_CHANGED',
+    }, 409);
   }
 
   const { data, error } = await db.rpc('change_registered_real_account_client', {
@@ -108,4 +122,9 @@ async function safeBody(request: Request) {
 
 function privateJson(payload: unknown, status = 200) {
   return Response.json(payload, { status, headers: { 'Cache-Control': 'private, no-store' } });
+}
+
+function accountIntent(input: z.infer<typeof accountSchema>): 'Register' | 'Replace' {
+  if ('intent' in input) return input.intent;
+  return input.confirmation === 'CHANGE ACCOUNT' ? 'Replace' : 'Register';
 }

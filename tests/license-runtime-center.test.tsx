@@ -37,6 +37,7 @@ describe('license identity and device center', () => {
     expect(screen.getByText(/license plan still controls which features are enabled/i)).toBeTruthy();
     expect(screen.getByText('One active device per license')).toBeTruthy();
     expect(screen.getByText('Advanced Recovery')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Register Demo account' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByText(/type register demo|type change demo|type activate device/i)).toBeNull();
   });
 
