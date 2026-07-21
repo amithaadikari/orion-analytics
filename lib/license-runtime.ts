@@ -18,6 +18,19 @@ export type LicenseInstallationView = {
   lastSeenAt: string | null;
 };
 
+export type PendingInstallationRequestView = {
+  id: string;
+  hint: string;
+  label: string;
+  maskedAccountNumber: string;
+  brokerServer: string;
+  accountType: 'Demo' | 'Real';
+  platform: TradingPlatform;
+  matchCode: string;
+  requestedAt: string;
+  expiresAt: string;
+};
+
 export type LicenseRuntimeItem = {
   id: string;
   maskedLicenseKey: string;
@@ -29,6 +42,7 @@ export type LicenseRuntimeItem = {
   eligible: boolean;
   demoAccount: LicenseDemoAccountView | null;
   installation: LicenseInstallationView | null;
+  pendingInstallationRequest: PendingInstallationRequestView | null;
   canChangeDemo: boolean;
   nextDemoChangeAt: string | null;
   demoCooldownReason: 'standard' | 'pro-security' | 'inactive' | 'license-inactive' | null;

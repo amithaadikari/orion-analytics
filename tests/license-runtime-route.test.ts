@@ -92,6 +92,35 @@ describe('client license runtime API', () => {
     expect(response.status).toBe(400);
     expect(rpc).not.toHaveBeenCalled();
   });
+
+  it('approves a pending installation through the authenticated atomic RPC', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { changed: true, status: 'Approved', changeKind: 'Registration' }, error: null });
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    mocks.loadSnapshot.mockResolvedValue(snapshot({ installation: true }));
+    const response = await POST(request({ action: 'resolveInstallationRequest', pairingRequestId: requestId, decision: 'Approve' }));
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('resolve_license_installation_approval_client', {
+      p_auth_user_id: 'auth-user-1', p_request_id: requestId, p_decision: 'Approve',
+    });
+    expect(mocks.loadSnapshot).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects browser-supplied authority fields from an installation decision', async () => {
+    const rpc = vi.fn();
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    const response = await POST(request({ action: 'resolveInstallationRequest', pairingRequestId: requestId, decision: 'Reject', licenseId, clientId }));
+    expect(response.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('does not report an expired approval request as a successful activation', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { changed: true, status: 'Expired', code: 'PAIRING_EXPIRED' }, error: null });
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    const response = await POST(request({ action: 'resolveInstallationRequest', pairingRequestId: requestId, decision: 'Approve' }));
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'PAIRING_EXPIRED' });
+    expect(mocks.loadSnapshot).not.toHaveBeenCalled();
+  });
 });
 
 function request(body: Record<string, unknown>) {
@@ -110,6 +139,7 @@ function snapshot(options: { demo?: boolean; installation?: boolean } = {}) {
       id: licenseId, maskedLicenseKey: 'ORN-••••-••••-••••-PQRT', plan: 'Basic', platform: 'MT5', status: 'Active', expiresAt: null, bindingVersion: 1, eligible: true,
       demoAccount: options.demo ? { id: 'demo-1', maskedAccountNumber: '••••4321', brokerServer: 'Broker-Demo', platform: 'MT5', registeredAt: '2026-08-01T00:00:00Z' } : null,
       installation: options.installation ? { id: 'install-1', hint: '••••-WXYZ', label: 'Home laptop', activatedAt: '2026-08-01T00:00:00Z', lastSeenAt: null } : null,
+      pendingInstallationRequest: null,
       canChangeDemo: true, nextDemoChangeAt: null, demoCooldownReason: null,
       canReplaceInstallation: true, nextInstallationChangeAt: null, installationCooldownReason: null,
     }],

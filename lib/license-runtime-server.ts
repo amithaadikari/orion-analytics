@@ -21,7 +21,7 @@ export function hashInstallationId(value: string) {
 
 export async function loadLicenseRuntimeSnapshot(db: DatabaseClient, clientId: string): Promise<LicenseRuntimeSnapshot> {
   const now = new Date();
-  const [clientResult, licensesResult, demosResult, demoChangesResult, installationsResult, installationChangesResult] = await Promise.all([
+  const [clientResult, licensesResult, demosResult, demoChangesResult, installationsResult, installationChangesResult, installationRequestsResult] = await Promise.all([
     db.from('clients')
       .select('id,status,membership_tier,membership_status,membership_started_at,membership_expires_at')
       .eq('id', clientId)
@@ -51,15 +51,25 @@ export async function loadLicenseRuntimeSnapshot(db: DatabaseClient, clientId: s
       .eq('client_id', clientId)
       .order('created_at', { ascending: false })
       .limit(1000),
+    db.from('license_installation_requests')
+      .select('id,license_id,installation_hint,device_label,account_number,broker_server,account_type,platform,match_code,requested_at,expires_at')
+      .eq('client_id', clientId)
+      .eq('status', 'Pending')
+      .gt('expires_at', now.toISOString())
+      .order('requested_at', { ascending: false })
+      .limit(500),
   ]);
 
-  const error = clientResult.error || licensesResult.error || demosResult.error || demoChangesResult.error || installationsResult.error || installationChangesResult.error;
+  const error = clientResult.error || licensesResult.error || demosResult.error || demoChangesResult.error || installationsResult.error || installationChangesResult.error || installationRequestsResult.error;
   if (error) throw licenseRuntimeDatabaseError(error);
   if (!clientResult.data) throw Object.assign(new Error('Client not found'), { status: 404, code: 'CLIENT_NOT_FOUND' });
 
   const membership = effectiveMembership(clientResult.data, now);
   const demos = new Map((demosResult.data || []).map((row) => [row.license_id, row]));
   const installations = new Map((installationsResult.data || []).map((row) => [row.license_id, row]));
+  const installationRequests = new Map((installationRequestsResult.data || [])
+    .filter((row) => typeof row.match_code === 'string' && /^[0-9]{6}$/.test(row.match_code))
+    .map((row) => [row.license_id, row]));
   const demoChanges = demoChangesResult.data || [];
   const installationChanges = installationChangesResult.data || [];
   const clientActive = clientResult.data.status === 'Active';
@@ -68,6 +78,7 @@ export async function loadLicenseRuntimeSnapshot(db: DatabaseClient, clientId: s
     const eligible = isEligibleLicense(row, now) && clientActive;
     const demo = demos.get(row.id);
     const installation = installations.get(row.id);
+    const installationRequest = installationRequests.get(row.id);
     const demoEligibility = runtimeDemoEligibility({
       eligible,
       clientActive,
@@ -105,6 +116,18 @@ export async function loadLicenseRuntimeSnapshot(db: DatabaseClient, clientId: s
         label: String(installation.device_label || 'MT5 installation'),
         activatedAt: String(installation.activated_at || ''),
         lastSeenAt: typeof installation.last_seen_at === 'string' ? installation.last_seen_at : null,
+      } : null,
+      pendingInstallationRequest: installationRequest ? {
+        id: String(installationRequest.id || ''),
+        hint: String(installationRequest.installation_hint || 'Pending'),
+        label: String(installationRequest.device_label || 'MT5 terminal'),
+        maskedAccountNumber: maskTradingAccount(installationRequest.account_number),
+        brokerServer: String(installationRequest.broker_server || ''),
+        accountType: installationRequest.account_type === 'Real' ? 'Real' : 'Demo',
+        platform: normalizePlatform(installationRequest.platform),
+        matchCode: String(installationRequest.match_code),
+        requestedAt: String(installationRequest.requested_at || ''),
+        expiresAt: String(installationRequest.expires_at || ''),
       } : null,
       ...demoEligibility,
       ...installationEligibility,
@@ -195,7 +218,18 @@ function licenseRuntimeDatabaseError(error: DatabaseError) {
 export function isMissingLicenseRuntimeSchema(error: DatabaseError) {
   const message = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
   return ['42p01', '42703', '42883', 'pgrst202', 'pgrst204', 'pgrst205'].includes(String(error?.code || '').toLowerCase())
-    || ['license_demo_accounts', 'license_demo_account_changes', 'license_installations', 'license_installation_changes', 'validate_orion_license_runtime'].some((name) => message.includes(name) && (message.includes('does not exist') || message.includes('could not find')));
+    || [
+      'license_demo_accounts',
+      'license_demo_account_changes',
+      'license_installations',
+      'license_installation_changes',
+      'license_installation_requests',
+      'cleanup_license_installation_approval_state',
+      'validate_orion_license_runtime',
+      'request_license_installation_approval',
+      'poll_license_installation_approval',
+      'resolve_license_installation_approval_client',
+    ].some((name) => message.includes(name) && (message.includes('does not exist') || message.includes('could not find')));
 }
 
 export function publicLicenseRuntimeError(error: DatabaseError) {
@@ -217,6 +251,9 @@ export function publicLicenseRuntimeError(error: DatabaseError) {
     LICENSE_NOT_ACTIVE: { status: 409, message: 'The selected license is not active.' },
     DEMO_ACCOUNT_ALREADY_REGISTERED: { status: 409, message: 'This Demo identity is already registered to another Orion client.' },
     REQUEST_ID_CONFLICT: { status: 409, message: 'This request identifier was already used.' },
+    PAIRING_REQUEST_NOT_FOUND: { status: 404, message: 'This installation approval request was not found.' },
+    PAIRING_REQUEST_ALREADY_RESOLVED: { status: 409, message: 'This installation approval request was already resolved.' },
+    INVALID_PAIRING_DECISION: { status: 400, message: 'Choose approve or reject for this installation request.' },
     ADMIN_ACCESS_REQUIRED: { status: 403, message: 'Administrator access is required.' },
     ADMIN_OVERRIDE_REASON_REQUIRED: { status: 400, message: 'Enter an emergency-reset reason of at least 10 characters.' },
   };
