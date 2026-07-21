@@ -92,6 +92,7 @@ export function isMissingTradingTelemetrySchema(error: DatabaseError) {
       'ingest_orion_trading_telemetry',
       'read_orion_trading_equity',
       'read_orion_trading_performance',
+      'read_orion_trade_execution_activity',
       'cleanup_orion_trading_telemetry',
     ].some((name) => message.includes(name));
   }

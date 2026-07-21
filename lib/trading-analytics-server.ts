@@ -6,6 +6,7 @@ import {
   normalizeTradingAnalyticsRange,
   tradingAnalyticsEntitlement,
   type ClosedTrade,
+  type TradingExecutionActivity,
   type TradingAnalyticsPlan,
   type TradingAnalyticsRange,
   type TradingAnalyticsSnapshot,
@@ -186,7 +187,7 @@ export async function loadClientTradingAnalytics(
   if (query.cursor && (!entitlement.historyPagination || !cursor)) {
     throw Object.assign(new Error('Invalid history cursor'), { code: 'INVALID_CURSOR', status: 400 });
   }
-  const [equityResult, positionRowsResult, performanceResult] = await Promise.all([
+  const [equityResult, positionRowsResult, performanceResult, executionActivityResult] = await Promise.all([
     db.rpc('read_orion_trading_equity', {
       p_client_id: clientId,
       p_account_scope_id: selectedScope.id,
@@ -207,12 +208,21 @@ export async function loadClientTradingAnalytics(
       p_cursor_position_id: cursor?.id || null,
       p_page_size: entitlement.historyPageSize,
     }),
+    db.rpc('read_orion_trade_execution_activity', {
+      p_client_id: clientId,
+      p_account_scope_id: selectedScope.id,
+      p_since: start?.toISOString() || null,
+      p_page_size: entitlement.historyPageSize,
+    }),
   ]);
-  const detailError = equityResult.error || positionRowsResult.error || performanceResult.error;
+  const detailError = equityResult.error || positionRowsResult.error || performanceResult.error || executionActivityResult.error;
   if (detailError) throw tradingAnalyticsDatabaseError(detailError);
   const equityPayload = parseEquityPayload(equityResult.data);
   const performance = parsePerformancePayload(performanceResult.data);
-  if (!equityPayload || !performance) throw Object.assign(new Error('Invalid analytics response'), { code: 'DATABASE_ERROR', status: 500 });
+  const executionActivity = parseExecutionActivityPayload(executionActivityResult.data);
+  if (!equityPayload || !performance || !executionActivity) {
+    throw Object.assign(new Error('Invalid analytics response'), { code: 'DATABASE_ERROR', status: 500 });
+  }
   const equity = equityPayload.points;
   const historyItems = performance.items;
   const hasMore = entitlement.historyPagination && performance.hasMore;
@@ -268,6 +278,7 @@ export async function loadClientTradingAnalytics(
       items: historyItems,
       nextCursor: hasMore && lastHistory ? encodeHistoryCursor(lastHistory) : null,
     },
+    activity: executionActivity,
   };
 }
 
@@ -287,6 +298,7 @@ function emptyTradingSnapshot({ now, plan, access, period, availability, connect
     metrics: { realizedNet: null, winRate: null, profitFactor: null, maxDrawdownMoney: null, maxDrawdownPercent: null, closedTrades: 0 },
     dataQuality: { nettingReversalsExcluded: false },
     summaries: null, equity: [], openPositions: [], history: { items: [], nextCursor: null },
+    activity: { items: [], hasMore: false, incompleteHistoryExcluded: false },
   };
 }
 
@@ -449,6 +461,65 @@ export function parsePerformancePayload(value: unknown): {
   };
 }
 
+export function parseExecutionActivityPayload(value: unknown): {
+  items: TradingExecutionActivity[];
+  hasMore: boolean;
+  incompleteHistoryExcluded: boolean;
+} | null {
+  const payload = recordValue(value);
+  if (!payload || !Array.isArray(payload.items) || payload.items.length > 100
+    || typeof payload.hasMore !== 'boolean' || typeof payload.incompleteHistoryExcluded !== 'boolean') {
+    return null;
+  }
+
+  const items: TradingExecutionActivity[] = [];
+  for (const rawItem of payload.items) {
+    const item = recordValue(rawItem);
+    if (!item || !numericIdentifier(item.id) || !numericIdentifier(item.positionId)
+      || (item.ticket !== null && item.ticket !== undefined && !numericIdentifier(item.ticket))
+      || typeof item.symbol !== 'string' || !item.symbol.trim()
+      || (item.side !== 'Buy' && item.side !== 'Sell')
+      || (item.status !== 'Partial' && item.status !== 'Closed')) return null;
+
+    const volume = strictNumeric(item.volume);
+    const executedAt = validTimestamp(item.executedAt);
+    const exitPrice = strictNumeric(item.exitPrice);
+    const profit = strictNumeric(item.profit);
+    const swap = strictNumeric(item.swap);
+    const commission = strictNumeric(item.commission);
+    const netProfit = strictNumeric(item.netProfit);
+    const remainingVolume = strictNumeric(item.remainingVolume);
+    if (volume === null || volume < 0 || !executedAt || exitPrice === null || exitPrice < 0
+      || profit === null || swap === null || commission === null || netProfit === null
+      || remainingVolume === null || remainingVolume < 0
+      || (item.status === 'Partial' && remainingVolume <= 0)
+      || (item.status === 'Closed' && remainingVolume !== 0)) return null;
+
+    items.push({
+      id: item.id,
+      positionId: item.positionId,
+      ticket: item.ticket == null ? null : item.ticket,
+      symbol: item.symbol,
+      side: item.side,
+      volume,
+      executedAt,
+      exitPrice,
+      profit,
+      swap,
+      commission,
+      netProfit,
+      remainingVolume,
+      status: item.status,
+    });
+  }
+
+  return {
+    items,
+    hasMore: payload.hasMore,
+    incompleteHistoryExcluded: payload.incompleteHistoryExcluded,
+  };
+}
+
 function encodeHistoryCursor(trade: ClosedTrade) {
   return Buffer.from(JSON.stringify([trade.closedAt, trade.id]), 'utf8').toString('base64url');
 }
@@ -519,6 +590,10 @@ function zeroAsNull(value: unknown) {
 
 function recordValue(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function numericIdentifier(value: unknown): value is string {
+  return typeof value === 'string' && /^(?:0|[1-9][0-9]{0,19})$/.test(value);
 }
 
 function validTimestamp(value: unknown) {

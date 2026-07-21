@@ -97,6 +97,23 @@ export type ClosedTrade = {
   netProfit: number;
 };
 
+export type TradingExecutionActivity = {
+  id: string;
+  positionId: string;
+  ticket?: string | null;
+  symbol: string;
+  side: TradingDirection;
+  volume: number;
+  executedAt: string;
+  exitPrice: number;
+  profit: number;
+  swap: number;
+  commission: number;
+  netProfit: number;
+  remainingVolume: number;
+  status: 'Partial' | 'Closed';
+};
+
 export type TradingAnalyticsSnapshot = {
   generatedAt: string;
   dataAsOf: string | null;
@@ -125,6 +142,11 @@ export type TradingAnalyticsSnapshot = {
   history: {
     items: ClosedTrade[];
     nextCursor: string | null;
+  };
+  activity: {
+    items: TradingExecutionActivity[];
+    hasMore: boolean;
+    incompleteHistoryExcluded: boolean;
   };
 };
 

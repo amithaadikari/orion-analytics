@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import ClientTradingDashboard from '@/components/client-trading-dashboard';
 import type { TradingAnalyticsSnapshot } from '@/lib/trading-analytics';
@@ -42,6 +42,7 @@ const baseSnapshot: TradingAnalyticsSnapshot = {
   summaries: null,
   equity: [],
   openPositions: [],
+  activity: { items: [], hasMore: false, incompleteHistoryExcluded: false },
   history: { items: [], nextCursor: null },
 };
 
@@ -103,6 +104,7 @@ describe('client trading dashboard states', () => {
     expect(await screen.findAllByText('EA offline')).not.toHaveLength(0);
     expect(screen.getByText(/may have changed in MetaTrader/i)).toBeTruthy();
     expect(screen.getByText('No open positions reported')).toBeTruthy();
+    expect(screen.getByText('No exit executions in this period')).toBeTruthy();
     expect(screen.getByText('No closed trades in this period')).toBeTruthy();
     expect(screen.getAllByRole('link', { name: 'Review Premium' })).toHaveLength(2);
     expect(screen.queryByText('0.0%')).toBeNull();
@@ -117,6 +119,84 @@ describe('client trading dashboard states', () => {
 
     expect(await screen.findByText('Netting reversals excluded')).toBeTruthy();
     expect(screen.getByText(/Live account values and open positions remain available/i)).toBeTruthy();
+  });
+
+  it('shows a partial exit immediately and keeps it separate from completed-trade metrics', async () => {
+    vi.stubGlobal('fetch', respond({
+      ...baseSnapshot,
+      openPositions: [{
+        id: '7001', ticket: '7001', symbol: 'XAUUSD', side: 'Buy', volume: 0.04,
+        openedAt: '2026-07-21T13:00:00Z', entryPrice: 2400, currentPrice: 2403,
+        stopLoss: 2390, takeProfit: 2420, floatingNet: 12,
+      }],
+      activity: {
+        hasMore: true,
+        incompleteHistoryExcluded: true,
+        items: [
+          {
+            id: '9002', positionId: '7001', ticket: '8002', symbol: 'XAUUSD', side: 'Buy',
+            volume: 0.04, executedAt: '2026-07-21T14:03:00Z', exitPrice: 2403,
+            profit: 3.2, swap: 0, commission: -0.2, netProfit: 3,
+            remainingVolume: 0, status: 'Closed',
+          },
+          {
+            id: '9001', positionId: '7001', ticket: '8001', symbol: 'XAUUSD', side: 'Buy',
+            volume: 0.06, executedAt: '2026-07-21T14:02:00Z', exitPrice: 2402.5,
+            profit: 4.5, swap: 0, commission: -0.35, netProfit: 4.15,
+            remainingVolume: 0.04, status: 'Partial',
+          },
+        ],
+      },
+    }));
+
+    render(<ClientTradingDashboard />);
+    const execution = await screen.findByRole('article', { name: 'Partial close XAUUSD execution' });
+    expect(within(execution).getByText('Partial close')).toBeTruthy();
+    expect(within(execution).getByText('0.06')).toBeTruthy();
+    expect(within(execution).getByText('2,402.50')).toBeTruthy();
+    expect(within(execution).getByText('After execution')).toBeTruthy();
+    expect(within(execution).getByText('0.04 remained')).toBeTruthy();
+    expect(within(execution).queryByText('0.04 open')).toBeNull();
+    const partialResults = within(execution).getAllByText('+$4.15');
+    expect(partialResults).toHaveLength(2);
+    expect(partialResults.filter((result) => result.getAttribute('aria-hidden') === 'true')).toHaveLength(1);
+    expect(within(execution).getByText('Exit result').nextElementSibling?.getAttribute('aria-hidden')).toBeNull();
+    expect(execution.querySelector('time')?.getAttribute('datetime')).toBe('2026-07-21T14:02:00Z');
+    expect(within(execution).getByText('Exit result')).toBeTruthy();
+    const finalExecution = screen.getByRole('article', { name: 'Final close XAUUSD execution' });
+    expect(within(finalExecution).getByText('After execution')).toBeTruthy();
+    expect(within(finalExecution).getByText('Position closed by this execution')).toBeTruthy();
+    expect(screen.getByText('Some older exits are hidden')).toBeTruthy();
+    expect(screen.getByText(/opening deal is unavailable.*excludes them instead of inventing position details/i)).toBeTruthy();
+    expect(screen.getByText(/Each row is one exit reported by the EA.*charges reported on that exit.*completed-trade metrics remain based on fully closed positions/i)).toBeTruthy();
+    expect(screen.getByText('Showing the most recent executions for this period.')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Closed trade history' })).toBeTruthy();
+  });
+
+  it('labels a final exit as position closed without implying history pagination', async () => {
+    vi.stubGlobal('fetch', respond({
+      ...baseSnapshot,
+      activity: {
+        hasMore: false,
+        incompleteHistoryExcluded: false,
+        items: [{
+          id: '9002', positionId: '7002', ticket: null, symbol: 'XAUUSD', side: 'Sell',
+          volume: 0.08, executedAt: '2026-07-21T14:03:00Z', exitPrice: 2398.25,
+          profit: 7, swap: -0.1, commission: -0.4, netProfit: 6.5,
+          remainingVolume: 0, status: 'Closed',
+        }],
+      },
+    }));
+
+    render(<ClientTradingDashboard />);
+    const execution = await screen.findByRole('article', { name: 'Final close XAUUSD execution' });
+    expect(within(execution).getByText('Final close')).toBeTruthy();
+    expect(within(execution).getByText('0.08')).toBeTruthy();
+    expect(within(execution).getByText('After execution')).toBeTruthy();
+    expect(within(execution).getByText('Position closed by this execution')).toBeTruthy();
+    expect(within(execution).getByText('Execution #9002 · Position #7002')).toBeTruthy();
+    expect(screen.queryByText('Showing the most recent executions for this period.')).toBeNull();
+    expect(screen.queryByRole('button', { name: /older executions/i })).toBeNull();
   });
 
   it('shows a retryable error without inventing account or trade state', async () => {
