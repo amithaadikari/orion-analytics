@@ -8,21 +8,39 @@ import { createSupabaseAdminClient } from '@/lib/supabase/server';
 
 export const dynamic = 'force-dynamic';
 
-const demoSchema = z.object({
+const demoFields = {
   action: z.literal('setDemoAccount'),
   requestId: z.string().uuid(),
   licenseId: z.string().uuid(),
   accountNumber: z.string().trim().regex(/^[0-9]{4,24}$/, 'Enter a 4 to 24 digit Demo account number'),
   brokerServer: z.string().trim().min(2).max(160),
+};
+
+const demoIntentSchema = z.object({
+  ...demoFields,
+  intent: z.enum(['Register', 'Replace']),
+}).strict();
+
+const demoLegacySchema = z.object({
+  ...demoFields,
   confirmation: z.enum(['REGISTER DEMO', 'CHANGE DEMO']),
 }).strict();
 
-const installationSchema = z.object({
+const installationFields = {
   action: z.literal('setInstallation'),
   requestId: z.string().uuid(),
   licenseId: z.string().uuid(),
   installationId: z.string().transform(normalizeInstallationId).pipe(z.string().regex(installationIdPattern, 'Enter the complete Installation ID shown by the EA')),
   deviceLabel: z.string().trim().min(2).max(60),
+};
+
+const installationIntentSchema = z.object({
+  ...installationFields,
+  intent: z.enum(['Activate', 'Replace']),
+}).strict();
+
+const installationLegacySchema = z.object({
+  ...installationFields,
   confirmation: z.enum(['ACTIVATE DEVICE', 'REPLACE DEVICE']),
 }).strict();
 
@@ -32,7 +50,16 @@ const resolveInstallationRequestSchema = z.object({
   decision: z.enum(['Approve', 'Reject']),
 }).strict();
 
-const mutationSchema = z.discriminatedUnion('action', [demoSchema, installationSchema, resolveInstallationRequestSchema]);
+const mutationSchema = z.union([
+  demoIntentSchema,
+  demoLegacySchema,
+  installationIntentSchema,
+  installationLegacySchema,
+  resolveInstallationRequestSchema,
+]);
+
+type DemoMutation = z.infer<typeof demoIntentSchema> | z.infer<typeof demoLegacySchema>;
+type InstallationMutation = z.infer<typeof installationIntentSchema> | z.infer<typeof installationLegacySchema>;
 
 export async function GET() {
   const session = await getPortalSession();
@@ -114,8 +141,10 @@ export async function POST(request: Request) {
   let rpcName: 'set_license_demo_account_client' | 'activate_license_installation_client';
   let rpcPayload: Record<string, string>;
   if (input.action === 'setDemoAccount') {
-    const confirmation = license.demoAccount ? 'CHANGE DEMO' : 'REGISTER DEMO';
-    if (input.confirmation !== confirmation) return jsonError(`Type ${confirmation} to confirm this Demo-account binding change.`);
+    const expectedIntent = license.demoAccount ? 'Replace' : 'Register';
+    if (demoIntent(input) !== expectedIntent) {
+      return pairingStateChanged('The Demo account status changed. Review the current details and try again.');
+    }
     rpcName = 'set_license_demo_account_client';
     rpcPayload = {
       p_auth_user_id: session.user!.id,
@@ -125,8 +154,10 @@ export async function POST(request: Request) {
       p_broker_server: input.brokerServer,
     };
   } else {
-    const confirmation = license.installation ? 'REPLACE DEVICE' : 'ACTIVATE DEVICE';
-    if (input.confirmation !== confirmation) return jsonError(`Type ${confirmation} to confirm this installation-seat change.`);
+    const expectedIntent = license.installation ? 'Replace' : 'Activate';
+    if (installationIntent(input) !== expectedIntent) {
+      return pairingStateChanged('The installation status changed. Review the current device details and try again.');
+    }
     rpcName = 'activate_license_installation_client';
     rpcPayload = {
       p_auth_user_id: session.user!.id,
@@ -177,4 +208,18 @@ async function safeBody(request: Request) {
 
 function privateJson(payload: unknown, status = 200) {
   return Response.json(payload, { status, headers: { 'Cache-Control': 'private, no-store' } });
+}
+
+function demoIntent(input: DemoMutation): 'Register' | 'Replace' {
+  if ('intent' in input) return input.intent;
+  return input.confirmation === 'CHANGE DEMO' ? 'Replace' : 'Register';
+}
+
+function installationIntent(input: InstallationMutation): 'Activate' | 'Replace' {
+  if ('intent' in input) return input.intent;
+  return input.confirmation === 'REPLACE DEVICE' ? 'Replace' : 'Activate';
+}
+
+function pairingStateChanged(message: string) {
+  return privateJson({ error: message, code: 'PAIRING_STATE_CHANGED' }, 409);
 }
