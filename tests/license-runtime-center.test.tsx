@@ -46,13 +46,13 @@ describe('license identity and device center', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(snapshot())));
     render(<LicenseRuntimeCenter />);
     await screen.findByText('Basic features');
-    expect(interval).toHaveBeenLastCalledWith(expect.any(Function), 60_000);
+    await waitFor(() => expect(interval).toHaveBeenCalledWith(expect.any(Function), 60_000));
 
     cleanup();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(snapshot({ pending: true }))));
     render(<LicenseRuntimeCenter />);
     await screen.findByLabelText('Approval code 4 8 2 7 3 1');
-    expect(interval).toHaveBeenLastCalledWith(expect.any(Function), 15_000);
+    await waitFor(() => expect(interval).toHaveBeenCalledWith(expect.any(Function), 15_000));
   });
 
   it('reveals exact-server guidance and opens a review dialog without mutating', async () => {
@@ -250,6 +250,7 @@ describe('license identity and device center', () => {
 
     const select = await screen.findByLabelText('License to manage') as HTMLSelectElement;
     expect(select.value).toBe(licenseId);
+    await waitFor(() => expect(interval).toHaveBeenCalledWith(expect.any(Function), 60_000));
     const poll = interval.mock.calls.find(([, delay]) => delay === 60_000)?.[0] as (() => void) | undefined;
     expect(poll).toBeTruthy();
     poll?.();

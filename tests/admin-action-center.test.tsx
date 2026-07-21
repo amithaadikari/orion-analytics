@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import AdminActionCenter from '@/components/admin-action-center';
 
@@ -23,7 +23,7 @@ describe('administrator action center', () => {
     expect(await screen.findByText('Support conversations need attention')).toBeTruthy();
     expect(screen.queryByText('All review queues are clear')).toBeNull();
     expect(screen.getByLabelText('5 support conversations')).toBeTruthy();
-    expect(onAlertCountsChange).toHaveBeenCalledWith(alerts);
+    await waitFor(() => expect(onAlertCountsChange).toHaveBeenCalledWith(alerts));
     fireEvent.click(screen.getByRole('button', { name: /Open support desk/i }));
     expect(onNavigate).toHaveBeenCalledWith('support', 'Open');
   });
