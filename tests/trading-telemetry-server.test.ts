@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { tradingTelemetrySchema } from '@/lib/trading-telemetry';
-import { hashTradingTelemetryPayload, parseTradingTelemetryResult } from '@/lib/trading-telemetry-server';
+import {
+  hashTradingTelemetryPayload,
+  isMissingTradingTelemetrySchema,
+  parseTradingTelemetryResult,
+} from '@/lib/trading-telemetry-server';
 
 describe('trading telemetry server helpers', () => {
   it('hashes canonical payload content independently of object key order', () => {
@@ -27,6 +31,13 @@ describe('trading telemetry server helpers', () => {
       sendAfterSeconds: 60,
     });
     expect(parseTradingTelemetryResult({ accepted: false, code: 'SQL_ERROR', serverTime: '2026-08-04T00:00:00Z', ackDealTimeMsc: '0', ackDealTicket: '0', sendAfterSeconds: 60 })).toBeNull();
+  });
+
+  it('treats the additive execution-activity RPC as a pending telemetry migration', () => {
+    expect(isMissingTradingTelemetrySchema({
+      code: 'PGRST202',
+      message: 'Could not find the function public.read_orion_trade_execution_activity in the schema cache',
+    })).toBe(true);
   });
 });
 

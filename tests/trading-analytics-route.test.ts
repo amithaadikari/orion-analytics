@@ -26,7 +26,10 @@ describe('client trading analytics API', () => {
       user: { id: 'auth-user-1' }, client: { id: clientId }, admin: null, mfaRequired: false, supabase: {},
     });
     mocks.createSupabaseAdminClient.mockReturnValue({ service: true });
-    mocks.loadClientTradingAnalytics.mockResolvedValue({ availability: 'waiting_first_sync' });
+    mocks.loadClientTradingAnalytics.mockResolvedValue({
+      availability: 'waiting_first_sync',
+      activity: { items: [], hasMore: false, incompleteHistoryExcluded: false },
+    });
     mocks.publicTradingAnalyticsError.mockReturnValue({ status: 503, message: 'Trading analytics are unavailable.' });
   });
 
@@ -37,6 +40,10 @@ describe('client trading analytics API', () => {
     expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(mocks.loadClientTradingAnalytics).toHaveBeenCalledWith({ service: true }, clientId, {
       connectionId, range: '90d',
+    });
+    await expect(response.json()).resolves.toMatchObject({
+      availability: 'waiting_first_sync',
+      activity: { items: [], hasMore: false, incompleteHistoryExcluded: false },
     });
   });
 

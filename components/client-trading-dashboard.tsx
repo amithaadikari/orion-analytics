@@ -59,6 +59,10 @@ type LoadOptions = {
   signal?: AbortSignal;
 };
 
+type TradingExecutionActivityFeed = TradingAnalyticsSnapshot['activity'];
+
+const emptyExecutionActivity: TradingExecutionActivityFeed = { items: [], hasMore: false, incompleteHistoryExcluded: false };
+
 export default function ClientTradingDashboard() {
   const [snapshot, setSnapshot] = useState<TradingAnalyticsSnapshot | null>(null);
   const [connectionId, setConnectionId] = useState<string | null>(null);
@@ -229,6 +233,7 @@ function DashboardControls({ snapshot, range, refreshing, onConnectionChange, on
 function ReadyDashboard({ snapshot, loadingMore, loadMore }: { snapshot: TradingAnalyticsSnapshot; loadingMore: boolean; loadMore: () => void }) {
   const currency = snapshot.account?.currency || 'USD';
   const offline = snapshot.connection.state === 'offline' || snapshot.connection.state === 'delayed';
+  const activity = snapshot.activity || emptyExecutionActivity;
   return <div className={styles.dashboard}>
     {offline && <div className={styles.offlineNotice} role="status"><WifiOff size={19} aria-hidden="true" /><p><strong>{snapshot.connection.state === 'offline' ? 'EA offline' : 'EA update delayed'}</strong><span>Positions and account values shown are from {snapshot.dataAsOf ? formatDateTime(snapshot.dataAsOf, snapshot.period.timeZone) : 'the last recorded sync'} and may have changed in MetaTrader.</span></p></div>}
     {snapshot.dataQuality.nettingReversalsExcluded && <div className={styles.offlineNotice} role="status"><CircleAlert size={19} aria-hidden="true" /><p><strong>Netting reversals excluded</strong><span>MT5 InOut reversal cycles are not included in closed-trade totals because they cannot be split reliably from broker deal data. Live account values and open positions remain available.</span></p></div>}
@@ -266,6 +271,7 @@ function ReadyDashboard({ snapshot, loadingMore, loadMore }: { snapshot: Trading
     </section>}
 
     <OpenPositions positions={snapshot.openPositions} currency={currency} timeZone={snapshot.period.timeZone} stale={offline} />
+    <ExecutionActivity activity={activity} currency={currency} timeZone={snapshot.period.timeZone} />
     <TradeHistory trades={snapshot.history.items} currency={currency} timeZone={snapshot.period.timeZone} nextCursor={snapshot.history.nextCursor} canLoadMore={snapshot.access.historyPagination} loadingMore={loadingMore} loadMore={loadMore} />
   </div>;
 }
@@ -328,6 +334,52 @@ function OpenPositions({ positions, currency, timeZone, stale }: { positions: Tr
 
 function PositionRow({ position, currency, timeZone }: { position: TradingPosition; currency: string; timeZone: string }) {
   return <tr><td><strong>{position.symbol}</strong><small>{position.ticket ? `#${position.ticket}` : 'EA position'}</small></td><td><span className={styles.side} data-side={position.side.toLowerCase()}>{position.side}</span></td><td>{formatVolume(position.volume)}</td><td>{formatPrice(position.entryPrice)}</td><td>{formatPrice(position.currentPrice)}</td><td>{formatPrice(position.stopLoss)} / {formatPrice(position.takeProfit)}</td><td className={profitClass(position.floatingNet)}>{formatSignedMoney(position.floatingNet, currency)}</td><td><time dateTime={position.openedAt}>{formatDateTime(position.openedAt, timeZone)}</time></td></tr>;
+}
+
+function ExecutionActivity({ activity, currency, timeZone }: { activity: TradingExecutionActivityFeed; currency: string; timeZone: string }) {
+  return <section className={styles.executionPanel} aria-labelledby="execution-activity-title">
+    <header className={styles.panelHeading}>
+      <div>
+        <p className="eyebrow">Exit-by-exit record</p>
+        <h2 id="execution-activity-title">Execution activity</h2>
+        <span>Each row is one exit reported by the EA. Result includes P/L and charges reported on that exit; completed-trade metrics remain based on fully closed positions and include whole-position costs.</span>
+      </div>
+      <strong>{activity.items.length} recent</strong>
+    </header>
+    {activity.incompleteHistoryExcluded && <div className={styles.executionNotice} role="status">
+      <CircleAlert size={17} aria-hidden="true" />
+      <p><strong>Some older exits are hidden</strong><span>Their opening deal is unavailable, so Orion excludes them instead of inventing position details.</span></p>
+    </div>}
+    {activity.items.length ? <ul className={styles.executionList}>
+      {activity.items.map((item) => {
+        const statusLabel = item.status === 'Partial' ? 'Partial close' : 'Final close';
+        return <li key={item.id} className={styles.executionCard} data-status={item.status.toLowerCase()}>
+          <article aria-label={`${statusLabel} ${item.symbol} execution`}>
+            <header className={styles.executionIdentity}>
+              <div>
+                <span className={styles.executionBadge}>{statusLabel}</span>
+                <h3>{item.symbol} <span className={styles.side} data-side={item.side.toLowerCase()}>{item.side}</span></h3>
+                <small>{item.ticket ? `#${item.ticket}` : `Execution #${item.id}`} · Position #{item.positionId}</small>
+              </div>
+              <strong className={profitClass(item.netProfit)} aria-hidden="true">{formatSignedMoney(item.netProfit, currency)}</strong>
+            </header>
+            <dl className={styles.executionFacts}>
+              <div><dt>Closed volume</dt><dd>{formatVolume(item.volume)}</dd></div>
+              <div><dt>Exit price</dt><dd>{formatPrice(item.exitPrice)}</dd></div>
+              <div><dt>Exit result</dt><dd className={profitClass(item.netProfit)}>{formatSignedMoney(item.netProfit, currency)}</dd></div>
+              <div><dt>Executed</dt><dd><time dateTime={item.executedAt}>{formatDateTime(item.executedAt, timeZone)}</time></dd></div>
+              <div><dt>After execution</dt><dd>{item.status === 'Partial' ? `${formatVolume(item.remainingVolume)} remained` : 'Position closed by this execution'}</dd></div>
+            </dl>
+          </article>
+        </li>;
+      })}
+    </ul> : <InlineEmpty
+      icon={<Activity size={23} />}
+      title={activity.incompleteHistoryExcluded ? 'No verified exit executions shown' : 'No exit executions in this period'}
+      detail={activity.incompleteHistoryExcluded ? 'Exits without a verifiable opening deal remain hidden.' : 'Partial and final close executions will appear here after the EA reports them.'}
+    />}
+    {activity.hasMore && <p className={styles.executionDisclosure}>Showing the most recent executions for this period.</p>}
+  </section>;
 }
 
 function TradeHistory({ trades, currency, timeZone, nextCursor, canLoadMore, loadingMore, loadMore }: { trades: ClosedTrade[]; currency: string; timeZone: string; nextCursor: string | null; canLoadMore: boolean; loadingMore: boolean; loadMore: () => void }) {
