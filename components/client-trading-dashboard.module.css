@@ -436,7 +436,7 @@
 .chartPanel,
 .connectionPanel,
 .tablePanel,
-.executionPanel {
+.tradeHistoryWorkspace {
   min-width: 0;
   padding: clamp(19px, 2.4vw, 25px);
   border: 1px solid rgba(255, 255, 255, .075);
@@ -454,7 +454,8 @@
   gap: 18px;
 }
 
-.panelHeading h2 {
+.panelHeading h2,
+.panelHeading h3 {
   margin: 6px 0 5px;
   color: #f8fafa;
   font-size: clamp(18px, 2vw, 23px);
@@ -689,9 +690,8 @@
   padding-bottom: 16px;
 }
 
-.executionPanel {
+.tradeHistoryWorkspace {
   position: relative;
-  overflow: hidden;
   border-color: rgba(var(--portal-accent-rgb), .13);
   background:
     radial-gradient(circle at 7% -12%, rgba(var(--portal-accent-rgb), .1), transparent 24rem),
@@ -699,7 +699,7 @@
     linear-gradient(145deg, rgba(9, 12, 13, .98), rgba(2, 5, 6, .995));
 }
 
-.executionPanel::after {
+.tradeHistoryWorkspace::after {
   position: absolute;
   top: 0;
   right: 9%;
@@ -709,6 +709,139 @@
   pointer-events: none;
   background: linear-gradient(90deg, transparent, rgba(var(--portal-accent-rgb), .52), rgba(var(--portal-secondary-rgb), .42), transparent);
   box-shadow: 0 0 20px rgba(var(--portal-accent-rgb), .12);
+}
+
+.historyTabs {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  margin-top: 18px;
+  padding: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  border: 1px solid rgba(255, 255, 255, .065);
+  border-radius: 14px;
+  background: rgba(0, 0, 0, .36);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .02);
+}
+
+.historyTabs > button {
+  --history-tab-color: var(--portal-accent);
+  display: flex;
+  min-width: 0;
+  min-height: 62px;
+  padding: 10px 12px;
+  align-items: center;
+  gap: 10px;
+  color: #77858a;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.historyTabs > button:last-child {
+  --history-tab-color: var(--portal-secondary);
+}
+
+.historyTabs > button[aria-selected='true'] {
+  color: #f4f8f8;
+  border-color: color-mix(in srgb, var(--history-tab-color) 24%, transparent);
+  background:
+    radial-gradient(circle at 0 50%, color-mix(in srgb, var(--history-tab-color) 10%, transparent), transparent 15rem),
+    rgba(255, 255, 255, .032);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .035), 0 8px 24px rgba(0, 0, 0, .2);
+}
+
+.historyTabs > button:focus-visible {
+  z-index: 2;
+  outline: 2px solid color-mix(in srgb, var(--history-tab-color) 72%, white);
+  outline-offset: 2px;
+}
+
+.historyTabIcon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  place-items: center;
+  color: #677579;
+  border: 1px solid rgba(255, 255, 255, .065);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .018);
+  transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+}
+
+.historyTabs > button[aria-selected='true'] .historyTabIcon {
+  color: color-mix(in srgb, var(--history-tab-color) 82%, white);
+  border-color: color-mix(in srgb, var(--history-tab-color) 22%, transparent);
+  background: color-mix(in srgb, var(--history-tab-color) 7%, transparent);
+}
+
+.historyTabCopy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.historyTabCopy strong {
+  color: inherit;
+  font-size: 11px;
+  letter-spacing: -.01em;
+}
+
+.historyTabCopy small {
+  overflow: hidden;
+  color: #7f8c90;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.historyTabs > button[aria-selected='true'] .historyTabCopy small {
+  color: #869397;
+}
+
+.historyTabCount {
+  min-width: 28px;
+  margin-left: auto;
+  padding: 5px 7px;
+  flex: 0 0 auto;
+  color: #758287;
+  border: 1px solid rgba(255, 255, 255, .065);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, .25);
+  font: 700 8px var(--font-mono), ui-monospace, monospace;
+  text-align: center;
+}
+
+.historyTabs > button[aria-selected='true'] .historyTabCount {
+  color: color-mix(in srgb, var(--history-tab-color) 82%, white);
+  border-color: color-mix(in srgb, var(--history-tab-color) 19%, transparent);
+}
+
+.historyPanel {
+  min-width: 0;
+  margin-top: 15px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, .055);
+  outline: 0;
+}
+
+.historyPanel[hidden] {
+  display: none;
+}
+
+.historyPanel:focus-visible {
+  outline: 2px solid rgba(var(--portal-secondary-rgb), .55);
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+
+.historyView {
+  min-width: 0;
 }
 
 .executionNotice {
@@ -846,8 +979,14 @@
   background: rgba(0, 0, 0, .2);
 }
 
-.executionFacts > div:nth-child(4) {
+.executionFacts > div:nth-child(5) {
   grid-column: span 2;
+}
+
+.executionFacts > div:nth-child(5) dd {
+  line-height: 1.4;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .executionFacts dt {
@@ -1315,9 +1454,38 @@
   .chartPanel,
   .connectionPanel,
   .tablePanel,
-  .executionPanel {
+  .tradeHistoryWorkspace {
     padding: 17px 14px;
     border-radius: 14px;
+  }
+
+  .historyTabs > button {
+    min-height: 58px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .historyTabIcon {
+    width: 32px;
+    height: 32px;
+    flex-basis: 32px;
+  }
+
+  .historyTabCopy strong {
+    font-size: 10px;
+  }
+
+  .historyTabCopy small {
+    display: none;
+  }
+
+  .historyTabCount {
+    display: none;
+  }
+
+  .historyPanel {
+    margin-top: 12px;
+    padding-top: 15px;
   }
 
   .fullState {
@@ -1375,7 +1543,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .executionFacts > div:nth-child(4) {
+  .executionFacts > div:nth-child(5) {
     grid-column: 1 / -1;
   }
 
