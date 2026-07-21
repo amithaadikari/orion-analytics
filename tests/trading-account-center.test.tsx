@@ -16,21 +16,31 @@ describe('client trading-account center', () => {
   });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
-  it('shows the exact Standard cooldown and preserves the current masked identity', async () => {
+  it('shows the exact Lifetime Standard cooldown and preserves the current masked identity', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(snapshot({ canChange: false, nextChangeAt: '2026-07-28T12:00:00Z', cooldownReason: 'standard' }))));
     render(<TradingAccountCenter />);
     expect(await screen.findByText('••••5678')).toBeTruthy();
     expect(screen.getAllByText(/Standard membership unlocks on/i)).toHaveLength(2);
     expect((screen.getByRole('button', { name: 'Review account change' }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/successful self-service replacement starts a 7-day cooldown/i)).toBeTruthy();
+    expect(screen.getByText(/Lifetime includes replacement access/i)).toBeTruthy();
   });
 
-  it('explains active Pro access without presenting it as a seven-day rule', async () => {
+  it('explains active Pro timing only inside Lifetime replacement access', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(snapshot({ membership: { storedTier: 'Pro', effectiveTier: 'Pro', status: 'Active', startedAt: null, expiresAt: null } }))));
     render(<TradingAccountCenter />);
-    expect(await screen.findByText('Pro')).toBeTruthy();
+    expect(await screen.findByText('Lifetime')).toBeTruthy();
     expect(screen.getByText(/No 7-day wait/i)).toBeTruthy();
     expect(screen.getByText(/two self-service replacements/i)).toBeTruthy();
+  });
+
+  it.each(['Basic', 'Premium'] as const)('replaces the edit form with a clear %s plan lock', async (clientPlan) => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(snapshot({ clientPlan, canChange: false, nextChangeAt: null, cooldownReason: 'plan-locked' }))));
+    render(<TradingAccountCenter />);
+    expect(await screen.findByText(`Your ${clientPlan} account is securely locked`)).toBeTruthy();
+    expect(screen.getAllByText(/Self-service replacement is available only with Lifetime/i).length).toBeGreaterThan(0);
+    expect(screen.queryByLabelText('Real account number')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Review account change' })).toBeNull();
+    expect(screen.getByRole('link', { name: /contact Orion support/i }).getAttribute('href')).toBe('#support');
   });
 
   it('reloads authoritative eligibility when an open-page cooldown reaches its deadline', async () => {
@@ -48,7 +58,7 @@ describe('client trading-account center', () => {
   });
 
   it('reviews an initial registration before posting semantic intent without a typed phrase', async () => {
-    const first = snapshot({ currentAccount: null, licensesBound: 0, legacyReview: { pendingCount: 1, suggestedAccountNumber: '87654321' }, history: [] });
+    const first = snapshot({ currentAccount: null, hasRegisteredAccount: false, licensesBound: 0, legacyReview: { pendingCount: 1, suggestedAccountNumber: '87654321' }, history: [] });
     const saved = snapshot({ currentAccount: account('87654321', '••••4321'), licensesBound: 1, legacyReview: { pendingCount: 0, suggestedAccountNumber: null }, history: [] });
     const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(first)).mockResolvedValueOnce(jsonResponse({ ...saved, mutation: { changed: true, reboundLicenses: 1 } }, 201));
     vi.stubGlobal('fetch', fetchMock);
@@ -77,8 +87,21 @@ describe('client trading-account center', () => {
     expect(body).not.toHaveProperty('membershipTier');
   });
 
+  it.each(['Basic', 'Premium'] as const)('allows first %s registration and warns that the identity becomes fixed', async (clientPlan) => {
+    const first = snapshot({ clientPlan, currentAccount: null, hasRegisteredAccount: false, licensesBound: 0 });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(first)));
+    render(<TradingAccountCenter />);
+    await screen.findByText('Vault awaiting registration');
+    fireEvent.change(screen.getByLabelText('Real account number'), { target: { value: '87654321' } });
+    fireEvent.change(screen.getByLabelText('Broker'), { target: { value: 'Broker Ltd' } });
+    fireEvent.change(screen.getByLabelText('Exact broker server'), { target: { value: 'Broker-Live' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Review account registration' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Register this real account?' });
+    expect(within(dialog).getByText(new RegExp(`After registration, the ${clientPlan} plan cannot replace this account`, 'i'))).toBeTruthy();
+  });
+
   it('cancels the review without posting and restores focus to the review button', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(snapshot({ currentAccount: null, licensesBound: 0 })));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(snapshot({ currentAccount: null, hasRegisteredAccount: false, licensesBound: 0 })));
     vi.stubGlobal('fetch', fetchMock);
     render(<TradingAccountCenter />);
     await screen.findByText('Vault awaiting registration');
@@ -119,8 +142,9 @@ describe('client trading-account center', () => {
 function snapshot(overrides: Partial<TradingAccountSnapshot> = {}): TradingAccountSnapshot {
   return {
     serverTime: '2026-07-21T12:00:00Z', clientStatus: 'Active',
+    clientPlan: 'Lifetime',
     membership: { storedTier: 'Standard', effectiveTier: 'Standard', status: 'Active', startedAt: null, expiresAt: null },
-    currentAccount: account('12345678', '••••5678'), licensesBound: 1, eligibleLicenses: 1, eligiblePlatforms: ['MT5'],
+    currentAccount: account('12345678', '••••5678'), hasRegisteredAccount: true, licensesBound: 1, eligibleLicenses: 1, eligiblePlatforms: ['MT5'],
     canChange: true, nextChangeAt: null, cooldownDays: 7, cooldownReason: null,
     legacyReview: { pendingCount: 0, suggestedAccountNumber: null }, history: [], ...overrides,
   };

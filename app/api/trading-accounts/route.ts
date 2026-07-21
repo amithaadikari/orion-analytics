@@ -68,6 +68,13 @@ export async function POST(request: Request) {
       code: 'ACCOUNT_STATE_CHANGED',
     }, 409);
   }
+  if (before.hasRegisteredAccount && before.clientPlan !== 'Lifetime') {
+    return privateJson({
+      error: 'Your registered real account is fixed. Self-service account replacement is available only with Lifetime.',
+      code: 'REAL_ACCOUNT_CHANGE_REQUIRES_LIFETIME',
+      nextChangeAt: null,
+    }, 403);
+  }
 
   const { data, error } = await db.rpc('change_registered_real_account_client', {
     p_auth_user_id: session.user!.id,

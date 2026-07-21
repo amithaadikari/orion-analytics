@@ -1,6 +1,7 @@
 export type MembershipTier = 'Standard' | 'Pro';
 export type MembershipStatus = 'Active' | 'Expired' | 'Cancelled' | 'Suspended';
 export type TradingPlatform = 'MT4' | 'MT5';
+export type ClientPlan = 'Free' | 'Basic' | 'Premium' | 'Lifetime';
 
 export type TradingAccountView = {
   id: string;
@@ -31,6 +32,7 @@ export type TradingAccountHistoryItem = {
 export type TradingAccountSnapshot = {
   serverTime: string;
   clientStatus: string;
+  clientPlan: ClientPlan;
   membership: {
     storedTier: MembershipTier;
     effectiveTier: MembershipTier;
@@ -39,13 +41,14 @@ export type TradingAccountSnapshot = {
     expiresAt: string | null;
   };
   currentAccount: TradingAccountView | null;
+  hasRegisteredAccount: boolean;
   licensesBound: number;
   eligibleLicenses: number;
   eligiblePlatforms: TradingPlatform[];
   canChange: boolean;
   nextChangeAt: string | null;
   cooldownDays: number;
-  cooldownReason: 'standard' | 'pro-security' | 'inactive' | 'no-license' | null;
+  cooldownReason: 'standard' | 'pro-security' | 'plan-locked' | 'inactive' | 'no-license' | null;
   legacyReview: {
     pendingCount: number;
     suggestedAccountNumber: string | null;
@@ -77,15 +80,19 @@ export function effectiveMembership(record: MembershipRecord, now = new Date()) 
 }
 
 export function accountChangeEligibility({
+  clientPlan,
   membershipTier,
   currentAccount,
+  hasRegisteredAccount,
   clientStatus,
   eligibleLicenses,
   history,
   now = new Date(),
 }: {
+  clientPlan: ClientPlan;
   membershipTier: MembershipTier;
   currentAccount: TradingAccountView | null;
+  hasRegisteredAccount: boolean;
   clientStatus: string;
   eligibleLicenses: number;
   history: TradingAccountHistoryItem[];
@@ -93,7 +100,8 @@ export function accountChangeEligibility({
 }) {
   if (clientStatus !== 'Active') return { canChange: false, nextChangeAt: null, cooldownReason: 'inactive' as const };
   if (eligibleLicenses < 1) return { canChange: false, nextChangeAt: null, cooldownReason: 'no-license' as const };
-  if (!currentAccount) return { canChange: true, nextChangeAt: null, cooldownReason: null };
+  if (!currentAccount && !hasRegisteredAccount) return { canChange: true, nextChangeAt: null, cooldownReason: null };
+  if (clientPlan !== 'Lifetime') return { canChange: false, nextChangeAt: null, cooldownReason: 'plan-locked' as const };
 
   const replacements = history
     .filter((item) => item.changedBy === 'Client' && ['Replacement', 'Reactivation'].includes(item.changeKind))
@@ -114,6 +122,14 @@ export function accountChangeEligibility({
     return { canChange: false, nextChangeAt: new Date(reset).toISOString(), cooldownReason: 'pro-security' as const };
   }
   return { canChange: true, nextChangeAt: null, cooldownReason: null };
+}
+
+export function canonicalClientPlan(value: unknown): ClientPlan {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'basic') return 'Basic';
+  if (normalized === 'premium') return 'Premium';
+  if (normalized === 'lifetime') return 'Lifetime';
+  return 'Free';
 }
 
 export function maskTradingAccount(value: string | null | undefined) {

@@ -138,6 +138,7 @@ export default function TradingAccountCenter() {
   }, [review, saving]);
 
   const countdown = useMemo(() => remainingTime(snapshot?.nextChangeAt || null, clock), [clock, snapshot?.nextChangeAt]);
+  const replacementPlanLocked = Boolean(snapshot?.hasRegisteredAccount && snapshot.cooldownReason === 'plan-locked');
 
   function openReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -225,9 +226,9 @@ export default function TradingAccountCenter() {
 
       {snapshot ? <>
         <div className={styles.summaryGrid}>
-          <article className={styles.membership} data-tier={snapshot.membership.effectiveTier.toLowerCase()}>
+          <article className={styles.membership} data-tier={snapshot.clientPlan.toLowerCase()}>
             <span><Sparkles size={19} aria-hidden="true" /></span>
-            <div><small>Membership protection</small><strong>{snapshot.membership.effectiveTier}</strong><p>{membershipDescription(snapshot)}</p></div>
+            <div><small>Real-account policy</small><strong>{snapshot.clientPlan}</strong><p>{planPolicyDescription(snapshot)}</p></div>
           </article>
           <article className={styles.binding}>
             <span><KeyRound size={19} aria-hidden="true" /></span>
@@ -235,7 +236,7 @@ export default function TradingAccountCenter() {
           </article>
           <article className={styles.eligibility} data-ready={snapshot.canChange}>
             <span><Clock3 size={19} aria-hidden="true" /></span>
-            <div><small>{snapshot.currentAccount ? 'Replacement window' : 'Registration status'}</small><strong>{snapshot.canChange ? 'Ready now' : countdown || 'Protected'}</strong><p>{eligibilityDescription(snapshot)}</p></div>
+            <div><small>{snapshot.hasRegisteredAccount ? 'Replacement access' : 'Registration status'}</small><strong>{snapshot.canChange ? 'Ready now' : snapshot.cooldownReason === 'plan-locked' ? 'Lifetime only' : countdown || 'Protected'}</strong><p>{eligibilityDescription(snapshot)}</p></div>
           </article>
         </div>
 
@@ -289,12 +290,23 @@ export default function TradingAccountCenter() {
             </details>
           </div>
 
-          <form className={styles.form} onSubmit={openReview} aria-busy={saving}>
+          {replacementPlanLocked ? <aside className={styles.planLock} aria-labelledby="real-account-plan-lock-title">
+            <span className={styles.planLockIcon}><LockKeyhole size={24} aria-hidden="true" /></span>
+            <p className="eyebrow">Fixed account protection</p>
+            <h3 id="real-account-plan-lock-title">Your {snapshot.clientPlan} account is securely locked</h3>
+            <p className={styles.planLockLead}>Basic and Premium clients can register one real account. After registration, only Lifetime clients can replace it from the portal.</p>
+            <dl className={styles.planLockFacts}>
+              <div><dt>Current plan</dt><dd>{snapshot.clientPlan}</dd></div>
+              <div><dt>Registered identity</dt><dd>{snapshot.currentAccount?.maskedAccountNumber || 'Recorded securely'}</dd></div>
+              <div><dt>EA license binding</dt><dd>{snapshot.licensesBound} protected</dd></div>
+            </dl>
+            <div className={styles.planLockNotice}><ShieldCheck size={18} aria-hidden="true" /><span><strong>Your EA remains active</strong>Your current verified account and license binding are unchanged. For a genuine broker closure or account migration, <a href="#support">contact Orion support</a> for an audited administrator review.</span></div>
+          </aside> : <form className={styles.form} onSubmit={openReview} aria-busy={saving}>
             <header className={styles.formHeader}>
               <span className={styles.formIcon}>{snapshot.currentAccount ? <RefreshCw size={21} aria-hidden="true" /> : <ShieldCheck size={21} aria-hidden="true" />}</span>
               <div>
-                <p className="eyebrow">{snapshot.currentAccount ? 'Secure replacement' : 'First registration'}</p>
-                <h3>{snapshot.currentAccount ? 'Change your protected account' : 'Register your real account'}</h3>
+                <p className="eyebrow">{snapshot.currentAccount ? 'Lifetime account replacement' : 'First registration'}</p>
+                <h3>{snapshot.currentAccount ? 'Replace your registered account' : 'Register your real account'}</h3>
                 <span>Enter the identity exactly as it appears inside MetaTrader.</span>
               </div>
             </header>
@@ -325,7 +337,7 @@ export default function TradingAccountCenter() {
               <ArrowRight size={18} aria-hidden="true" />
             </button>
             {!snapshot.canChange ? <small className={styles.disabledReason}>{eligibilityDescription(snapshot)}</small> : null}
-          </form>
+          </form>}
         </div>
       </> : null}
 
@@ -346,7 +358,9 @@ export default function TradingAccountCenter() {
             <button type="button" className={styles.dialogClose} onClick={closeReview} disabled={saving} aria-label="Close account review"><X size={19} aria-hidden="true" /></button>
           </header>
           <p id="account-review-description" className={styles.dialogDescription}>
-            Check every digit and the exact broker server. Orion will validate this server-owned request before changing any license binding.
+            {review.intent === 'Register' && snapshot.clientPlan !== 'Lifetime'
+              ? `Check every digit and the exact broker server. After registration, the ${snapshot.clientPlan} plan cannot replace this account from the client portal.`
+              : 'Check every digit and the exact broker server. Orion will validate this server-owned request before changing any license binding.'}
           </p>
           {error ? <p className={styles.dialogError} role="alert"><ShieldAlert size={18} aria-hidden="true" />{error}</p> : null}
 
@@ -389,15 +403,22 @@ export default function TradingAccountCenter() {
   );
 }
 
-function membershipDescription(snapshot: TradingAccountSnapshot) {
+function planPolicyDescription(snapshot: TradingAccountSnapshot) {
+  if (!snapshot.hasRegisteredAccount) {
+    return snapshot.clientPlan === 'Lifetime'
+      ? 'Register your first real account now. Lifetime also includes secure self-service replacement.'
+      : `${snapshot.clientPlan} includes one real-account registration. Future self-service replacement is Lifetime-only.`;
+  }
+  if (snapshot.clientPlan !== 'Lifetime') return `${snapshot.clientPlan} keeps this verified account fixed after registration.`;
   if (snapshot.membership.effectiveTier === 'Pro') return 'No 7-day wait. Security protection allows two self-service replacements in a rolling 24 hours.';
   if (snapshot.membership.storedTier === 'Pro') return `Pro is currently ${snapshot.membership.status.toLowerCase()}, so Standard rules apply.`;
-  return 'A successful self-service replacement starts a 7-day cooldown.';
+  return 'Lifetime includes replacement access. A successful Standard-membership replacement starts a 7-day cooldown.';
 }
 
 function eligibilityDescription(snapshot: TradingAccountSnapshot) {
   if (snapshot.cooldownReason === 'inactive') return 'Your Orion client account must be active.';
   if (snapshot.cooldownReason === 'no-license') return 'An active matching-platform license is required.';
+  if (snapshot.cooldownReason === 'plan-locked') return `Your ${snapshot.clientPlan} account remains fixed. Self-service replacement is available only with Lifetime.`;
   if (snapshot.cooldownReason === 'standard') return `Standard membership unlocks on ${formatDateTime(snapshot.nextChangeAt)}.`;
   if (snapshot.cooldownReason === 'pro-security') return `Pro security protection resets on ${formatDateTime(snapshot.nextChangeAt)}.`;
   return snapshot.currentAccount ? 'Your membership currently permits a replacement.' : 'Your account is ready for first registration.';

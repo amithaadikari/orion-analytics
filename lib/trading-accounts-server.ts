@@ -3,6 +3,7 @@ import 'server-only';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import {
   accountChangeEligibility,
+  canonicalClientPlan,
   effectiveMembership,
   maskTradingAccount,
   type TradingAccountHistoryItem,
@@ -18,7 +19,7 @@ export async function loadTradingAccountSnapshot(db: DatabaseClient, clientId: s
   const now = new Date();
   const [clientResult, accountsResult, changesResult, licensesResult, queueResult] = await Promise.all([
     db.from('clients')
-      .select('id,status,membership_tier,membership_status,membership_started_at,membership_expires_at')
+      .select('id,status,plan,membership_tier,membership_status,membership_started_at,membership_expires_at')
       .eq('id', clientId)
       .maybeSingle(),
     db.from('client_trading_accounts')
@@ -49,6 +50,7 @@ export async function loadTradingAccountSnapshot(db: DatabaseClient, clientId: s
   const accounts = (accountsResult.data || []).filter((row) => row.account_type === 'Real').map(publicAccount);
   const accountMap = new Map(accounts.map((account) => [account.id, account]));
   const currentAccount = accounts.find((account) => account.status === 'Active') || null;
+  const hasRegisteredAccount = accounts.some((account) => account.verifiedAt !== null);
   const history = (changesResult.data || []).flatMap((row): TradingAccountHistoryItem[] => {
     const next = accountMap.get(row.new_account_id);
     if (!next) return [];
@@ -78,8 +80,10 @@ export async function loadTradingAccountSnapshot(db: DatabaseClient, clientId: s
     ? validLicenses.filter((license) => license.trading_account_id === currentAccount.id).length
     : 0;
   const eligibility = accountChangeEligibility({
+    clientPlan: canonicalClientPlan(clientResult.data.plan),
     membershipTier: membership.effectiveTier,
     currentAccount,
+    hasRegisteredAccount,
     clientStatus: clientResult.data.status,
     eligibleLicenses,
     history,
@@ -92,8 +96,10 @@ export async function loadTradingAccountSnapshot(db: DatabaseClient, clientId: s
   const snapshot: TradingAccountSnapshot = {
     serverTime: now.toISOString(),
     clientStatus: clientResult.data.status,
+    clientPlan: canonicalClientPlan(clientResult.data.plan),
     membership,
     currentAccount,
+    hasRegisteredAccount,
     licensesBound,
     eligibleLicenses,
     eligiblePlatforms,
@@ -162,6 +168,7 @@ export function publicTradingAccountError(error: DatabaseError) {
     };
   }
   const known: Record<string, { status: number; message: string }> = {
+    REAL_ACCOUNT_CHANGE_REQUIRES_LIFETIME: { status: 403, message: 'Your registered real account is fixed. Self-service account replacement is available only with Lifetime.' },
     ACCOUNT_ALREADY_REGISTERED: { status: 409, message: 'This real account is already registered to another Orion client.' },
     ADMIN_OVERRIDE_REASON_REQUIRED: { status: 400, message: 'Enter an override reason of at least 10 characters.' },
     NO_ACTIVE_LICENSE: { status: 409, message: 'An active license for this platform is required before registration.' },
