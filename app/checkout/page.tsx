@@ -70,7 +70,7 @@ export default async function CheckoutPage({ searchParams }: PageProps) {
               <div className="checkout-includes" role="region" aria-labelledby="checkout-includes-title">
                 <p className="eyebrow" id="checkout-includes-title">What is included</p>
                 <ul>{plan.highlights.map((item) => <li key={item}><span aria-hidden="true">✓</span>{item}</li>)}</ul>
-                <ul><li><span aria-hidden="true">✓</span>1 registered MT5 live account</li><li><span aria-hidden="true">✓</span>Unlimited demo accounts</li><li><span aria-hidden="true">✓</span>{plan.license}</li></ul>
+                <ul><li><span aria-hidden="true">✓</span>1 registered MT5 real account</li><li><span aria-hidden="true">✓</span>1 registered Demo identity per license</li><li><span aria-hidden="true">✓</span>1 transferable installation seat</li><li><span aria-hidden="true">✓</span>{plan.license}</li></ul>
               </div>
               <nav className="checkout-change" aria-label="Choose a different Orion edition">
                 <span>Need a different edition?</span>

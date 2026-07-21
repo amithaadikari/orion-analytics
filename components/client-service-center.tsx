@@ -65,7 +65,7 @@ export default function ClientServiceCenter() {
           <span data-tone={tickets.activeCount ? 'active' : 'quiet'}><Headphones size={16} aria-hidden="true" /><strong>{tickets.loaded ? tickets.activeCount : '—'}</strong><small>Recent active</small></span>
         </div>
         <button className={styles.newTicketButton} type="button" onClick={() => openView('support', true)}><Plus size={16} aria-hidden="true" />New support ticket</button>
-        <strong className={styles.marker} aria-hidden="true">05</strong>
+        <strong className={styles.marker} aria-hidden="true">06</strong>
       </header>
 
       <div className={styles.securityLine}><ShieldCheck size={14} aria-hidden="true" /><span>Private account updates and official Orion support conversations</span></div>

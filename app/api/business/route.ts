@@ -130,6 +130,21 @@ export async function DELETE(request: Request) {
   const { data: existing, error: findError } = await db.from(tables[resource]).select('*').eq('id', id.data).single();
   if (findError || !existing) return jsonError('Record not found', 404);
   const clientId = resource === 'client' ? existing.id : existing.client_id;
+  if (resource === 'license') {
+    const { error: revokeError } = await db.from('licenses').update({
+      status: 'Suspended',
+      revoked_at: existing.revoked_at || new Date().toISOString(),
+      binding_version: Math.max(0, Number(existing.binding_version || 0)) + 1,
+    }).eq('id', id.data);
+    if (revokeError) return jsonError(revokeError.message, 400);
+    await db.from('client_activity').insert({
+      client_id: clientId,
+      action: 'License revoked',
+      details: describe(resource, { ...existing, status: 'Suspended' }),
+      actor_email: auth.admin!.email,
+    });
+    return Response.json({ ok: true, retained: true, revoked: true });
+  }
   if (resource !== 'client') {
     await db.from('client_activity').insert({
       client_id: clientId,

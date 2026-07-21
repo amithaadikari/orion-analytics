@@ -3,13 +3,17 @@
 import React, { FormEvent, useCallback, useEffect, useState } from 'react';
 import { BadgeCheck, RefreshCw, Server, ShieldAlert } from 'lucide-react';
 import type { TradingAccountSnapshot } from '@/lib/trading-accounts';
+import type { LicenseRuntimeSnapshot } from '@/lib/license-runtime';
 import styles from './admin-trading-account-panel.module.css';
+import runtimeStyles from './admin-license-runtime.module.css';
 
 export default function AdminTradingAccountPanel({ clientId, canWrite }: { clientId: string; canWrite: boolean }) {
   const [snapshot, setSnapshot] = useState<TradingAccountSnapshot | null>(null);
+  const [runtime, setRuntime] = useState<LicenseRuntimeSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState<'membership' | 'account' | null>(null);
+  const [saving, setSaving] = useState<'membership' | 'account' | 'installation' | null>(null);
   const [error, setError] = useState('');
+  const [runtimeError, setRuntimeError] = useState('');
   const [notice, setNotice] = useState('');
 
   const load = useCallback(async () => {
@@ -33,6 +37,20 @@ export default function AdminTradingAccountPanel({ clientId, canWrite }: { clien
   }, [clientId]);
 
   useEffect(() => { void load(); }, [load]);
+
+  const loadRuntime = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/admin/license-runtime/${encodeURIComponent(clientId)}`, { cache: 'no-store', credentials: 'same-origin' });
+      const payload = await response.json().catch(() => null) as LicenseRuntimeSnapshot | { error?: string } | null;
+      if (!response.ok || !payload || !('licenses' in payload)) throw new Error(payload && 'error' in payload ? payload.error : 'Unable to load installation seats.');
+      setRuntime(payload);
+      setRuntimeError('');
+    } catch (reason) {
+      setRuntimeError(reason instanceof Error ? reason.message : 'Unable to load installation seats.');
+    }
+  }, [clientId]);
+
+  useEffect(() => { void loadRuntime(); }, [loadRuntime]);
 
   async function saveMembership(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -103,6 +121,43 @@ export default function AdminTradingAccountPanel({ clientId, canWrite }: { clien
     }
   }
 
+  async function resetInstallation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving('installation');
+    setError('');
+    setNotice('');
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    try {
+      const response = await fetch(`/api/admin/license-runtime/${encodeURIComponent(clientId)}`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'resetInstallation',
+          requestId: crypto.randomUUID(),
+          licenseId: String(form.get('licenseId') || ''),
+          reason: String(form.get('reason') || '').trim(),
+        }),
+      });
+      const payload = await response.json().catch(() => null) as (LicenseRuntimeSnapshot & { mutation?: { changed?: boolean } }) | { error?: string; committed?: boolean } | null;
+      if (response.ok && payload && 'committed' in payload && payload.committed) {
+        setNotice('The emergency reset was committed. Refreshing the installation record…');
+        formElement.reset();
+        void loadRuntime();
+        return;
+      }
+      if (!response.ok || !payload || !('licenses' in payload)) throw new Error(payload && 'error' in payload ? payload.error : 'Unable to reset the installation.');
+      setRuntime(payload);
+      formElement.reset();
+      setNotice(payload.mutation?.changed === false ? 'This license had no active installation to reset.' : 'Installation revoked. The client can pair a new PC, laptop, or VPS from the portal.');
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to reset the installation.');
+    } finally {
+      setSaving(null);
+    }
+  }
+
   return <section className={styles.panel} aria-labelledby={`admin-trading-account-${clientId}`}>
     <header><div><p className="eyebrow">Trading identity</p><h3 id={`admin-trading-account-${clientId}`}>Membership & real account</h3><span>Atomic license binding, cooldown enforcement, and audited overrides.</span></div><button type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh trading account"><RefreshCw size={15} className={loading ? styles.spin : ''} /></button></header>
     {error ? <p className={styles.error} role="alert"><ShieldAlert size={15} />{error}</p> : null}
@@ -136,6 +191,17 @@ export default function AdminTradingAccountPanel({ clientId, canWrite }: { clien
       </div> : <p className={styles.readOnly}>Analyst access is read-only. An administrator must change membership or the registered account.</p>}
 
       <div className={styles.history}><strong>Account audit history</strong>{snapshot.history.length ? <ol>{snapshot.history.map((item) => <li key={item.id}><i /><span><b>{item.changeKind} · {item.newAccount.maskedAccountNumber}</b><small>{item.newAccount.platform} · {item.newAccount.brokerServer} · {item.changedBy} · {formatDate(item.createdAt)}</small>{item.overrideReason ? <em>{item.overrideReason}</em> : null}</span></li>)}</ol> : <p>No successful account changes recorded.</p>}</div>
+
+      {runtime ? <div className={runtimeStyles.runtime}>
+        <div><strong>License installation seats</strong><span>One active installation per license. An emergency reset immediately revokes the current installation ID.</span></div>
+        <div className={runtimeStyles.runtimeList}>{runtime.licenses.map((license) => <article key={license.id}><span><small>{license.plan} · {license.platform}</small><strong>{license.maskedLicenseKey}</strong></span><b>{license.installation ? `${license.installation.label} · ${license.installation.hint}` : 'No active installation'}</b></article>)}</div>
+        {canWrite && runtime.licenses.some((license) => license.installation) ? <form onSubmit={resetInstallation}>
+          <label><span>License installation</span><select name="licenseId" required>{runtime.licenses.filter((license) => license.installation).map((license) => <option key={license.id} value={license.id}>{license.plan} · {license.platform} · {license.maskedLicenseKey}</option>)}</select></label>
+          <label><span>Emergency reset reason</span><textarea name="reason" minLength={10} maxLength={500} rows={2} required placeholder="Explain why Orion is revoking this installation." /></label>
+          <button disabled={saving !== null}>{saving === 'installation' ? 'Revoking…' : 'Emergency reset installation'}</button>
+        </form> : null}
+      </div> : null}
+      {runtimeError ? <p className={styles.error} role="alert"><ShieldAlert size={15} />Installation seats: {runtimeError}</p> : null}
     </> : null}
   </section>;
 }

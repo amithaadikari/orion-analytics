@@ -9,7 +9,7 @@ vi.mock('@/lib/license-keys', async (load) => {
   return { ...actual, generateLicenseKey: mocks.generateLicenseKey };
 });
 
-import { POST } from '@/app/api/business/route';
+import { DELETE, POST } from '@/app/api/business/route';
 
 const clientId = '11111111-1111-4111-8111-111111111111';
 
@@ -50,6 +50,26 @@ describe('generic license management cannot bypass trading-account binding', () 
     const response = await POST(request({ resource: 'license', data: licenseData() }));
     expect(response.status).toBe(201);
     expect(db.inserts.find((entry) => entry.table === 'licenses')?.value).toMatchObject({ trading_account_id: null, account_number: null });
+  });
+
+  it('revokes a license instead of deleting its runtime audit history', async () => {
+    const updates: Record<string, unknown>[] = [];
+    let deleted = false;
+    mocks.createSupabaseAdminClient.mockReturnValue({
+      from(table: string) {
+        return {
+          select() { return { eq() { return { single: async () => ({ data: { id: 'license-1', client_id: clientId, license_key: 'ORN-ACDE-FGHJ-KLMN-PQRT', platform: 'MT5', status: 'Active', binding_version: 2, revoked_at: null }, error: null }) }; } }; },
+          update(value: Record<string, unknown>) { updates.push(value); return { eq: async () => ({ error: null }) }; },
+          insert: async () => ({ error: null }),
+          delete() { deleted = true; return { eq: async () => ({ error: null }) }; },
+        };
+      },
+    });
+    const response = await DELETE(new Request('https://admin.orionscalper.com/api/business', { method: 'DELETE', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ resource: 'license', id: '44444444-4444-4444-8444-444444444444' }) }));
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({ revoked: true, retained: true });
+    expect(updates[0]).toMatchObject({ status: 'Suspended', binding_version: 3 });
+    expect(deleted).toBe(false);
   });
 });
 
