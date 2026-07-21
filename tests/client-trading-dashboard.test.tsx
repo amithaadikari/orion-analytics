@@ -104,8 +104,13 @@ describe('client trading dashboard states', () => {
     expect(await screen.findAllByText('EA offline')).not.toHaveLength(0);
     expect(screen.getByText(/may have changed in MetaTrader/i)).toBeTruthy();
     expect(screen.getByText('No open positions reported')).toBeTruthy();
-    expect(screen.getByText('No exit executions in this period')).toBeTruthy();
-    expect(screen.getByText('No closed trades in this period')).toBeTruthy();
+    const executionsTab = screen.getByRole('tab', { name: /^Executions,/i });
+    const closedTab = screen.getByRole('tab', { name: /^Closed trades,/i });
+    expect(executionsTab.getAttribute('aria-selected')).toBe('true');
+    expect(within(screen.getByRole('tabpanel', { name: /^Executions,/i })).getByText('No exit executions in this period')).toBeTruthy();
+    fireEvent.click(closedTab);
+    expect(closedTab.getAttribute('aria-selected')).toBe('true');
+    expect(within(screen.getByRole('tabpanel', { name: /^Closed trades,/i })).getByText('No closed trades in this period')).toBeTruthy();
     expect(screen.getAllByRole('link', { name: 'Review Premium' })).toHaveLength(2);
     expect(screen.queryByText('0.0%')).toBeNull();
   });
@@ -170,7 +175,138 @@ describe('client trading dashboard states', () => {
     expect(screen.getByText(/opening deal is unavailable.*excludes them instead of inventing position details/i)).toBeTruthy();
     expect(screen.getByText(/Each row is one exit reported by the EA.*charges reported on that exit.*completed-trade metrics remain based on fully closed positions/i)).toBeTruthy();
     expect(screen.getByText('Showing the most recent executions for this period.')).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Closed trade history' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Trade history' })).toBeTruthy();
+    const executionsTab = screen.getByRole('tab', { name: /^Executions,/i });
+    const closedTab = screen.getByRole('tab', { name: /^Closed trades,/i });
+    expect(executionsTab.getAttribute('aria-selected')).toBe('true');
+    expect(screen.queryByRole('heading', { name: 'Closed trades' })).toBeNull();
+    fireEvent.click(closedTab);
+    expect(screen.getByRole('heading', { name: 'Closed trades' })).toBeTruthy();
+    expect(screen.getByText('No closed trades in this period')).toBeTruthy();
+    fireEvent.click(executionsTab);
+    expect(screen.getByRole('article', { name: 'Partial close XAUUSD execution' })).toBeTruthy();
+  });
+
+  it('combines both records into keyboard-accessible tabs without another API request', async () => {
+    const fetchMock = respond({
+      ...baseSnapshot,
+      metrics: { ...baseSnapshot.metrics, closedTrades: 1 },
+      activity: {
+        hasMore: false,
+        incompleteHistoryExcluded: false,
+        items: [{
+          id: '9101', positionId: '7101', ticket: '8101', symbol: 'XAUUSD', side: 'Buy',
+          volume: 0.02, executedAt: '2026-07-21T14:01:00Z', exitPrice: 2401.5,
+          profit: 2.4, swap: 0, commission: -0.1, netProfit: 2.3,
+          remainingVolume: 0.03, status: 'Partial',
+        }],
+      },
+      history: {
+        nextCursor: null,
+        items: [{
+          id: '7201', ticket: '7201', symbol: 'XAUUSD', side: 'Sell', volume: 0.05,
+          openedAt: '2026-07-21T12:00:00Z', closedAt: '2026-07-21T13:00:00Z',
+          entryPrice: 2405, exitPrice: 2400, profit: 25, swap: -0.5,
+          commission: -1, netProfit: 23.5,
+        }],
+      },
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ClientTradingDashboard />);
+
+    const tablist = await screen.findByRole('tablist', { name: 'Trade history view' });
+    const executionsTab = within(tablist).getByRole('tab', { name: /^Executions,/i });
+    const closedTab = within(tablist).getByRole('tab', { name: /^Closed trades,/i });
+    expect(executionsTab.getAttribute('aria-selected')).toBe('true');
+    expect(executionsTab.getAttribute('tabindex')).toBe('0');
+    expect(closedTab.getAttribute('aria-selected')).toBe('false');
+    expect(closedTab.getAttribute('tabindex')).toBe('-1');
+    expect(screen.getByRole('tabpanel', { name: /^Executions,/i }).id).toBe(executionsTab.getAttribute('aria-controls'));
+    expect(screen.getByRole('article', { name: 'Partial close XAUUSD execution' })).toBeTruthy();
+    expect(screen.queryByRole('table', { name: 'Closed Orion trading history' })).toBeNull();
+    const requestCount = fetchMock.mock.calls.length;
+
+    fireEvent.keyDown(executionsTab, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(closedTab);
+    expect(closedTab.getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('tabpanel', { name: /^Closed trades,/i }).id).toBe(closedTab.getAttribute('aria-controls'));
+    expect(screen.getByRole('table', { name: 'Closed Orion trading history' })).toBeTruthy();
+    expect(screen.getByRole('row', { name: /XAUUSD #7201 Sell 0.05/i })).toBeTruthy();
+    expect(fetchMock.mock.calls).toHaveLength(requestCount);
+
+    fireEvent.keyDown(closedTab, { key: 'Home' });
+    expect(document.activeElement).toBe(executionsTab);
+    expect(executionsTab.getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(executionsTab, { key: 'End' });
+    expect(document.activeElement).toBe(closedTab);
+    fireEvent.keyDown(closedTab, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(executionsTab);
+  });
+
+  it('paginates only closed trades and keeps execution activity unchanged', async () => {
+    const executionItem = {
+      id: '9201', positionId: '7401', ticket: '8401', symbol: 'XAUUSD', side: 'Buy' as const,
+      volume: 0.02, executedAt: '2026-07-21T14:01:00Z', exitPrice: 2401.5,
+      profit: 2.4, swap: 0, commission: -0.1, netProfit: 2.3,
+      remainingVolume: 0.03, status: 'Partial' as const,
+    };
+    const newestTrade = {
+      id: '7301', ticket: '7301', symbol: 'XAUUSD', side: 'Sell' as const, volume: 0.05,
+      openedAt: '2026-07-21T12:00:00Z', closedAt: '2026-07-21T13:00:00Z',
+      entryPrice: 2405, exitPrice: 2400, profit: 25, swap: -0.5,
+      commission: -1, netProfit: 23.5,
+    };
+    const olderTrade = {
+      id: '7300', ticket: '7300', symbol: 'XAUUSD', side: 'Buy' as const, volume: 0.03,
+      openedAt: '2026-07-20T09:00:00Z', closedAt: '2026-07-20T10:00:00Z',
+      entryPrice: 2388, exitPrice: 2392, profit: 12, swap: 0,
+      commission: -0.6, netProfit: 11.4,
+    };
+    const firstPage: TradingAnalyticsSnapshot = {
+      ...baseSnapshot,
+      access: {
+        plan: 'Premium',
+        allowedRanges: ['7d', '30d', '90d'],
+        maxRange: '90d',
+        advancedMetrics: true,
+        historyPagination: true,
+        historyPageSize: 50,
+        allHistory: false,
+      },
+      connections: [{ ...baseSnapshot.connections[0], plan: 'Premium' }],
+      activity: { items: [executionItem], hasMore: false, incompleteHistoryExcluded: false },
+      history: { items: [newestTrade], nextCursor: 'older-page' },
+    };
+    const secondPage: TradingAnalyticsSnapshot = {
+      ...firstPage,
+      history: { items: [newestTrade, olderTrade], nextCursor: null },
+    };
+    const fetchMock = vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      const snapshot = String(input).includes('cursor=older-page') ? secondPage : firstPage;
+      return Promise.resolve(new Response(JSON.stringify(snapshot), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    render(<ClientTradingDashboard />);
+
+    const closedTab = await screen.findByRole('tab', { name: /^Closed trades,/i });
+    fireEvent.click(closedTab);
+    fireEvent.click(screen.getByRole('button', { name: /Load older trades/i }));
+
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('cursor=older-page'))).toBe(true));
+    const table = screen.getByRole('table', { name: 'Closed Orion trading history' });
+    await waitFor(() => expect(within(table).getAllByRole('row')).toHaveLength(3));
+    expect(within(table).getAllByText('#7301')).toHaveLength(1);
+    expect(within(table).getByText('#7300')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /Load older trades/i })).toBeNull();
+
+    fireEvent.click(screen.getByRole('tab', { name: /^Executions,/i }));
+    const executionPanel = screen.getByRole('tabpanel', { name: /^Executions,/i });
+    expect(within(executionPanel).getAllByRole('article')).toHaveLength(1);
+    expect(within(executionPanel).getByRole('article', { name: 'Partial close XAUUSD execution' })).toBeTruthy();
+    expect(within(executionPanel).queryByText('#7300')).toBeNull();
   });
 
   it('labels a final exit as position closed without implying history pagination', async () => {
@@ -232,8 +368,12 @@ describe('client trading dashboard states', () => {
     expect(screen.queryByRole('link', { name: 'Review Premium' })).toBeNull();
     expect(screen.getByRole('button', { name: '30D' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: '1Y' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Load older trades/i })).toBeNull();
+    fireEvent.click(screen.getByRole('tab', { name: /^Closed trades,/i }));
+    expect(screen.getByRole('button', { name: /Load older trades/i })).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: '30D' }));
     await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).includes('range=30d'))).toBe(true));
+    expect(screen.getByRole('tab', { name: /^Closed trades,/i }).getAttribute('aria-selected')).toBe('true');
   });
 });

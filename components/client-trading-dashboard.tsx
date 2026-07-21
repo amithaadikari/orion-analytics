@@ -60,8 +60,10 @@ type LoadOptions = {
 };
 
 type TradingExecutionActivityFeed = TradingAnalyticsSnapshot['activity'];
+type TradeHistoryView = 'executions' | 'closed';
 
 const emptyExecutionActivity: TradingExecutionActivityFeed = { items: [], hasMore: false, incompleteHistoryExcluded: false };
+const tradeHistoryViews: TradeHistoryView[] = ['executions', 'closed'];
 
 export default function ClientTradingDashboard() {
   const [snapshot, setSnapshot] = useState<TradingAnalyticsSnapshot | null>(null);
@@ -271,8 +273,16 @@ function ReadyDashboard({ snapshot, loadingMore, loadMore }: { snapshot: Trading
     </section>}
 
     <OpenPositions positions={snapshot.openPositions} currency={currency} timeZone={snapshot.period.timeZone} stale={offline} />
-    <ExecutionActivity activity={activity} currency={currency} timeZone={snapshot.period.timeZone} />
-    <TradeHistory trades={snapshot.history.items} currency={currency} timeZone={snapshot.period.timeZone} nextCursor={snapshot.history.nextCursor} canLoadMore={snapshot.access.historyPagination} loadingMore={loadingMore} loadMore={loadMore} />
+    <TradeHistoryWorkspace
+      activity={activity}
+      trades={snapshot.history.items}
+      currency={currency}
+      timeZone={snapshot.period.timeZone}
+      nextCursor={snapshot.history.nextCursor}
+      canLoadMore={snapshot.access.historyPagination}
+      loadingMore={loadingMore}
+      loadMore={loadMore}
+    />
   </div>;
 }
 
@@ -336,15 +346,119 @@ function PositionRow({ position, currency, timeZone }: { position: TradingPositi
   return <tr><td><strong>{position.symbol}</strong><small>{position.ticket ? `#${position.ticket}` : 'EA position'}</small></td><td><span className={styles.side} data-side={position.side.toLowerCase()}>{position.side}</span></td><td>{formatVolume(position.volume)}</td><td>{formatPrice(position.entryPrice)}</td><td>{formatPrice(position.currentPrice)}</td><td>{formatPrice(position.stopLoss)} / {formatPrice(position.takeProfit)}</td><td className={profitClass(position.floatingNet)}>{formatSignedMoney(position.floatingNet, currency)}</td><td><time dateTime={position.openedAt}>{formatDateTime(position.openedAt, timeZone)}</time></td></tr>;
 }
 
+function TradeHistoryWorkspace({ activity, trades, currency, timeZone, nextCursor, canLoadMore, loadingMore, loadMore }: {
+  activity: TradingExecutionActivityFeed;
+  trades: ClosedTrade[];
+  currency: string;
+  timeZone: string;
+  nextCursor: string | null;
+  canLoadMore: boolean;
+  loadingMore: boolean;
+  loadMore: () => void;
+}) {
+  const rawId = useId();
+  const id = `trade-history-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const [activeView, setActiveView] = useState<TradeHistoryView>('executions');
+  const tabRefs = useRef<Record<TradeHistoryView, HTMLButtonElement | null>>({ executions: null, closed: null });
+  const executionCount = activity.items.length.toString();
+  const closedCount = trades.length.toString();
+  const executionCountLabel = `${activity.items.length} shown${activity.hasMore ? ', recent records only' : ''}`;
+  const closedCountLabel = `${trades.length} shown${canLoadMore && nextCursor ? ', more available' : ''}`;
+
+  function activateView(view: TradeHistoryView) {
+    setActiveView(view);
+    tabRefs.current[view]?.focus();
+  }
+
+  function handleTabKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, current: TradeHistoryView) {
+    const currentIndex = tradeHistoryViews.indexOf(current);
+    let nextIndex: number | null = null;
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % tradeHistoryViews.length;
+    if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + tradeHistoryViews.length) % tradeHistoryViews.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = tradeHistoryViews.length - 1;
+    if (nextIndex === null) return;
+    event.preventDefault();
+    activateView(tradeHistoryViews[nextIndex]);
+  }
+
+  return <section className={styles.tradeHistoryWorkspace} aria-labelledby={`${id}-title`}>
+    <header className={styles.panelHeading}>
+      <div>
+        <p className="eyebrow">Verified trading record</p>
+        <h2 id={`${id}-title`}>Trade history</h2>
+        <span>Review individual exit executions or fully closed positions without mixing partial closes into completed-trade results.</span>
+      </div>
+      <strong>2 record views</strong>
+    </header>
+
+    <div className={styles.historyTabs} role="tablist" aria-label="Trade history view">
+      <button
+        ref={(node) => { tabRefs.current.executions = node; }}
+        type="button"
+        role="tab"
+        id={`${id}-executions-tab`}
+        aria-label={`Executions, ${executionCountLabel}`}
+        aria-selected={activeView === 'executions'}
+        aria-controls={`${id}-executions-panel`}
+        tabIndex={activeView === 'executions' ? 0 : -1}
+        onClick={() => setActiveView('executions')}
+        onKeyDown={(event) => handleTabKeyDown(event, 'executions')}
+      >
+        <span className={styles.historyTabIcon} aria-hidden="true"><Activity size={18} /></span>
+        <span className={styles.historyTabCopy}><strong>Executions</strong><small>Partial &amp; final closes</small></span>
+        <span className={styles.historyTabCount} aria-hidden="true">{executionCount}</span>
+      </button>
+      <button
+        ref={(node) => { tabRefs.current.closed = node; }}
+        type="button"
+        role="tab"
+        id={`${id}-closed-tab`}
+        aria-label={`Closed trades, ${closedCountLabel}`}
+        aria-selected={activeView === 'closed'}
+        aria-controls={`${id}-closed-panel`}
+        tabIndex={activeView === 'closed' ? 0 : -1}
+        onClick={() => setActiveView('closed')}
+        onKeyDown={(event) => handleTabKeyDown(event, 'closed')}
+      >
+        <span className={styles.historyTabIcon} aria-hidden="true"><History size={18} /></span>
+        <span className={styles.historyTabCopy}><strong>Closed trades</strong><small>Completed positions</small></span>
+        <span className={styles.historyTabCount} aria-hidden="true">{closedCount}</span>
+      </button>
+    </div>
+
+    <div
+      className={styles.historyPanel}
+      role="tabpanel"
+      id={`${id}-executions-panel`}
+      aria-labelledby={`${id}-executions-tab`}
+      hidden={activeView !== 'executions'}
+      tabIndex={activeView === 'executions' ? 0 : -1}
+    >
+      <ExecutionActivity activity={activity} currency={currency} timeZone={timeZone} />
+    </div>
+    <div
+      className={styles.historyPanel}
+      role="tabpanel"
+      id={`${id}-closed-panel`}
+      aria-labelledby={`${id}-closed-tab`}
+      hidden={activeView !== 'closed'}
+      tabIndex={activeView === 'closed' ? 0 : -1}
+    >
+      <TradeHistory trades={trades} currency={currency} timeZone={timeZone} nextCursor={nextCursor} canLoadMore={canLoadMore} loadingMore={loadingMore} loadMore={loadMore} />
+    </div>
+  </section>;
+}
+
 function ExecutionActivity({ activity, currency, timeZone }: { activity: TradingExecutionActivityFeed; currency: string; timeZone: string }) {
-  return <section className={styles.executionPanel} aria-labelledby="execution-activity-title">
+  return <div className={styles.historyView}>
     <header className={styles.panelHeading}>
       <div>
         <p className="eyebrow">Exit-by-exit record</p>
-        <h2 id="execution-activity-title">Execution activity</h2>
+        <h3>Execution activity</h3>
         <span>Each row is one exit reported by the EA. Result includes P/L and charges reported on that exit; completed-trade metrics remain based on fully closed positions and include whole-position costs.</span>
       </div>
-      <strong>{activity.items.length} recent</strong>
+      <strong>{activity.items.length} shown</strong>
     </header>
     {activity.incompleteHistoryExcluded && <div className={styles.executionNotice} role="status">
       <CircleAlert size={17} aria-hidden="true" />
@@ -379,15 +493,15 @@ function ExecutionActivity({ activity, currency, timeZone }: { activity: Trading
       detail={activity.incompleteHistoryExcluded ? 'Exits without a verifiable opening deal remain hidden.' : 'Partial and final close executions will appear here after the EA reports them.'}
     />}
     {activity.hasMore && <p className={styles.executionDisclosure}>Showing the most recent executions for this period.</p>}
-  </section>;
+  </div>;
 }
 
 function TradeHistory({ trades, currency, timeZone, nextCursor, canLoadMore, loadingMore, loadMore }: { trades: ClosedTrade[]; currency: string; timeZone: string; nextCursor: string | null; canLoadMore: boolean; loadingMore: boolean; loadMore: () => void }) {
-  return <section className={styles.tablePanel} aria-labelledby="trade-history-title">
-    <header className={styles.panelHeading}><div><p className="eyebrow">Verified execution record</p><h2 id="trade-history-title">Closed trade history</h2><span>Net P/L includes reported profit, swap and commission.</span></div><strong>{trades.length} shown</strong></header>
+  return <div className={styles.historyView}>
+    <header className={styles.panelHeading}><div><p className="eyebrow">Completed-position record</p><h3>Closed trades</h3><span>One row represents one fully closed position. Net P/L includes reported profit, swap and commission.</span></div><strong>{trades.length} shown</strong></header>
     {trades.length ? <div className={styles.tableScroll}><table><caption className={styles.srOnly}>Closed Orion trading history</caption><thead><tr><th>Symbol</th><th>Side</th><th>Volume</th><th>Open → Close</th><th>Entry → Exit</th><th>Net P/L</th></tr></thead><tbody>{trades.map((trade) => <tr key={trade.id}><td><strong>{trade.symbol}</strong><small>{trade.ticket ? `#${trade.ticket}` : 'Closed trade'}</small></td><td><span className={styles.side} data-side={trade.side.toLowerCase()}>{trade.side}</span></td><td>{formatVolume(trade.volume)}</td><td><time dateTime={trade.openedAt}>{formatDateTime(trade.openedAt, timeZone)}</time><small>to {formatDateTime(trade.closedAt, timeZone)}</small></td><td>{formatPrice(trade.entryPrice)}<small>to {formatPrice(trade.exitPrice)}</small></td><td className={profitClass(trade.netProfit)}>{formatSignedMoney(trade.netProfit, currency)}</td></tr>)}</tbody></table></div> : <InlineEmpty icon={<History size={23} />} title="No closed trades in this period" detail="Choose another available period or wait for the EA to report a completed trade." />}
     {canLoadMore && nextCursor ? <button type="button" className={styles.loadMore} onClick={loadMore} disabled={loadingMore}>{loadingMore ? <><LoaderCircle size={15} className={styles.spin} aria-hidden="true" />Loading history…</> : <>Load older trades<ArrowRight size={15} aria-hidden="true" /></>}</button> : null}
-  </section>;
+  </div>;
 }
 
 function MetricCard({ icon, label, value, detail, tone, compact = false }: { icon: ReactNode; label: string; value: string; detail: string; tone: 'gold' | 'cyan' | 'green' | 'red' | 'orange' | 'muted'; compact?: boolean }) {
