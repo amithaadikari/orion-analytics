@@ -26,7 +26,13 @@ const installationSchema = z.object({
   confirmation: z.enum(['ACTIVATE DEVICE', 'REPLACE DEVICE']),
 }).strict();
 
-const mutationSchema = z.discriminatedUnion('action', [demoSchema, installationSchema]);
+const resolveInstallationRequestSchema = z.object({
+  action: z.literal('resolveInstallationRequest'),
+  pairingRequestId: z.string().uuid(),
+  decision: z.enum(['Approve', 'Reject']),
+}).strict();
+
+const mutationSchema = z.discriminatedUnion('action', [demoSchema, installationSchema, resolveInstallationRequestSchema]);
 
 export async function GET() {
   const session = await getPortalSession();
@@ -51,8 +57,50 @@ export async function POST(request: Request) {
   }
   const parsed = mutationSchema.safeParse(await safeBody(request));
   if (!parsed.success) return jsonError(parsed.error.issues[0]?.message || 'Invalid license pairing');
+  const input = parsed.data;
 
   const db = createSupabaseAdminClient();
+  if (input.action === 'resolveInstallationRequest') {
+    const { data, error } = await db.rpc('resolve_license_installation_approval_client', {
+      p_auth_user_id: session.user!.id,
+      p_request_id: input.pairingRequestId,
+      p_decision: input.decision,
+    });
+    if (error) {
+      const publicError = publicLicenseRuntimeError(error);
+      return Response.json({ error: publicError.message, code: publicError.code, nextChangeAt: publicError.nextChangeAt }, {
+        status: publicError.status,
+        headers: { 'Cache-Control': 'private, no-store' },
+      });
+    }
+    if (!data || typeof data !== 'object' || Array.isArray(data) || typeof data.status !== 'string') {
+      return jsonError('The installation approval could not be confirmed.', 503);
+    }
+    const expectedStatus = input.decision === 'Approve' ? 'Approved' : 'Rejected';
+    if (data.status !== expectedStatus) {
+      const resolutionMessages: Record<string, string> = {
+        Expired: 'This installation request expired. Let the EA create a new request.',
+        Superseded: 'This installation request is no longer current. Let the EA create a new request.',
+      };
+      return Response.json({
+        error: resolutionMessages[data.status] || 'This installation request can no longer be changed.',
+        code: typeof data.code === 'string' ? data.code : `PAIRING_${data.status.toUpperCase()}`,
+      }, { status: 409, headers: { 'Cache-Control': 'private, no-store' } });
+    }
+    const mutation = {
+      action: input.action,
+      decision: input.decision,
+      changed: data.changed === true,
+      status: data.status,
+      code: typeof data.code === 'string' ? data.code : null,
+    };
+    try {
+      return privateJson({ ...await loadLicenseRuntimeSnapshot(db, session.client!.id), mutation });
+    } catch {
+      return privateJson({ committed: true, refreshRequired: true, mutation }, 202);
+    }
+  }
+
   let before;
   try {
     before = await loadLicenseRuntimeSnapshot(db, session.client!.id);
@@ -60,33 +108,33 @@ export async function POST(request: Request) {
     const known = error as { message?: string; status?: number };
     return jsonError(known.message || 'License pairing is temporarily unavailable.', known.status || 500);
   }
-  const license = before.licenses.find((item) => item.id === parsed.data.licenseId);
+  const license = before.licenses.find((item) => item.id === input.licenseId);
   if (!license) return jsonError('The selected license was not found.', 404);
 
   let rpcName: 'set_license_demo_account_client' | 'activate_license_installation_client';
   let rpcPayload: Record<string, string>;
-  if (parsed.data.action === 'setDemoAccount') {
+  if (input.action === 'setDemoAccount') {
     const confirmation = license.demoAccount ? 'CHANGE DEMO' : 'REGISTER DEMO';
-    if (parsed.data.confirmation !== confirmation) return jsonError(`Type ${confirmation} to confirm this Demo-account binding change.`);
+    if (input.confirmation !== confirmation) return jsonError(`Type ${confirmation} to confirm this Demo-account binding change.`);
     rpcName = 'set_license_demo_account_client';
     rpcPayload = {
       p_auth_user_id: session.user!.id,
-      p_request_id: parsed.data.requestId,
-      p_license_id: parsed.data.licenseId,
-      p_account_number: parsed.data.accountNumber,
-      p_broker_server: parsed.data.brokerServer,
+      p_request_id: input.requestId,
+      p_license_id: input.licenseId,
+      p_account_number: input.accountNumber,
+      p_broker_server: input.brokerServer,
     };
   } else {
     const confirmation = license.installation ? 'REPLACE DEVICE' : 'ACTIVATE DEVICE';
-    if (parsed.data.confirmation !== confirmation) return jsonError(`Type ${confirmation} to confirm this installation-seat change.`);
+    if (input.confirmation !== confirmation) return jsonError(`Type ${confirmation} to confirm this installation-seat change.`);
     rpcName = 'activate_license_installation_client';
     rpcPayload = {
       p_auth_user_id: session.user!.id,
-      p_request_id: parsed.data.requestId,
-      p_license_id: parsed.data.licenseId,
-      p_installation_hash: hashInstallationId(parsed.data.installationId),
-      p_installation_hint: installationHint(parsed.data.installationId),
-      p_device_label: parsed.data.deviceLabel,
+      p_request_id: input.requestId,
+      p_license_id: input.licenseId,
+      p_installation_hash: hashInstallationId(input.installationId),
+      p_installation_hint: installationHint(input.installationId),
+      p_device_label: input.deviceLabel,
     };
   }
 
@@ -99,8 +147,8 @@ export async function POST(request: Request) {
     });
   }
   const mutation = data && typeof data === 'object' && !Array.isArray(data)
-    ? { changed: data.changed === true, changeKind: typeof data.changeKind === 'string' ? data.changeKind : null, action: parsed.data.action }
-    : { changed: true, changeKind: null, action: parsed.data.action };
+    ? { changed: data.changed === true, changeKind: typeof data.changeKind === 'string' ? data.changeKind : null, action: input.action }
+    : { changed: true, changeKind: null, action: input.action };
   try {
     return privateJson({ ...await loadLicenseRuntimeSnapshot(db, session.client!.id), mutation }, 200);
   } catch {

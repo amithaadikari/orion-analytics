@@ -14,15 +14,21 @@
 
 ## Pairing flow
 
-1. The client downloads and attaches the secure Orion V5.1 build to MetaTrader.
-2. The EA creates an opaque `ORN-INST-...` identifier inside that terminal's private Files sandbox and shows it in the Experts log.
-3. The client signs in with MFA, selects the license in the License Pairing Center, and submits that Installation ID.
-4. The server normalizes and hashes the ID. PostgreSQL stores only its SHA-256 hash and a short display hint.
-5. Demo users also register the exact Demo login and broker server against the selected license.
-6. The EA sends the license key, account identity/type, and installation ID to `/api/license/validate`. The route hashes both secrets before calling PostgreSQL.
-7. PostgreSQL returns the license's stored plan only after the license, client, platform, account binding, and installation binding all match.
+1. The client downloads and attaches the secure Orion V5.1 build to MetaTrader, then enters the matching license key.
+2. The EA creates an opaque `ORN-INST-...` identifier in that terminal's private Files sandbox and sends a pending device-approval request to Orion.
+3. The EA displays a six-digit approval code. The EA remains blocked while the request is pending.
+4. The client opens the authenticated Orion portal with MFA. Real users must already have the exact verified Real identity; Demo users must register the exact Demo login and broker server for the selected license.
+5. The License Pairing Center shows the pending device and its six-digit code. The client compares both codes and approves only when they match exactly.
+6. Orion activates that installation. If this is a replacement, the previous installation stops validating immediately and the normal replacement limit still applies.
+7. The EA checks the approval status and then calls `/api/license/validate`. PostgreSQL returns the license's stored plan only after the license, client, platform, account binding, and installation binding all match.
 
-The server never auto-claims a license from the first EA validation. Pairing requires the authenticated portal, so a copied EA file and license key running on another normal installation receives `INSTALLATION_MISMATCH`.
+The EA request creates only a pending record; it never auto-claims a license or installation seat. Activation requires an authenticated portal approval with the matching six-digit code, so a copied EA file and license key cannot silently replace the client's approved installation.
+
+## Advanced Recovery: manual Installation ID
+
+Automatic approval is the normal setup path. If the pending request cannot be recovered, the client can open **License Pairing Center → Advanced Recovery**, select the correct license, and enter the complete `ORN-INST-...` value shown in the EA's Experts log.
+
+Manual recovery does not bypass any security rule. Real and Demo identity requirements remain exact, only one installation can be active per license, installation replacements remain limited to two per rolling 24 hours, and a successful replacement immediately deactivates the previous installation.
 
 ## Validation request
 
@@ -54,14 +60,13 @@ Transport failures use the EA's bounded grace period only after a successful val
 
 ## Deployment order
 
-1. Compile and upload the secure V5.1 `.ex5` to the private Release Center as a Draft. Do not promote it until the cutover window.
-2. Announce a short licensing maintenance window. The final API intentionally rejects the older four-field request, and V5.2 cannot be secured because its Demo path is local and keyless.
-3. Apply `supabase/migrations/20260801_demo_license_installation_seats.sql` in Supabase.
-4. Deploy the Next.js application and verify `/api/license/validate` is available without exposing a Vercel login page.
-5. Immediately publish/promote the secure V5.1 build, retire the older four-field and keyless-Demo builds, and ask clients to download the new V5.1 package.
-6. Each client registers Demo details where needed and pairs the Installation ID shown by the secure V5.1 build. Real users must pair an installation too.
+1. Compile the updated secure V5.1 `.ex5`, confirm zero errors, and upload it to the private Release Center as a Draft.
+2. Apply `supabase/migrations/20260801_demo_license_installation_seats.sql` only if it is not already active, then apply `supabase/migrations/20260802_pending_installation_approvals.sql`.
+3. Deploy the Next.js application and verify the public device-request, approval-status, and `/api/license/validate` endpoints are available without exposing a Vercel login page.
+4. Use the Draft on a registered Demo identity to verify request creation, the same six-digit code in MT5 and the portal, MFA approval, and the subsequent normal license validation.
+5. Publish the updated V5.1 release and ask clients to download it. Each client registers the required exact Real or Demo identity, compares the code, and approves the pending device. Manual Installation ID pairing remains available only under Advanced Recovery.
 
-Do not deploy the strict six-field validator until the compiled secure V5.1 release is ready. Deploying it earlier immediately blocks older four-field and keyless-Demo builds and creates avoidable downtime.
+The automatic request layer is additive to the existing secure V5.1 validator and manual Installation ID flow, so the database and web application can be activated before the updated EA is published.
 
 Applying source code does not apply the Supabase migration, and applying the migration does not deploy Vercel. Verify both separately.
 

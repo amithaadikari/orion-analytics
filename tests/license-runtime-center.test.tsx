@@ -19,7 +19,23 @@ describe('license pairing center', () => {
     expect(await screen.findByText('Basic')).toBeTruthy();
     expect(screen.getByText(/server enables only Basic features/i)).toBeTruthy();
     expect(screen.getByText(/Unregistered Demo accounts are rejected/i)).toBeTruthy();
-    expect(screen.getByText(/one active installation seat/i)).toBeTruthy();
+    expect(screen.getByText('Active installation')).toBeTruthy();
+    expect(screen.getByText('Advanced Recovery')).toBeTruthy();
+  });
+
+  it('uses fast refresh only while an approval is waiting', async () => {
+    const interval = vi.spyOn(window, 'setInterval');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(snapshot())));
+    render(<LicenseRuntimeCenter />);
+    await screen.findByText('Basic');
+    expect(interval).toHaveBeenLastCalledWith(expect.any(Function), 60_000);
+
+    cleanup();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(snapshot({ pending: true }))));
+    render(<LicenseRuntimeCenter />);
+    await screen.findByLabelText('Approval code 482731');
+    expect(interval).toHaveBeenLastCalledWith(expect.any(Function), 15_000);
+    interval.mockRestore();
   });
 
   it('registers a per-license Demo identity without submitting plan or platform authority', async () => {
@@ -43,13 +59,38 @@ describe('license pairing center', () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(snapshot())).mockResolvedValueOnce(jsonResponse(snapshot({ installation: true })));
     vi.stubGlobal('fetch', fetchMock);
     render(<LicenseRuntimeCenter />);
-    await screen.findByText(/The EA Installation ID must be paired/i);
+    await screen.findByText(/EA will request approval automatically/i);
+    fireEvent.click(screen.getByText('Advanced Recovery'));
     fireEvent.change(screen.getByLabelText('Installation ID from EA'), { target: { value: installationId } });
     fireEvent.change(screen.getByLabelText('Device label'), { target: { value: 'Home laptop MT5' } });
     fireEvent.change(screen.getByLabelText(/Type ACTIVATE DEVICE/i), { target: { value: 'ACTIVATE DEVICE' } });
     fireEvent.click(screen.getByRole('button', { name: 'Activate installation' }));
     expect(await screen.findByText(/EA can now validate from this installation/i)).toBeTruthy();
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({ action: 'setInstallation', licenseId, installationId, deviceLabel: 'Home laptop MT5' });
+  });
+
+  it('shows the EA match code and approves a pending installation with one portal action', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(snapshot({ pending: true }))).mockResolvedValueOnce(jsonResponse(snapshot({ installation: true })));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<LicenseRuntimeCenter />);
+    expect((await screen.findByLabelText('Approval code 482731')).textContent).toBe('482 731');
+    expect(screen.getByText(/Demo · ••••4321/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Approve device' }));
+    expect(await screen.findByText(/EA is completing its secure license check/i)).toBeTruthy();
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+      action: 'resolveInstallationRequest', pairingRequestId: 'pending-1', decision: 'Approve',
+    });
+  });
+
+  it('warns before replacing an active installation from a pending request', async () => {
+    const confirm = vi.fn().mockReturnValue(true);
+    vi.stubGlobal('confirm', confirm);
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(snapshot({ installation: true, pending: true }))).mockResolvedValueOnce(jsonResponse(snapshot({ installation: true })));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<LicenseRuntimeCenter />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Approve and replace device' }));
+    expect(confirm).toHaveBeenCalledWith(expect.stringMatching(/deactivated immediately/i));
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({ decision: 'Approve', pairingRequestId: 'pending-1' });
   });
 
   it('disables replacement when the rolling security limit is active', async () => {
@@ -74,7 +115,7 @@ describe('license pairing center', () => {
   });
 });
 
-function snapshot(options: { demo?: boolean; installation?: boolean; installationLocked?: boolean } = {}): LicenseRuntimeSnapshot {
+function snapshot(options: { demo?: boolean; installation?: boolean; installationLocked?: boolean; pending?: boolean } = {}): LicenseRuntimeSnapshot {
   return {
     serverTime: '2026-08-01T00:00:00Z', clientStatus: 'Active',
     membership: { storedTier: 'Standard', effectiveTier: 'Standard', status: 'Active', startedAt: null, expiresAt: null },
@@ -82,6 +123,11 @@ function snapshot(options: { demo?: boolean; installation?: boolean; installatio
       id: licenseId, maskedLicenseKey: 'ORN-••••-••••-••••-PQRT', plan: 'Basic', platform: 'MT5', status: 'Active', expiresAt: null, bindingVersion: 1, eligible: true,
       demoAccount: options.demo ? { id: 'demo-1', maskedAccountNumber: '••••4321', brokerServer: 'Broker-Demo', platform: 'MT5', registeredAt: '2026-08-01T00:00:00Z' } : null,
       installation: options.installation ? { id: 'install-1', hint: '••••-WXYZ', label: 'Home laptop MT5', activatedAt: '2026-08-01T00:00:00Z', lastSeenAt: null } : null,
+      pendingInstallationRequest: options.pending ? {
+        id: 'pending-1', hint: '••••-ABCD', label: 'Home MT5 terminal', maskedAccountNumber: '••••4321',
+        brokerServer: 'Broker-Demo', accountType: 'Demo', platform: 'MT5', matchCode: '482731',
+        requestedAt: '2026-08-01T00:00:00Z', expiresAt: '2026-08-01T00:10:00Z',
+      } : null,
       canChangeDemo: true, nextDemoChangeAt: null, demoCooldownReason: null,
       canReplaceInstallation: !options.installationLocked,
       nextInstallationChangeAt: options.installationLocked ? '2026-08-02T00:00:00Z' : null,
