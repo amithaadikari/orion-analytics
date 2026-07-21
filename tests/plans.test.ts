@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkoutPath, checkoutSelectionPath, normalizePlan, planFromPath, safeAuthNext, safeMfaNext } from '@/lib/plans';
+import { checkoutPath, checkoutSelectionPath, normalizePlan, planFromPath, plans, safeAuthNext, safeMfaNext } from '@/lib/plans';
 
 describe('client plan handoff', () => {
   it('normalizes only published Orion editions', () => {
@@ -10,6 +10,7 @@ describe('client plan handoff', () => {
 
   it('keeps authentication redirects on approved portal paths', () => {
     expect(safeAuthNext('/checkout?plan=basic')).toBe('/checkout?plan=basic');
+    expect(safeAuthNext('/portal/trading')).toBe('/portal/trading');
     expect(safeAuthNext('/portal/profile')).toBe('/portal/profile');
     expect(safeAuthNext('/portal/settings')).toBe('/portal/settings');
     expect(safeAuthNext('/reset-password')).toBe('/reset-password');
@@ -25,6 +26,12 @@ describe('client plan handoff', () => {
     expect(safeMfaNext('/dashboard?section=payments')).toBe('/dashboard?section=payments');
     expect(safeMfaNext('/portal/settings')).toBe('/portal/settings');
     expect(safeMfaNext('//evil.example')).toBe('/portal');
+  });
+
+  it('advertises the trading analytics included with each edition', () => {
+    expect(plans.basic.highlights).toContain('7-day live trading dashboard');
+    expect(plans.premium.highlights).toContain('90-day analytics + advanced metrics');
+    expect(plans.lifetime.highlights).toContain('All recorded analytics + advanced metrics');
   });
 
   it('builds and reads safe checkout paths', () => {

@@ -135,7 +135,8 @@ export function canonicalClientPlan(value: unknown): ClientPlan {
 export function maskTradingAccount(value: string | null | undefined) {
   const normalized = String(value || '').trim();
   if (!normalized) return 'Not registered';
-  if (normalized.length <= 4) return normalized;
+  if (normalized.length <= 2) return '•'.repeat(normalized.length);
+  if (normalized.length <= 4) return `${'•'.repeat(Math.max(1, normalized.length - 2))}${normalized.slice(-2)}`;
   return `${'•'.repeat(Math.min(8, normalized.length - 4))}${normalized.slice(-4)}`;
 }
 

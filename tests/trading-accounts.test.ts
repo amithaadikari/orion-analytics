@@ -56,7 +56,8 @@ describe('trading-account membership and eligibility', () => {
 
   it('masks all but the final four account digits', () => {
     expect(maskTradingAccount('123456789')).toBe('•••••6789');
-    expect(maskTradingAccount('1234')).toBe('1234');
+    expect(maskTradingAccount('1234')).toBe('••34');
+    expect(maskTradingAccount('12')).toBe('••');
     expect(maskTradingAccount(null)).toBe('Not registered');
   });
 });

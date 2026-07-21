@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/license-reminders", "schedule": "0 3 * * *" }
+    { "path": "/api/cron/license-reminders", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/telemetry-retention", "schedule": "20 3 * * *" }
   ]
 }
