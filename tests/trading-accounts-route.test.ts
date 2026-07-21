@@ -40,33 +40,51 @@ describe('client trading-accounts API', () => {
 
   it('rejects cross-site requests before authentication', async () => {
     mocks.sameOrigin.mockReturnValue(false);
-    const response = await POST(request({ ...validBody(), confirmation: 'REGISTER ACCOUNT' }));
+    const response = await POST(request({ ...validBody(), intent: 'Register' }));
     expect(response.status).toBe(403);
     expect(mocks.getPortalSession).not.toHaveBeenCalled();
   });
 
   it('rejects browser attempts to choose a client or membership tier', async () => {
-    mocks.createSupabaseAdminClient.mockReturnValue({ rpc: vi.fn() });
-    mocks.loadSnapshot.mockResolvedValue(snapshot(false));
-    const response = await POST(request({ ...validBody(), confirmation: 'REGISTER ACCOUNT', clientId: '33333333-3333-4333-8333-333333333333', membershipTier: 'Pro' }));
-    expect(response.status).toBe(400);
-    expect(mocks.createSupabaseAdminClient().rpc).not.toHaveBeenCalled();
-  });
-
-  it('requires the correct typed confirmation for the current server state', async () => {
     const rpc = vi.fn();
     mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
-    mocks.loadSnapshot.mockResolvedValue(snapshot(true));
-    const response = await POST(request({ ...validBody(), confirmation: 'REGISTER ACCOUNT' }));
+    const response = await POST(request({ ...validBody(), intent: 'Register', clientId: '33333333-3333-4333-8333-333333333333', membershipTier: 'Pro' }));
     expect(response.status).toBe(400);
+    expect(mocks.loadSnapshot).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it('calls the client-scoped atomic RPC without accepting client or membership decisions', async () => {
-    const rpc = vi.fn().mockResolvedValue({ data: { changed: true, changeKind: 'Registration', reboundLicenses: 1 }, error: null });
+  it('rejects mixed semantic intent and legacy confirmation before loading account state', async () => {
+    const rpc = vi.fn();
     mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    const response = await POST(request({ ...validBody(), intent: 'Register', confirmation: 'REGISTER ACCOUNT' }));
+    expect(response.status).toBe(400);
+    expect(mocks.loadSnapshot).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['Register', true],
+    ['Replace', false],
+  ] as const)('rejects stale %s intent from a fresh server snapshot', async (intent, hasAccount) => {
+    const rpc = vi.fn();
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    mocks.loadSnapshot.mockResolvedValue(snapshot(hasAccount));
+    const response = await POST(request({ ...validBody(), intent }));
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'ACCOUNT_STATE_CHANGED',
+      error: 'The real account status changed. Review the current account details and try again.',
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('registers through semantic intent and calls only the client-scoped atomic RPC', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { changed: true, changeKind: 'Registration', reboundLicenses: 1 }, error: null });
+    const db = { rpc };
+    mocks.createSupabaseAdminClient.mockReturnValue(db);
     mocks.loadSnapshot.mockResolvedValueOnce(snapshot(false)).mockResolvedValueOnce(snapshot(true));
-    const response = await POST(request({ ...validBody(), confirmation: 'REGISTER ACCOUNT' }));
+    const response = await POST(request({ ...validBody(), intent: 'Register' }));
     expect(response.status).toBe(201);
     expect(rpc).toHaveBeenCalledWith('change_registered_real_account_client', {
       p_auth_user_id: 'auth-user-1',
@@ -81,11 +99,29 @@ describe('client trading-accounts API', () => {
     expect(JSON.stringify(rpc.mock.calls)).not.toContain('membership');
   });
 
+  it('accepts Replace intent when the server has a current account', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { changed: true, changeKind: 'Replacement', reboundLicenses: 1 }, error: null });
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    mocks.loadSnapshot.mockResolvedValueOnce(snapshot(true)).mockResolvedValueOnce(snapshot(true));
+    const response = await POST(request({ ...validBody(), intent: 'Replace' }));
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('temporarily accepts the legacy phrase as the equivalent semantic registration intent', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { changed: true, changeKind: 'Registration', reboundLicenses: 1 }, error: null });
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    mocks.loadSnapshot.mockResolvedValueOnce(snapshot(false)).mockResolvedValueOnce(snapshot(true));
+    const response = await POST(request({ ...validBody(), confirmation: 'REGISTER ACCOUNT' }));
+    expect(response.status).toBe(201);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
   it('returns the authoritative cooldown date without changing the old binding', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: null, error: { code: 'P0001', message: 'ACCOUNT_CHANGE_COOLDOWN:2026-07-28T12:00:00Z' } });
     mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
     mocks.loadSnapshot.mockResolvedValue(snapshot(true));
-    const response = await POST(request({ ...validBody(), confirmation: 'CHANGE ACCOUNT' }));
+    const response = await POST(request({ ...validBody(), intent: 'Replace' }));
     expect(response.status).toBe(409);
     await expect(response.json()).resolves.toMatchObject({ code: 'ACCOUNT_CHANGE_COOLDOWN', nextChangeAt: '2026-07-28T12:00:00Z' });
     expect(mocks.loadSnapshot).toHaveBeenCalledTimes(1);
@@ -93,7 +129,11 @@ describe('client trading-accounts API', () => {
 });
 
 function request(body: Record<string, unknown>) {
-  return new Request('https://app.orionscalper.com/api/trading-accounts', { method: 'POST', headers: { origin: 'https://app.orionscalper.com', 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  return new Request('https://app.orionscalper.com/api/trading-accounts', {
+    method: 'POST',
+    headers: { origin: 'https://app.orionscalper.com', 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 function validBody() {
@@ -102,10 +142,29 @@ function validBody() {
 
 function snapshot(hasAccount: boolean) {
   return {
-    serverTime: '2026-07-21T12:00:00Z', clientStatus: 'Active',
+    serverTime: '2026-07-21T12:00:00Z',
+    clientStatus: 'Active',
     membership: { storedTier: 'Standard', effectiveTier: 'Standard', status: 'Active', startedAt: null, expiresAt: null },
-    currentAccount: hasAccount ? { id: 'account-1', accountNumber: '12345678', maskedAccountNumber: '••••5678', broker: 'Broker Ltd', brokerServer: 'Broker-Live', platform: 'MT5', currency: 'USD', status: 'Active', verifiedAt: '2026-07-21T12:00:00Z', registeredAt: '2026-07-21T12:00:00Z', deactivatedAt: null } : null,
-    licensesBound: hasAccount ? 1 : 0, eligibleLicenses: 1, canChange: true, nextChangeAt: null, cooldownDays: 7, cooldownReason: null,
-    legacyReview: { pendingCount: 0, suggestedAccountNumber: null }, history: [],
+    currentAccount: hasAccount ? {
+      id: 'account-1',
+      accountNumber: '12345678',
+      maskedAccountNumber: '••••5678',
+      broker: 'Broker Ltd',
+      brokerServer: 'Broker-Live',
+      platform: 'MT5',
+      currency: 'USD',
+      status: 'Active',
+      verifiedAt: '2026-07-21T12:00:00Z',
+      registeredAt: '2026-07-21T12:00:00Z',
+      deactivatedAt: null,
+    } : null,
+    licensesBound: hasAccount ? 1 : 0,
+    eligibleLicenses: 1,
+    canChange: true,
+    nextChangeAt: null,
+    cooldownDays: 7,
+    cooldownReason: null,
+    legacyReview: { pendingCount: 0, suggestedAccountNumber: null },
+    history: [],
   };
 }
