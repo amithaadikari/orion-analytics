@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Typecheck, test, lint, and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-service-role-key
+      TELEGRAM_CHANNEL_URL: https://t.me/orion_ci_placeholder
+      META_PIXEL_ID: ci-placeholder-pixel
+      META_ACCESS_TOKEN: ci-placeholder-token
+      META_API_VERSION: v21.0
+      CONVERSION_INTERNAL_SECRET: ci-placeholder-internal-secret-0001
+      TRACKING_ALLOWED_ORIGINS: https://ci.orionscalper.example
+      IP_HASH_SALT: ci-placeholder-ip-hash-salt-0001
+      NEXT_PUBLIC_ANALYTICS_ENABLED: "false"
+      CLIENT_PORTAL_URL: https://ci.orionscalper.example
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

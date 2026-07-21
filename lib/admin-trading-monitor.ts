@@ -32,7 +32,108 @@ export type AdminTradingMonitorSnapshot = {
     rejected24h: number;
   };
   items: AdminTradingMonitorItem[];
+  reliability?: AdminTradingReliabilitySnapshot;
 };
+
+export const CURRENT_ORION_EA_VERSION = '5.2.0';
+
+export type AdminTradingVersionAdoption = {
+  currentVersion: string;
+  totalConnections: number;
+  reportingConnections: number;
+  currentConnections: number;
+  unknownConnections: number;
+  adoptionPercent: number | null;
+  breakdown: Array<{
+    version: string;
+    connections: number;
+    percentage: number;
+    current: boolean;
+  }>;
+};
+
+export type AdminTradingReliabilityIncident = {
+  id: string;
+  incidentType: 'offline_with_open_positions' | 'offline_stream' | 'rejection_spike';
+  severity: 'critical' | 'high' | 'warning';
+  status: 'Open' | 'Resolved';
+  summary: string;
+  clientId: string | null;
+  clientName: string | null;
+  maskedAccountNumber: string | null;
+  maskedLicenseKey: string | null;
+  firstDetectedAt: string;
+  lastDetectedAt: string;
+  resolvedAt: string | null;
+  acknowledgedAt: string | null;
+};
+
+export type AdminTradingReliabilityRun = {
+  id: string;
+  jobName: 'reliability-evaluator' | 'telemetry-retention';
+  status: 'Running' | 'Succeeded' | 'Failed';
+  evaluatorVersion: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  streamsEvaluated: number;
+  offlineWithOpenPositions: number;
+  offlineStreams: number;
+  rejectionWindowCount: number;
+  rejectionSpikes: number;
+  incidentsDetected: number;
+  incidentsOpened: number;
+  incidentsRefreshed: number;
+  incidentsResolved: number;
+  errorCode: string | null;
+  skipped: boolean;
+  skipReason: 'concurrent_evaluation' | null;
+};
+
+export type AdminTradingReliabilitySnapshot = {
+  available: boolean;
+  unavailableReason: 'migration_pending' | 'temporarily_unavailable' | null;
+  canAcknowledge: boolean;
+  versions: AdminTradingVersionAdoption;
+  incidents: AdminTradingReliabilityIncident[];
+  openIncidentCount: number;
+  openIncidentOverflow: boolean;
+  runs: AdminTradingReliabilityRun[];
+};
+
+export function buildEaVersionAdoption(
+  items: AdminTradingMonitorItem[],
+  currentVersion = CURRENT_ORION_EA_VERSION,
+): AdminTradingVersionAdoption {
+  const totals = new Map<string, number>();
+  for (const item of items) {
+    const version = item.eaVersion?.trim().replace(/^v/i, '');
+    if (version) totals.set(version, (totals.get(version) || 0) + 1);
+  }
+  const totalConnections = items.length;
+  const reportingConnections = [...totals.values()].reduce((total, count) => total + count, 0);
+  const currentConnections = totals.get(currentVersion) || 0;
+  const percentage = (count: number) => totalConnections
+    ? Math.round((count / totalConnections) * 1000) / 10
+    : 0;
+  return {
+    currentVersion,
+    totalConnections,
+    reportingConnections,
+    currentConnections,
+    unknownConnections: totalConnections - reportingConnections,
+    adoptionPercent: totalConnections ? percentage(currentConnections) : null,
+    breakdown: [...totals.entries()]
+      .map(([version, connections]) => ({
+        version,
+        connections,
+        percentage: percentage(connections),
+        current: version === currentVersion,
+      }))
+      .sort((left, right) => Number(right.current) - Number(left.current)
+        || right.connections - left.connections
+        || right.version.localeCompare(left.version, undefined, { numeric: true })),
+  };
+}
 
 export function tradingConnectionState(lastSeenAt: string | null, now = new Date()): TradingConnectionState {
   if (!lastSeenAt) return 'never';
