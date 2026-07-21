@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
+  Activity,
   Bell,
   Headphones,
   LayoutDashboard,
@@ -24,6 +25,7 @@ import type { ClientAvatarKey } from '@/lib/client-profile';
 
 const workspaceSections = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'trading', label: 'Trading', icon: Activity },
   { id: 'profile', label: 'Profile', icon: UserRound },
   { id: 'settings', label: 'Security', icon: ShieldCheck },
   { id: 'setup', label: 'Setup', icon: ListChecks },
@@ -35,7 +37,7 @@ const workspaceSections = [
 ] as const;
 
 type PortalWorkspaceShellProps = {
-  currentView: 'overview' | 'profile' | 'settings';
+  currentView: 'overview' | 'trading' | 'profile' | 'settings';
   clientName: string;
   clientDisplayName: string;
   clientAvatarKey: ClientAvatarKey;
@@ -73,6 +75,7 @@ export default function PortalWorkspaceShell({ currentView, clientName, clientDi
   }, [currentView]);
 
   function sectionHref(id: (typeof workspaceSections)[number]['id']) {
+    if (id === 'trading') return '/portal/trading';
     if (id === 'profile') return '/portal/profile';
     if (id === 'settings') return '/portal/settings';
     if (currentView === 'overview') return `#${id}`;
@@ -117,7 +120,7 @@ export default function PortalWorkspaceShell({ currentView, clientName, clientDi
 
           <nav className="portal-workspace-nav" aria-label="Portal navigation">
             {workspaceSections.map(({ id, label, icon: Icon }) => (
-              <Link className={activeSection === id ? 'is-active' : ''} href={sectionHref(id)} key={id} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? (id === 'profile' || id === 'settings' ? 'page' : 'location') : undefined}>
+              <Link className={activeSection === id ? 'is-active' : ''} href={sectionHref(id)} key={id} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? (id === 'profile' || id === 'settings' || id === 'trading' ? 'page' : 'location') : undefined}>
                 <span aria-hidden="true"><Icon size={16} /></span>
                 <strong>{label}</strong>
                 <i aria-hidden="true" />

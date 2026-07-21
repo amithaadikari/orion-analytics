@@ -33,6 +33,7 @@ import OrionBrand from '@/components/orion-brand';
 import SupportTicketCenter from '@/components/support-ticket-center';
 import AdminProfileMenu from '@/components/admin-profile-menu';
 import AdminSettingsPanel, { type AdminAccountSnapshot } from '@/components/admin-settings-panel';
+import AdminTradingMonitor from '@/components/admin-trading-monitor';
 import type { AdminAccountPreferences, AdminProfile } from '@/lib/admin-account';
 
 type DashboardProps = { admin: { email?: string | null; role?: string | null } | null; account: AdminAccountSnapshot; initialTheme?: DashboardTheme; initialSection?: string };
@@ -77,6 +78,7 @@ const navigationItems: Record<string, NavItem> = {
   clients: { label: 'Clients', icon: UsersRound },
   licenses: { label: 'Licenses', icon: KeyRound },
   support: { label: 'Support', icon: LifeBuoy },
+  fleet: { label: 'EA monitor', icon: Activity },
   releases: { label: 'Releases', icon: PackageOpen },
   activity: { label: 'Audit trail', icon: History },
   settings: { label: 'Settings', icon: Settings2 }
@@ -232,7 +234,7 @@ export default function Dashboard({ admin, account, initialTheme = 'royal', init
   const changeLabel = (value: number) => `${value >= 0 ? '+' : ''}${value}% vs prior`;
   const businessTabs = ['sales', 'registrations', 'clients', 'licenses', 'payments', 'releases', 'activity'];
   const isBusiness = businessTabs.includes(tab);
-  const isOperationalSurface = isBusiness || tab === 'support';
+  const isOperationalSurface = isBusiness || tab === 'support' || tab === 'fleet';
   const titles: Record<string, [string, string, string]> = {
     sales: ['Revenue', 'Sales performance', 'Completed sales, customer mix and payment quality by currency.'],
     registrations: ['Client onboarding', 'Registration queue', 'Review new free accounts and clients who still need activation.'],
@@ -242,6 +244,7 @@ export default function Dashboard({ admin, account, initialTheme = 'royal', init
     releases: ['Product delivery', 'Downloads & releases', 'Publish Orion versions and download links to client portals.'],
     activity: ['Audit trail', 'Client activity', 'Every operational change in one chronological timeline.'],
     support: ['Client care', 'Official support desk', 'Review secure client tickets, reply, and manage resolution status.'],
+    fleet: ['Trading systems', 'EA fleet monitor', 'Connection health, account synchronization and validated trading activity.'],
     settings: ['System', 'Control center settings', 'Appearance, administrator access, alerts, privacy, and connection health.']
   };
   const heading = titles[tab] || [tab === 'overview' ? 'Command center' : tab, tab === 'overview' ? 'Marketing performance, live' : `${tab[0].toUpperCase()}${tab.slice(1)} activity`, 'Orion acquisition, attribution and conversion intelligence.'];
@@ -249,7 +252,7 @@ export default function Dashboard({ admin, account, initialTheme = 'royal', init
     { label: 'Analytics', tone: 'cyan', items: ['overview','visitors','campaigns','events','meta'] },
     { label: 'Revenue', tone: 'green', items: ['sales','payments'] },
     { label: 'Customers', tone: 'gold', items: ['registrations','clients','licenses','support'] },
-    { label: 'Operations', tone: 'violet', items: ['releases','activity'] },
+    { label: 'Operations', tone: 'violet', items: ['fleet','releases','activity'] },
     { label: 'System', tone: 'orange', items: ['settings'] }
   ];
   return (
@@ -351,8 +354,8 @@ export default function Dashboard({ admin, account, initialTheme = 'royal', init
             )}
             </header>
 
-            {!isBusiness && loadError && <div className="command-data-alert" role="alert"><span aria-hidden="true">!</span><p>{loadError}</p><button type="button" className="glass-button" onClick={() => void load()}>Retry</button></div>}
-            {tab === 'releases' ? <ReleaseManager canWrite={admin?.role === 'admin'} /> : tab === 'support' ? <SupportTicketCenter embedded /> : isBusiness ? <BusinessDashboard section={tab} canWrite={admin?.role === 'admin'} initialFilter={destinationFilter} initialSearch={destinationSearch} navigationKey={businessNavigationKey} commandAction={businessCommand} /> : <>{loading && <div className="loading-bar command-loading-bar" role="status" aria-label="Refreshing dashboard intelligence" />}{tab === 'settings' ? <AdminSettingsPanel account={{ ...account, profile: adminProfile, preferences: accountPreferences }} theme={theme} onThemeChange={applyTheme} onProfileChange={updateAdminProfile} onPreferencesChange={updateAdminPreferences} onNavigate={navigateNormally} /> : tab === 'meta' ? <MetaPanel meta={snapshot.meta} /> : <><div className="filter-row"><Filter label="Country" value={country} options={countries} onChange={setCountry} /><Filter label="Campaign" value={campaign} options={campaigns} onChange={setCampaign} /><Filter label="Device" value={device} options={snapshot.charts.byDevice.map((row) => row.name)} onChange={setDevice} /><Filter label="Event" value={eventFilter} options={['PageView', 'ViewContent', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']} onChange={setEventFilter} /></div><div className="metric-grid v2"><Metric label="Visitors" value={metric('uniqueVisitors')} detail={changeLabel(snapshot.comparison.visitors)} /><Metric label="Visitors online" value={metric('visitorsOnline')} detail="Active in last 5 minutes" positive /><Metric label="Telegram clicks" value={metric('telegramClicks')} detail={changeLabel(snapshot.comparison.telegramClicks)} positive /><Metric label="Conversion rate" value={`${metric('conversionRate')}%`} detail="Unique visitor → click" positive /><Metric label="Leads today" value={metric('leadsToday')} detail="Recorded lead rows" /></div>{tab === 'overview' && <><Overview snapshot={snapshot} showActionCenter={admin?.role === 'admin'} onNavigate={navigateFromActionCenter} onAlertCountsChange={setAlertCounts} /><AdvancedAnalytics snapshot={snapshot} activeFilters={{ country: country === 'all' ? null : country, campaign: campaign === 'all' ? null : campaign, device: device === 'all' ? null : device, event: eventFilter === 'all' ? null : eventFilter, date: range === 'custom' && customStart === customEnd ? customStart : null }} onFilterChange={applyAdvancedFilter} /></>}{tab === 'visitors' && <VisitorTable rows={snapshot.visitors} />}{tab === 'campaigns' && <CampaignTable rows={snapshot.campaigns} />}{tab === 'events' && <EventTable rows={snapshot.events} />}</>}</>}
+            {!isOperationalSurface && loadError && <div className="command-data-alert" role="alert"><span aria-hidden="true">!</span><p>{loadError}</p><button type="button" className="glass-button" onClick={() => void load()}>Retry</button></div>}
+            {tab === 'fleet' ? <AdminTradingMonitor /> : tab === 'releases' ? <ReleaseManager canWrite={admin?.role === 'admin'} /> : tab === 'support' ? <SupportTicketCenter embedded /> : isBusiness ? <BusinessDashboard section={tab} canWrite={admin?.role === 'admin'} initialFilter={destinationFilter} initialSearch={destinationSearch} navigationKey={businessNavigationKey} commandAction={businessCommand} /> : <>{loading && <div className="loading-bar command-loading-bar" role="status" aria-label="Refreshing dashboard intelligence" />}{tab === 'settings' ? <AdminSettingsPanel account={{ ...account, profile: adminProfile, preferences: accountPreferences }} theme={theme} onThemeChange={applyTheme} onProfileChange={updateAdminProfile} onPreferencesChange={updateAdminPreferences} onNavigate={navigateNormally} /> : tab === 'meta' ? <MetaPanel meta={snapshot.meta} /> : <><div className="filter-row"><Filter label="Country" value={country} options={countries} onChange={setCountry} /><Filter label="Campaign" value={campaign} options={campaigns} onChange={setCampaign} /><Filter label="Device" value={device} options={snapshot.charts.byDevice.map((row) => row.name)} onChange={setDevice} /><Filter label="Event" value={eventFilter} options={['PageView', 'ViewContent', 'PlanSelected', 'RegistrationStarted', 'RegistrationCompleted', 'CheckoutStarted', 'TelegramClick', 'SupportClick', 'Lead', 'Purchase']} onChange={setEventFilter} /></div><div className="metric-grid v2"><Metric label="Visitors" value={metric('uniqueVisitors')} detail={changeLabel(snapshot.comparison.visitors)} /><Metric label="Visitors online" value={metric('visitorsOnline')} detail="Active in last 5 minutes" positive /><Metric label="Telegram clicks" value={metric('telegramClicks')} detail={changeLabel(snapshot.comparison.telegramClicks)} positive /><Metric label="Conversion rate" value={`${metric('conversionRate')}%`} detail="Unique visitor → click" positive /><Metric label="Leads today" value={metric('leadsToday')} detail="Recorded lead rows" /></div>{tab === 'overview' && <><Overview snapshot={snapshot} showActionCenter={admin?.role === 'admin'} onNavigate={navigateFromActionCenter} onAlertCountsChange={setAlertCounts} /><AdvancedAnalytics snapshot={snapshot} activeFilters={{ country: country === 'all' ? null : country, campaign: campaign === 'all' ? null : campaign, device: device === 'all' ? null : device, event: eventFilter === 'all' ? null : eventFilter, date: range === 'custom' && customStart === customEnd ? customStart : null }} onFilterChange={applyAdvancedFilter} /></>}{tab === 'visitors' && <VisitorTable rows={snapshot.visitors} />}{tab === 'campaigns' && <CampaignTable rows={snapshot.campaigns} />}{tab === 'events' && <EventTable rows={snapshot.events} />}</>}</>}
           </div>
         </section>
       </div>

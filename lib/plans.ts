@@ -20,7 +20,7 @@ export const plans: Record<PlanKey, PlanDetails> = {
     priceLabel: '$50',
     license: '30-day license',
     description: 'Focused London-session automation with Orion’s Safe profile.',
-    highlights: ['London session', 'Safe risk profile', 'Maximum 2 positions'],
+    highlights: ['London session', 'Safe risk profile', 'Maximum 2 positions', '7-day live trading dashboard'],
   },
   premium: {
     key: 'premium',
@@ -29,7 +29,7 @@ export const plans: Record<PlanKey, PlanDetails> = {
     priceLabel: '$100',
     license: '90-day license',
     description: 'More session access, direction control, and Safe or Balanced profiles.',
-    highlights: ['London + New York', 'Safe + Balanced profiles', 'Maximum 5 positions'],
+    highlights: ['London + New York', 'Safe + Balanced profiles', 'Maximum 5 positions', '90-day analytics + advanced metrics'],
   },
   lifetime: {
     key: 'lifetime',
@@ -38,7 +38,7 @@ export const plans: Record<PlanKey, PlanDetails> = {
     priceLabel: '$329',
     license: 'Lifetime license',
     description: 'The complete configurable Orion V5 control set.',
-    highlights: ['All supported sessions', 'All profiles + Custom', 'Configurable position limit'],
+    highlights: ['All supported sessions', 'All profiles + Custom', 'Configurable position limit', 'All recorded analytics + advanced metrics'],
   },
 };
 
@@ -54,7 +54,7 @@ export function normalizeTrackingId(value: unknown) {
   return /^[a-zA-Z0-9._:-]{8,180}$/.test(normalized) ? normalized : null;
 }
 
-const allowedAuthDestinations = new Set(['/portal', '/portal/profile', '/portal/settings', '/checkout', '/reset-password']);
+const allowedAuthDestinations = new Set(['/portal', '/portal/trading', '/portal/profile', '/portal/settings', '/checkout', '/reset-password']);
 const documentDestination = /^\/(?:invoice|receipt)\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function safeAuthNext(value: unknown, fallback = '/portal') {

@@ -73,7 +73,7 @@ export default async function PortalPage() {
               <p className="eyebrow">Orion client workspace</p>
               <h1 id="portal-title">Welcome back, <span>{displayName}.</span></h1>
               <p>Manage your setup, licenses, payments, software updates, and support from one secure workspace.</p>
-              <div className="portal-hero-links"><a href="#setup">Continue setup <span aria-hidden="true">→</span></a><Link href="/portal/profile">View profile</Link></div>
+              <div className="portal-hero-links"><Link href="/portal/trading">Open trading dashboard <span aria-hidden="true">→</span></Link><a href="#setup">Continue setup</a></div>
             </div>
             <aside className="portal-account-state portal-account-snapshot" aria-label={`${client.plan} plan, account status ${client.status}`}>
               <div className="portal-account-snapshot-heading">

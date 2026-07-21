@@ -28,6 +28,7 @@ const pageCommands: PaletteCommand[] = [
   { id:'page-clients', title:'Client management', subtitle:'Client cards and Client 360 profiles', icon:'◎', type:'navigation', section:'clients' },
   { id:'page-licenses', title:'License manager', subtitle:'Generate, renew, and monitor licenses', icon:'⌘', type:'navigation', section:'licenses' },
   { id:'page-payments', title:'Payment records', subtitle:'Transactions, receipts, and verification', icon:'$', type:'navigation', section:'payments' },
+  { id:'page-fleet', title:'EA fleet monitor', subtitle:'Connection health and trading synchronization', icon:'◉', type:'navigation', section:'fleet' },
   { id:'page-releases', title:'Product releases', subtitle:'Secure downloads and version history', icon:'↓', type:'navigation', section:'releases' },
   { id:'page-activity', title:'Audit trail', subtitle:'Chronological operational activity', icon:'≋', type:'navigation', section:'activity' },
   { id:'page-support', title:'Support desk', subtitle:'Official client support tickets', icon:'?', type:'navigation', section:'support' },
