@@ -20,8 +20,8 @@ describe('admin trading-account panel', () => {
 
 function snapshot() {
   return {
-    serverTime: '2026-07-21T12:00:00Z', clientStatus: 'Active', membership: { storedTier: 'Pro', effectiveTier: 'Pro', status: 'Active', startedAt: null, expiresAt: null },
+    serverTime: '2026-07-21T12:00:00Z', clientStatus: 'Active', clientPlan: 'Basic', membership: { storedTier: 'Pro', effectiveTier: 'Pro', status: 'Active', startedAt: null, expiresAt: null },
     currentAccount: { id: 'account-1', accountNumber: '12345678', maskedAccountNumber: '••••5678', broker: 'Broker Ltd', brokerServer: 'Broker-Live', platform: 'MT5', currency: 'USD', status: 'Active', verifiedAt: '2026-07-21T12:00:00Z', registeredAt: '2026-07-21T12:00:00Z', deactivatedAt: null },
-    licensesBound: 1, eligibleLicenses: 1, eligiblePlatforms: ['MT5'], canChange: true, nextChangeAt: null, cooldownDays: 7, cooldownReason: null, legacyReview: { pendingCount: 0, suggestedAccountNumber: null }, history: [],
+    hasRegisteredAccount: true, licensesBound: 1, eligibleLicenses: 1, eligiblePlatforms: ['MT5'], canChange: false, nextChangeAt: null, cooldownDays: 7, cooldownReason: 'plan-locked', legacyReview: { pendingCount: 0, suggestedAccountNumber: null }, history: [],
   };
 }

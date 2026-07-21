@@ -45,10 +45,10 @@ describe('client trading-accounts API', () => {
     expect(mocks.getPortalSession).not.toHaveBeenCalled();
   });
 
-  it('rejects browser attempts to choose a client or membership tier', async () => {
+  it('rejects browser attempts to choose a client, plan, or membership tier', async () => {
     const rpc = vi.fn();
     mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
-    const response = await POST(request({ ...validBody(), intent: 'Register', clientId: '33333333-3333-4333-8333-333333333333', membershipTier: 'Pro' }));
+    const response = await POST(request({ ...validBody(), intent: 'Register', clientId: '33333333-3333-4333-8333-333333333333', clientPlan: 'Lifetime', membershipTier: 'Pro' }));
     expect(response.status).toBe(400);
     expect(mocks.loadSnapshot).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
@@ -108,6 +108,28 @@ describe('client trading-accounts API', () => {
     expect(rpc).toHaveBeenCalledTimes(1);
   });
 
+  it.each(['Basic', 'Premium'] as const)('blocks %s replacement before calling the RPC', async (clientPlan) => {
+    const rpc = vi.fn();
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    mocks.loadSnapshot.mockResolvedValue(snapshot(true, { clientPlan }));
+    const response = await POST(request({ ...validBody(), intent: 'Replace' }));
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'REAL_ACCOUNT_CHANGE_REQUIRES_LIFETIME',
+      nextChangeAt: null,
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('does not treat an archived Basic identity as a new first registration', async () => {
+    const rpc = vi.fn();
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    mocks.loadSnapshot.mockResolvedValue(snapshot(false, { clientPlan: 'Basic', hasRegisteredAccount: true }));
+    const response = await POST(request({ ...validBody(), intent: 'Register' }));
+    expect(response.status).toBe(403);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('temporarily accepts the legacy phrase as the equivalent semantic registration intent', async () => {
     const rpc = vi.fn().mockResolvedValue({ data: { changed: true, changeKind: 'Registration', reboundLicenses: 1 }, error: null });
     mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
@@ -140,10 +162,11 @@ function validBody() {
   return { requestId, accountNumber: '12345678', broker: 'Broker Ltd', brokerServer: 'Broker-Live', platform: 'MT5', currency: 'USD' };
 }
 
-function snapshot(hasAccount: boolean) {
+function snapshot(hasAccount: boolean, options: { clientPlan?: 'Free' | 'Basic' | 'Premium' | 'Lifetime'; hasRegisteredAccount?: boolean } = {}) {
   return {
     serverTime: '2026-07-21T12:00:00Z',
     clientStatus: 'Active',
+    clientPlan: options.clientPlan || 'Lifetime',
     membership: { storedTier: 'Standard', effectiveTier: 'Standard', status: 'Active', startedAt: null, expiresAt: null },
     currentAccount: hasAccount ? {
       id: 'account-1',
@@ -158,6 +181,7 @@ function snapshot(hasAccount: boolean) {
       registeredAt: '2026-07-21T12:00:00Z',
       deactivatedAt: null,
     } : null,
+    hasRegisteredAccount: options.hasRegisteredAccount ?? hasAccount,
     licensesBound: hasAccount ? 1 : 0,
     eligibleLicenses: 1,
     canChange: true,

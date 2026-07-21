@@ -172,15 +172,15 @@
   line-height: 1.6;
 }
 
-.membership[data-tier='pro'] {
-  border-color: rgba(167, 139, 250, 0.28);
-  background: linear-gradient(145deg, rgba(167, 139, 250, 0.095), rgba(255, 255, 255, 0.014));
+.membership[data-tier='lifetime'] {
+  border-color: rgba(246, 196, 83, 0.28);
+  background: linear-gradient(145deg, rgba(246, 196, 83, 0.095), rgba(255, 255, 255, 0.014));
 }
 
-.membership[data-tier='pro'] > span {
-  color: #d8ccff;
-  border-color: rgba(167, 139, 250, 0.27);
-  background: rgba(167, 139, 250, 0.09);
+.membership[data-tier='lifetime'] > span {
+  color: #f6d98c;
+  border-color: rgba(246, 196, 83, 0.27);
+  background: rgba(246, 196, 83, 0.09);
 }
 
 .eligibility[data-ready='true'] {
@@ -209,6 +209,7 @@
 
 .currentCard,
 .form,
+.planLock,
 .history {
   border: 1px solid rgba(255, 255, 255, 0.085);
   border-radius: 17px;
@@ -574,6 +575,118 @@
   background:
     radial-gradient(circle at 100% 0, rgba(var(--portal-accent-rgb), 0.105), transparent 20rem),
     linear-gradient(145deg, rgba(10, 10, 9, 0.98), rgba(4, 5, 5, 0.99));
+}
+
+.planLock {
+  display: grid;
+  min-height: 100%;
+  padding: clamp(24px, 3vw, 32px);
+  align-content: start;
+  gap: 14px;
+  border-color: rgba(246, 196, 83, 0.2);
+  background:
+    radial-gradient(circle at 100% 0, rgba(246, 196, 83, 0.115), transparent 22rem),
+    linear-gradient(145deg, rgba(12, 10, 6, 0.98), rgba(4, 5, 5, 0.99));
+}
+
+.planLockIcon {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  margin-bottom: 5px;
+  place-items: center;
+  color: #f5d17b;
+  border: 1px solid rgba(246, 196, 83, 0.28);
+  border-radius: 15px;
+  background: rgba(246, 196, 83, 0.08);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.04), 0 14px 36px rgba(0, 0, 0, 0.22);
+}
+
+.planLock > h3 {
+  max-width: 420px;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(20px, 2.6vw, 27px);
+  letter-spacing: -0.04em;
+}
+
+.planLockLead {
+  max-width: 500px;
+  margin: 0;
+  color: #a49b86;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.planLockFacts {
+  display: grid;
+  margin: 5px 0 0;
+  gap: 8px;
+}
+
+.planLockFacts div {
+  display: flex;
+  min-height: 47px;
+  padding: 11px 13px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 11px;
+  background: rgba(0, 0, 0, 0.27);
+}
+
+.planLockFacts dt {
+  color: #7f7b72;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.planLockFacts dd {
+  margin: 0;
+  color: #eee7d9;
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 750;
+  text-align: right;
+}
+
+.planLockNotice {
+  display: flex;
+  margin-top: 3px;
+  padding: 14px;
+  align-items: flex-start;
+  gap: 10px;
+  color: #a8d7bf;
+  border: 1px solid rgba(52, 211, 153, 0.17);
+  border-radius: 11px;
+  background: rgba(52, 211, 153, 0.045);
+}
+
+.planLockNotice > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.planLockNotice span {
+  color: #8da99b;
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.planLockNotice strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #c5ead9;
+  font-size: 11px;
+}
+
+.planLockNotice a {
+  color: #c7ecd9;
+  font-weight: 800;
+  text-underline-offset: 3px;
 }
 
 .formHeader {
@@ -953,6 +1066,7 @@
 }
 
 .center button:focus-visible,
+.center a:focus-visible,
 .center input:focus-visible,
 .center select:focus-visible,
 .history > summary:focus-visible {
@@ -994,7 +1108,8 @@
 
   .summaryGrid article,
   .currentCard,
-  .form {
+  .form,
+  .planLock {
     padding: 17px;
   }
 

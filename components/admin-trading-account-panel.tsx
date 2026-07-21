@@ -159,20 +159,20 @@ export default function AdminTradingAccountPanel({ clientId, canWrite }: { clien
   }
 
   return <section className={styles.panel} aria-labelledby={`admin-trading-account-${clientId}`}>
-    <header><div><p className="eyebrow">Trading identity</p><h3 id={`admin-trading-account-${clientId}`}>Membership & real account</h3><span>Atomic license binding, cooldown enforcement, and audited overrides.</span></div><button type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh trading account"><RefreshCw size={15} className={loading ? styles.spin : ''} /></button></header>
+    <header><div><p className="eyebrow">Trading identity</p><h3 id={`admin-trading-account-${clientId}`}>Membership & real account</h3><span>Lifetime-only client replacement, atomic license binding, and audited administrator overrides.</span></div><button type="button" onClick={() => void load()} disabled={loading} aria-label="Refresh trading account"><RefreshCw size={15} className={loading ? styles.spin : ''} /></button></header>
     {error ? <p className={styles.error} role="alert"><ShieldAlert size={15} />{error}</p> : null}
     {notice ? <p className={styles.notice} role="status">{notice}</p> : null}
     {loading && !snapshot ? <p className={styles.loading}>Loading secure account records…</p> : null}
     {snapshot ? <>
       <div className={styles.summary}>
-        <article><BadgeCheck size={16} /><span><small>Membership</small><strong>{snapshot.membership.effectiveTier}</strong><b>{snapshot.membership.storedTier} · {snapshot.membership.status}</b></span></article>
+        <article><BadgeCheck size={16} /><span><small>Plan / membership</small><strong>{snapshot.clientPlan} · {snapshot.membership.effectiveTier}</strong><b>{snapshot.membership.storedTier} · {snapshot.membership.status}</b></span></article>
         <article><Server size={16} /><span><small>Current real account</small><strong>{snapshot.currentAccount?.maskedAccountNumber || 'Not registered'}</strong><b>{snapshot.currentAccount ? `${snapshot.currentAccount.platform} · ${snapshot.currentAccount.brokerServer}` : `${snapshot.legacyReview.pendingCount} legacy record(s) pending`}</b></span></article>
-        <article><span className={styles.bindingMark}>◇</span><span><small>Bound licenses</small><strong>{snapshot.licensesBound} / {snapshot.eligibleLicenses}</strong><b>{snapshot.canChange ? 'Client change available' : snapshot.nextChangeAt ? `Next ${formatDate(snapshot.nextChangeAt)}` : 'Client change locked'}</b></span></article>
+        <article><span className={styles.bindingMark}>◇</span><span><small>Bound licenses</small><strong>{snapshot.licensesBound} / {snapshot.eligibleLicenses}</strong><b>{snapshot.canChange ? 'Client change available' : snapshot.cooldownReason === 'plan-locked' ? `${snapshot.clientPlan} replacement locked` : snapshot.nextChangeAt ? `Next ${formatDate(snapshot.nextChangeAt)}` : 'Client change locked'}</b></span></article>
       </div>
 
       {canWrite ? <div className={styles.forms}>
         <form key={`membership-${snapshot.serverTime}`} onSubmit={saveMembership}>
-          <div><strong>Membership controls</strong><span>Pro removes the seven-day membership cooldown while active.</span></div>
+          <div><strong>Membership controls</strong><span>For Lifetime clients, Pro removes the seven-day replacement cooldown while active. Basic and Premium remain fixed.</span></div>
           <label><span>Tier</span><select name="tier" defaultValue={snapshot.membership.storedTier}><option>Standard</option><option>Pro</option></select></label>
           <label><span>Status</span><select name="status" defaultValue={snapshot.membership.status}><option>Active</option><option>Expired</option><option>Cancelled</option><option>Suspended</option></select></label>
           <label><span>Pro start</span><input name="startedAt" type="datetime-local" defaultValue={isoToDateInput(snapshot.membership.startedAt)} /></label>
