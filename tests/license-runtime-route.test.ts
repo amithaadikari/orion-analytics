@@ -75,7 +75,7 @@ describe('client license runtime API', () => {
     const rpc = vi.fn().mockResolvedValue({ data: { changed: true, changeKind: 'Registration' }, error: null });
     mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
     mocks.loadSnapshot.mockResolvedValueOnce(snapshot()).mockResolvedValueOnce(snapshot({ installation: true }));
-    const response = await POST(request({ action: 'setInstallation', requestId, licenseId, installationId, deviceLabel: 'Home laptop', confirmation: 'ACTIVATE DEVICE' }));
+    const response = await POST(request({ action: 'setInstallation', requestId, licenseId, installationId, deviceLabel: 'Home laptop', intent: 'Activate' }));
     expect(response.status).toBe(200);
     expect(rpc).toHaveBeenCalledWith('activate_license_installation_client', {
       p_auth_user_id: 'auth-user-1', p_request_id: requestId, p_license_id: licenseId,
@@ -84,12 +84,49 @@ describe('client license runtime API', () => {
     expect(JSON.stringify(rpc.mock.calls)).not.toContain(installationId);
   });
 
-  it('requires replacement confirmation from the current server snapshot', async () => {
+  it('returns a stale-state conflict without invoking an RPC when installation intent no longer matches', async () => {
     const rpc = vi.fn();
     mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
     mocks.loadSnapshot.mockResolvedValue(snapshot({ installation: true }));
-    const response = await POST(request({ action: 'setInstallation', requestId, licenseId, installationId, deviceLabel: 'New VPS', confirmation: 'ACTIVATE DEVICE' }));
+    const response = await POST(request({ action: 'setInstallation', requestId, licenseId, installationId, deviceLabel: 'New VPS', intent: 'Activate' }));
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'PAIRING_STATE_CHANGED' });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns a stale-state conflict without invoking an RPC when Demo intent no longer matches', async () => {
+    const rpc = vi.fn();
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    mocks.loadSnapshot.mockResolvedValue(snapshot({ demo: true }));
+    const response = await POST(request(demoBody()));
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({ code: 'PAIRING_STATE_CHANGED' });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('temporarily accepts a legacy confirmation phrase as the equivalent semantic intent', async () => {
+    const rpc = vi.fn().mockResolvedValue({ data: { changed: true, changeKind: 'Registration' }, error: null });
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    mocks.loadSnapshot.mockResolvedValueOnce(snapshot()).mockResolvedValueOnce(snapshot({ demo: true }));
+    const response = await POST(request({
+      action: 'setDemoAccount', requestId, licenseId, accountNumber: '87654321', brokerServer: 'Broker-Demo', confirmation: 'REGISTER DEMO',
+    }));
+    expect(response.status).toBe(200);
+    expect(rpc).toHaveBeenCalledWith('set_license_demo_account_client', {
+      p_auth_user_id: 'auth-user-1', p_request_id: requestId, p_license_id: licenseId,
+      p_account_number: '87654321', p_broker_server: 'Broker-Demo',
+    });
+  });
+
+  it.each([
+    ['Demo', { ...demoBody(), confirmation: 'REGISTER DEMO' }],
+    ['installation', { action: 'setInstallation', requestId, licenseId, installationId, deviceLabel: 'Home laptop', intent: 'Activate', confirmation: 'ACTIVATE DEVICE' }],
+  ])('rejects %s requests that mix semantic intent with a legacy confirmation', async (_kind, body) => {
+    const rpc = vi.fn();
+    mocks.createSupabaseAdminClient.mockReturnValue({ rpc });
+    const response = await POST(request(body));
     expect(response.status).toBe(400);
+    expect(mocks.loadSnapshot).not.toHaveBeenCalled();
     expect(rpc).not.toHaveBeenCalled();
   });
 
@@ -128,7 +165,7 @@ function request(body: Record<string, unknown>) {
 }
 
 function demoBody() {
-  return { action: 'setDemoAccount', requestId, licenseId, accountNumber: '87654321', brokerServer: 'Broker-Demo', confirmation: 'REGISTER DEMO' };
+  return { action: 'setDemoAccount', requestId, licenseId, accountNumber: '87654321', brokerServer: 'Broker-Demo', intent: 'Register' };
 }
 
 function snapshot(options: { demo?: boolean; installation?: boolean } = {}) {
