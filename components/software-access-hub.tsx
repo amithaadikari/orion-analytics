@@ -124,7 +124,7 @@ export default function SoftwareAccessHub({ client, licenses, releases, download
           <StatusIcon tone={hubState.tone} />
           <span><small>Current status</small><strong>{hubState.label}</strong></span>
         </div>
-        <strong className={styles.marker} aria-hidden="true">03</strong>
+        <strong className={styles.marker} aria-hidden="true">04</strong>
       </header>
 
       <div className={styles.accessGrid}>
@@ -218,7 +218,8 @@ export default function SoftwareAccessHub({ client, licenses, releases, download
         <ol>
           <GuideStep number="01" icon={<Download size={18} />} title="Download the EA" text="Use the secure button above so Orion can confirm the release against your account and licensed platform." />
           <GuideStep number="02" icon={<FolderOpen size={18} />} title="Place it in Experts" text={`Open the MetaTrader data folder, then place the EA file inside ${setupPlatform.folder}. Refresh Navigator or restart MetaTrader.`} />
-          <GuideStep number="03" icon={<CheckCircle2 size={18} />} title="Attach and activate" text="Attach Orion to your chart, enter the matching license key, enable automated trading, and confirm the active status." />
+          <GuideStep number="03" icon={<Monitor size={18} />} title="Copy the Installation ID" text="Attach the secure Orion V5.1 build, enter the matching license key, and copy the ORION INSTALLATION ID shown in the Experts log. The EA remains safely blocked until pairing is complete." />
+          <GuideStep number="04" icon={<CheckCircle2 size={18} />} title="Pair and activate" text="Use the License Pairing Center above to register the exact Demo identity when testing and pair this installation. Real and Demo both require the active installation seat." />
         </ol>
       </details>
 

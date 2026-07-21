@@ -3,7 +3,8 @@ import { hashLicenseKey, licenseKeyVersion, normalizeLicenseKey } from '@/lib/li
 import { rateLimit } from '@/lib/rate-limit';
 import { jsonError, readJson } from '@/lib/security';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
-import { isMissingTradingAccountSchema } from '@/lib/trading-accounts-server';
+import { installationIdPattern, normalizeInstallationId } from '@/lib/license-runtime';
+import { hashInstallationId, isMissingLicenseRuntimeSchema } from '@/lib/license-runtime-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,8 @@ const validationSchema = z.object({
   accountNumber: z.string().trim().regex(/^[0-9]{4,24}$/),
   brokerServer: z.string().trim().min(2).max(160),
   platform: z.enum(['MT4', 'MT5']),
+  accountType: z.enum(['Demo', 'Real']),
+  installationId: z.string().transform(normalizeInstallationId).pipe(z.string().regex(installationIdPattern)),
 }).strict();
 
 export async function POST(request: Request) {
@@ -26,21 +29,26 @@ export async function POST(request: Request) {
   const normalizedKey = normalizeLicenseKey(parsed.data.licenseKey);
   if (!licenseKeyVersion(normalizedKey)) return invalidLicense();
 
-  const { data, error } = await createSupabaseAdminClient().rpc('validate_orion_license_binding', {
+  const { data, error } = await createSupabaseAdminClient().rpc('validate_orion_license_runtime', {
     p_key_hash: hashLicenseKey(normalizedKey),
     p_account_number: parsed.data.accountNumber,
     p_broker_server: parsed.data.brokerServer,
     p_platform: parsed.data.platform,
+    p_account_type: parsed.data.accountType,
+    p_installation_hash: hashInstallationId(parsed.data.installationId),
   });
   if (error) {
     return jsonError(
-      isMissingTradingAccountSchema(error)
+      isMissingLicenseRuntimeSchema(error)
         ? 'License validation is waiting for the latest database migration.'
         : 'License validation is temporarily unavailable.',
       503,
     );
   }
   if (!data || typeof data !== 'object' || Array.isArray(data)) return jsonError('License validation is temporarily unavailable.', 503);
+  if (!isExpectedValidationResponse(data as Record<string, unknown>, parsed.data.accountType, parsed.data.platform)) {
+    return jsonError('License validation is temporarily unavailable.', 503);
+  }
   return Response.json({ ...data, revalidateAfterSeconds: 300 }, { headers: validationHeaders() });
 }
 
@@ -54,4 +62,17 @@ function invalidLicense() {
 
 function validationHeaders() {
   return { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' };
+}
+
+function isExpectedValidationResponse(data: Record<string, unknown>, accountType: 'Demo' | 'Real', platform: 'MT4' | 'MT5') {
+  if (data.valid === false) return typeof data.code === 'string' && data.code.length > 0;
+  return data.valid === true
+    && data.code === 'VALID'
+    && data.accountType === accountType
+    && data.platform === platform
+    && ['Basic', 'Premium', 'Lifetime'].includes(String(data.plan || ''))
+    && Number.isInteger(data.bindingVersion)
+    && Number(data.bindingVersion) >= 0
+    && typeof data.validatedAt === 'string'
+    && (data.expiresAt === null || typeof data.expiresAt === 'string');
 }
