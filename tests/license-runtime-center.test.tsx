@@ -250,6 +250,7 @@ describe('license identity and device center', () => {
 
     const select = await screen.findByLabelText('License to manage') as HTMLSelectElement;
     expect(select.value).toBe(licenseId);
+    await waitFor(() => expect(interval).toHaveBeenCalledWith(expect.any(Function), 60_000));
     const poll = interval.mock.calls.find(([, delay]) => delay === 60_000)?.[0] as (() => void) | undefined;
     expect(poll).toBeTruthy();
     poll?.();
