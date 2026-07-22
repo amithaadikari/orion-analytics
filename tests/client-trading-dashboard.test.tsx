@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import React from 'react';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ alertCenter: vi.fn(() => null) }));
@@ -51,11 +51,15 @@ const baseSnapshot: TradingAnalyticsSnapshot = {
   history: { items: [], nextCursor: null },
 };
 
-function respond(snapshot: TradingAnalyticsSnapshot) {
-  return vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify(snapshot), {
+function jsonResponse(snapshot: TradingAnalyticsSnapshot) {
+  return new Response(JSON.stringify(snapshot), {
     status: 200,
     headers: { 'content-type': 'application/json' },
-  })));
+  });
+}
+
+function respond(snapshot: TradingAnalyticsSnapshot) {
+  return vi.fn().mockImplementation(() => Promise.resolve(jsonResponse(snapshot)));
 }
 
 describe('client trading dashboard states', () => {
@@ -199,7 +203,7 @@ describe('client trading dashboard states', () => {
   });
 
   it('combines both records into keyboard-accessible tabs without another API request', async () => {
-    const fetchMock = respond({
+    const snapshot: TradingAnalyticsSnapshot = {
       ...baseSnapshot,
       metrics: { ...baseSnapshot.metrics, closedTrades: 1 },
       activity: {
@@ -221,9 +225,21 @@ describe('client trading dashboard states', () => {
           commission: -1, netProfit: 23.5,
         }],
       },
-    });
+    };
+    let resolveBootstrap!: (response: Response) => void;
+    const fetchMock = vi.fn()
+      .mockImplementationOnce(() => new Promise<Response>((resolve) => {
+        resolveBootstrap = resolve;
+      }))
+      .mockImplementation(() => Promise.resolve(jsonResponse(snapshot)));
     vi.stubGlobal('fetch', fetchMock);
     render(<ClientTradingDashboard />);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain('connectionId=');
+    await act(async () => {
+      resolveBootstrap(jsonResponse(snapshot));
+    });
 
     const tablist = await screen.findByRole('tablist', { name: 'Trade history view' });
     const executionsTab = within(tablist).getByRole('tab', { name: /^Executions,/i });
@@ -235,7 +251,7 @@ describe('client trading dashboard states', () => {
     expect(screen.getByRole('tabpanel', { name: /^Executions,/i }).id).toBe(executionsTab.getAttribute('aria-controls'));
     expect(screen.getByRole('article', { name: 'Partial close XAUUSD execution' })).toBeTruthy();
     expect(screen.queryByRole('table', { name: 'Closed Orion trading history' })).toBeNull();
-    const requestCount = fetchMock.mock.calls.length;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     fireEvent.keyDown(executionsTab, { key: 'ArrowRight' });
     expect(document.activeElement).toBe(closedTab);
@@ -243,7 +259,7 @@ describe('client trading dashboard states', () => {
     expect(screen.getByRole('tabpanel', { name: /^Closed trades,/i }).id).toBe(closedTab.getAttribute('aria-controls'));
     expect(screen.getByRole('table', { name: 'Closed Orion trading history' })).toBeTruthy();
     expect(screen.getByRole('row', { name: /XAUUSD #7201 Sell 0.05/i })).toBeTruthy();
-    expect(fetchMock.mock.calls).toHaveLength(requestCount);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
 
     fireEvent.keyDown(closedTab, { key: 'Home' });
     expect(document.activeElement).toBe(executionsTab);
@@ -252,6 +268,12 @@ describe('client trading dashboard states', () => {
     expect(document.activeElement).toBe(closedTab);
     fireEvent.keyDown(closedTab, { key: 'ArrowRight' });
     expect(document.activeElement).toBe(executionsTab);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh trading dashboard' }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain(`connectionId=${baseSnapshot.selectedConnectionId}`);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain('range=7d');
   });
 
   it('paginates only closed trades and keeps execution activity unchanged', async () => {
