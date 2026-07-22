@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Activity, BadgeCheck, Boxes, CircleAlert, Clock3, History, MonitorCheck, RefreshCw, Search, ShieldAlert, WifiOff } from 'lucide-react';
-import type { AdminTradingMonitorSnapshot, AdminTradingReliabilitySnapshot, TradingConnectionState } from '@/lib/admin-trading-monitor';
+import { Activity, BadgeCheck, BellRing, Boxes, CircleAlert, Clock3, History, MonitorCheck, RefreshCw, Search, ShieldAlert, WifiOff } from 'lucide-react';
+import type { AdminTradingAlertingSnapshot, AdminTradingMonitorSnapshot, AdminTradingReliabilitySnapshot, TradingConnectionState } from '@/lib/admin-trading-monitor';
 import styles from './admin-trading-monitor.module.css';
 
 const emptyReliability: AdminTradingReliabilitySnapshot = {
@@ -29,6 +29,16 @@ const emptySnapshot: AdminTradingMonitorSnapshot = {
   counts: { total: 0, online: 0, delayed: 0, offline: 0, never: 0, offlineWithOpenPositions: 0, rejected24h: 0 },
   items: [],
   reliability: emptyReliability,
+};
+
+const emptyAlerting: AdminTradingAlertingSnapshot = {
+  available: false,
+  unavailableReason: 'migration_pending',
+  enabledConnections: 0,
+  activeBreaches: 0,
+  triggered24h: 0,
+  recentEvents: [],
+  runs: [],
 };
 
 type FilterState = 'all' | TradingConnectionState;
@@ -129,6 +139,8 @@ export default function AdminTradingMonitor() {
         acknowledge={acknowledgeIncident}
       />
 
+      <ClientAlertOverview alerting={snapshot.alerting || emptyAlerting} />
+
       <div className={styles.filters} aria-label="Filter EA connections">
         <label className={styles.search}><span className="sr-only">Search clients or connections</span><Search size={16} aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search client, account, broker…" /></label>
         <Filter label="State" value={state} onChange={(value) => setState(value as FilterState)} options={['online', 'delayed', 'offline', 'never']} />
@@ -160,6 +172,36 @@ export default function AdminTradingMonitor() {
       {snapshot.generatedAt && <p className={styles.asOf}>Fleet state calculated {new Date(snapshot.generatedAt).toLocaleString()} from server receipt times.</p>}
     </section>
   );
+}
+
+function ClientAlertOverview({ alerting }: { alerting: AdminTradingAlertingSnapshot }) {
+  const latestRun = alerting.runs[0];
+  const pending = alerting.unavailableReason === 'migration_pending';
+  return <section className={`${styles.reliabilityPanel} ${styles.alertDelivery}`} aria-labelledby="client-alert-delivery-title">
+    <header className={styles.reliabilityHead}>
+      <div><p>Client safety delivery</p><h3 id="client-alert-delivery-title">Trading alert operations</h3></div>
+      <BellRing size={19} aria-hidden="true" />
+    </header>
+    {!alerting.available ? <div className={styles.schemaNotice}><BellRing size={20} aria-hidden="true" /><div>
+      <strong>{pending ? 'Client alert activation pending' : 'Client alert evidence temporarily unavailable'}</strong>
+      <span>{pending ? 'Apply the Trading Alerts & Risk Center migration, then run its evaluator to begin delivery.' : 'EA fleet monitoring remains available. Refresh shortly to restore alert delivery evidence.'}</span>
+    </div></div> : <>
+      <div className={styles.alertDeliveryMetrics} aria-label="Client trading alert summary">
+        <div><small>Enabled connections</small><strong>{alerting.enabledConnections}</strong><span>At least one alert rule</span></div>
+        <div data-tone={alerting.activeBreaches ? 'warning' : 'clear'}><small>Active breaches</small><strong>{alerting.activeBreaches}</strong><span>{alerting.activeBreaches ? 'Threshold review required' : 'No open risk state'}</span></div>
+        <div><small>Alerts in 24h</small><strong>{alerting.triggered24h}</strong><span>Portal notification events</span></div>
+        <div data-status={latestRun?.status || 'Pending'}><small>Latest evaluator</small><strong>{latestRun?.status || 'No run'}</strong><span>{latestRun ? `${latestRun.scopesEvaluated} connections · ${latestRun.notificationsCreated} delivered` : 'Waiting for first evaluation'}</span></div>
+      </div>
+      <ul className={styles.alertEventList}>
+        {alerting.recentEvents.map((event) => <li key={event.id} data-severity={event.severity}>
+          <span className={styles.alertEventIcon}><BellRing size={15} aria-hidden="true" /></span>
+          <div><strong>{event.title}</strong><span>{event.clientName}{event.maskedAccountNumber ? ` · ${event.maskedAccountNumber}` : ''}</span></div>
+          <time dateTime={event.triggeredAt}>{dateLabel(event.triggeredAt)}</time>
+        </li>)}
+        {!alerting.recentEvents.length && <li className={styles.reliabilityEmpty}><BadgeCheck size={18} aria-hidden="true" /><span>No client trading alerts recorded.</span></li>}
+      </ul>
+    </>}
+  </section>;
 }
 
 function ReliabilityOverview({ reliability, error, acknowledging, acknowledge }: {

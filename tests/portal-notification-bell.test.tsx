@@ -18,6 +18,17 @@ const notifications = Array.from({ length: 6 }, (_, index) => ({
   created_at: `2026-07-20T${String(12 - index).padStart(2, '0')}:00:00Z`,
 }));
 
+const tradingNotification = {
+  id: '00000000-0000-4000-8000-000000000099',
+  kind: 'Trading alert',
+  title: 'Floating drawdown alert',
+  message: 'Your configured floating drawdown threshold was reached.',
+  href: '/portal/trading#risk-alerts',
+  ticketId: null,
+  read_at: null,
+  created_at: '2026-07-20T13:00:00Z',
+};
+
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, '', '/');
@@ -41,6 +52,19 @@ describe('Portal notification bell', () => {
     expect(within(popover).getByText('New support reply')).toBeTruthy();
     expect(within(popover).getByText('Account update 4')).toBeTruthy();
     expect(within(popover).queryByText('Account update 5')).toBeNull();
+  });
+
+  it('uses the Trading tone and Activity icon for trading alerts', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ notifications: [tradingNotification], unreadCount: 1 })));
+    renderNotifications(<PortalNotificationBell />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Notifications, 1 unread' }));
+
+    const popover = screen.getByRole('region', { name: 'Recent notifications' });
+    const item = within(popover).getByRole('button', { name: /Floating drawdown alert/i });
+    const kind = item.querySelector('[data-kind="trading"]');
+    expect(kind).toBeTruthy();
+    expect(kind?.querySelector('.lucide-activity')).toBeTruthy();
   });
 
   it('keeps the top badge and full center synchronized when all updates are read', async () => {

@@ -12,6 +12,16 @@ const notifications = [
   { id: 'notice-support', kind: 'Support reply', title: 'New support reply', message: 'Orion replied to your ticket.', href: '/portal#support', read_at: null, created_at: '2026-07-20T08:00:00Z' },
 ];
 
+const tradingNotification = {
+  id: 'notice-trading',
+  kind: 'Trading alert',
+  title: 'Daily loss threshold reached',
+  message: 'Your configured trading risk threshold was reached.',
+  href: '/portal/trading#risk-alerts',
+  read_at: null,
+  created_at: '2026-07-20T12:00:00Z',
+};
+
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -30,6 +40,34 @@ describe('Portal Notification Center', () => {
     expect(screen.getByText('License updated')).toBeTruthy();
     expect(screen.queryByText('Payment confirmed')).toBeNull();
     expect(screen.queryByText('New support reply')).toBeNull();
+  });
+
+  it('filters trading alerts into their own Activity-styled category', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({
+      notifications: [tradingNotification, ...notifications],
+      unreadCount: 3,
+    })));
+    renderCenter(<PortalNotificationCenter embedded />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Trading 1/i }));
+
+    const alertTitle = screen.getByText('Daily loss threshold reached');
+    const item = alertTitle.closest('li');
+    const kind = item?.querySelector('[data-kind="trading"]');
+    expect(kind).toBeTruthy();
+    expect(kind?.querySelector('.lucide-activity')).toBeTruthy();
+    expect(screen.queryByText('Payment confirmed')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Open' })).toBeTruthy();
+  });
+
+  it('shows a truthful empty state when no trading alerts exist', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ notifications, unreadCount: 2 })));
+    renderCenter(<PortalNotificationCenter embedded />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /Trading 0/i }));
+
+    expect(screen.getByText('No trading updates')).toBeTruthy();
+    expect(screen.getByText('Choose another filter to view the rest of your account activity.')).toBeTruthy();
   });
 
   it('marks every update read and shows visible success feedback', async () => {

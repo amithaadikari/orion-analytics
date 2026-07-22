@@ -3,11 +3,16 @@
 import React from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({ alertCenter: vi.fn(() => null) }));
+vi.mock('@/components/client-trading-alert-center', () => ({ default: mocks.alertCenter }));
+
 import ClientTradingDashboard from '@/components/client-trading-dashboard';
 import type { TradingAnalyticsSnapshot } from '@/lib/trading-analytics';
 
 afterEach(() => {
   cleanup();
+  mocks.alertCenter.mockClear();
   vi.unstubAllGlobals();
 });
 
@@ -113,6 +118,12 @@ describe('client trading dashboard states', () => {
     expect(within(screen.getByRole('tabpanel', { name: /^Closed trades,/i })).getByText('No closed trades in this period')).toBeTruthy();
     expect(screen.getAllByRole('link', { name: 'Review Premium' })).toHaveLength(2);
     expect(screen.queryByText('0.0%')).toBeNull();
+    expect(mocks.alertCenter).toHaveBeenCalledWith(expect.objectContaining({
+      connectionId: baseSnapshot.selectedConnectionId,
+      plan: 'Basic',
+      currency: 'USD',
+      connectionLabel: 'MT5 Real ••••5678',
+    }), undefined);
   });
 
   it('warns when MT5 netting reversals were safely excluded from performance', async () => {

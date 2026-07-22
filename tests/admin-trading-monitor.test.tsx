@@ -116,6 +116,39 @@ describe('EA fleet monitor', () => {
     expect(screen.queryByRole('button', { name: /resolve|delete/i })).toBeNull();
   });
 
+  it('shows client alert delivery counts, recent events, and evaluator evidence', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      generatedAt: '2026-07-21T15:10:00Z',
+      counts: { total: 1, online: 1, delayed: 0, offline: 0, never: 0, offlineWithOpenPositions: 0, rejected24h: 0 },
+      items: [],
+      alerting: {
+        available: true,
+        unavailableReason: null,
+        enabledConnections: 3,
+        activeBreaches: 1,
+        triggered24h: 4,
+        recentEvents: [{
+          id: 'a10d80f7-2db2-49fc-92ea-c98be281b822', alertType: 'daily_loss', severity: 'warning',
+          title: 'Daily loss guardrail reached', clientId: 'client-1', clientName: 'Client One',
+          maskedAccountNumber: '••••4321', triggeredAt: '2026-07-21T15:05:00Z', resolvedAt: null,
+        }],
+        runs: [{
+          id: '08b768ee-287b-4b64-9c17-66d3c7f11756', status: 'Succeeded',
+          startedAt: '2026-07-21T15:05:00Z', completedAt: '2026-07-21T15:05:01Z',
+          scopesEvaluated: 3, dealsEvaluated: 2, alertsCreated: 1, notificationsCreated: 1,
+          statesOpened: 1, statesResolved: 0, errorCode: null,
+        }],
+      },
+    }), { status: 200 })));
+
+    render(<AdminTradingMonitor />);
+    expect(await screen.findByRole('heading', { name: 'Trading alert operations' })).toBeTruthy();
+    expect(screen.getByText('Daily loss guardrail reached')).toBeTruthy();
+    expect(screen.getByText('Client One · ••••4321')).toBeTruthy();
+    expect(screen.getByText('3 connections · 1 delivered')).toBeTruthy();
+    expect(screen.getByText('Threshold review required')).toBeTruthy();
+  });
+
   it('acknowledges an incident with the exact action and refreshes authoritative state', async () => {
     const snapshot = (acknowledgedAt: string | null) => ({
       generatedAt: '2026-07-21T12:10:00Z',

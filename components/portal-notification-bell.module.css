@@ -198,6 +198,7 @@ button.itemMain {
 }
 
 .kind[data-kind='billing'] { color: #ffca7e; border-color: rgba(255, 178, 81, .18); background: rgba(255, 178, 81, .04); }
+.kind[data-kind='trading'] { color: #ffbd70; border-color: rgba(255, 180, 92, .2); background: rgba(255, 180, 92, .045); }
 .kind[data-kind='license'] { color: var(--portal-secondary-bright); border-color: rgba(var(--portal-secondary-rgb), .18); background: rgba(var(--portal-secondary-rgb), .04); }
 .kind[data-kind='support'] { color: #7be7a7; border-color: rgba(57, 242, 138, .18); background: rgba(57, 242, 138, .035); }
 .kind[data-kind='security'] { color: #9f8cff; border-color: rgba(159, 140, 255, .2); background: rgba(159, 140, 255, .045); }

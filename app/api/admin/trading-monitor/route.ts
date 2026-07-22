@@ -3,6 +3,9 @@ import { requireAdminApi } from '@/lib/auth';
 import { loadAdminTradingMonitor, publicAdminTradingMonitorError } from '@/lib/admin-trading-monitor-server';
 import {
   buildEaVersionAdoption,
+  type AdminTradingAlertEvent,
+  type AdminTradingAlertRun,
+  type AdminTradingAlertingSnapshot,
   type AdminTradingMonitorItem,
   type AdminTradingReliabilityIncident,
   type AdminTradingReliabilityRun,
@@ -12,6 +15,7 @@ import { accountSecurityRateLimit, isExactSameOrigin } from '@/lib/client-securi
 import { jsonError, readJson } from '@/lib/security';
 import { createSupabaseAdminClient } from '@/lib/supabase/server';
 import { isMissingTradingReliabilitySchema } from '@/lib/trading-reliability';
+import { isMissingTradingAlertsSchema } from '@/lib/trading-alerts-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,15 +34,117 @@ export async function GET() {
   try {
     const db = createSupabaseAdminClient();
     const payload = await loadAdminTradingMonitor(db);
-    const reliability = await loadReliability(db, payload.items, auth.admin.role === 'admin');
+    const [reliability, alerting] = await Promise.all([
+      loadReliability(db, payload.items, auth.admin.role === 'admin'),
+      loadClientAlerting(db, payload.items),
+    ]);
     return Response.json(
-      { ...payload, reliability },
+      { ...payload, reliability, alerting },
       { headers: { 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' } },
     );
   } catch (error) {
     const mapped = publicAdminTradingMonitorError(error);
     return jsonError(mapped.message, mapped.status);
   }
+}
+
+async function loadClientAlerting(
+  db: DatabaseClient,
+  items: AdminTradingMonitorItem[],
+): Promise<AdminTradingAlertingSnapshot> {
+  const since = new Date(Date.now() - 86_400_000).toISOString();
+  try {
+    const [preferenceResult, breachResult, countResult, eventResult, runResult] = await Promise.all([
+      db.from('client_trading_alert_preferences')
+        .select('id', { count: 'exact', head: true })
+        .or('connection_health.eq.true,final_close.eq.true,trade_opened.eq.true,partial_close.eq.true,daily_loss_enabled.eq.true,drawdown_enabled.eq.true,equity_floor_enabled.eq.true'),
+      db.from('client_trading_alert_states')
+        .select('alert_type', { count: 'exact', head: true })
+        .eq('active', true),
+      db.from('client_trading_alert_events')
+        .select('id', { count: 'exact', head: true })
+        .eq('notification_suppressed', false)
+        .not('notification_id', 'is', null)
+        .gte('created_at', since),
+      db.from('client_trading_alert_events')
+        .select('id,account_scope_id,client_id,alert_type,severity,title,triggered_at,resolved_at')
+        .eq('notification_suppressed', false)
+        .not('notification_id', 'is', null)
+        .order('triggered_at', { ascending: false })
+        .limit(8),
+      db.from('client_trading_alert_runs')
+        .select('id,status,started_at,completed_at,scopes_evaluated,deals_evaluated,alerts_created,notifications_created,states_opened,states_resolved,error_code')
+        .order('started_at', { ascending: false })
+        .limit(6),
+    ]);
+    const errors = [preferenceResult.error, breachResult.error, countResult.error, eventResult.error, runResult.error]
+      .filter((error): error is NonNullable<typeof error> => Boolean(error));
+    if (errors.length) {
+      return unavailableAlerting(errors.every((error) => isMissingTradingAlertsSchema(error))
+        ? 'migration_pending'
+        : 'temporarily_unavailable');
+    }
+    return {
+      available: true,
+      unavailableReason: null,
+      enabledConnections: Math.max(0, Number(preferenceResult.count || 0)),
+      activeBreaches: Math.max(0, Number(breachResult.count || 0)),
+      triggered24h: Math.max(0, Number(countResult.count || 0)),
+      recentEvents: (eventResult.data || []).map((row) => mapAlertEvent(row as Record<string, unknown>, items)),
+      runs: (runResult.data || []).map((row) => mapAlertRun(row as Record<string, unknown>)),
+    };
+  } catch {
+    return unavailableAlerting('temporarily_unavailable');
+  }
+}
+
+function unavailableAlerting(reason: NonNullable<AdminTradingAlertingSnapshot['unavailableReason']>): AdminTradingAlertingSnapshot {
+  return {
+    available: false,
+    unavailableReason: reason,
+    enabledConnections: 0,
+    activeBreaches: 0,
+    triggered24h: 0,
+    recentEvents: [],
+    runs: [],
+  };
+}
+
+function mapAlertEvent(row: Record<string, unknown>, items: AdminTradingMonitorItem[]): AdminTradingAlertEvent {
+  const identity = items.find((item) => item.connectionId === row.account_scope_id)
+    || items.find((item) => item.clientId === row.client_id);
+  const severity = row.severity === 'critical' ? 'critical' : row.severity === 'warning' ? 'warning' : 'info';
+  return {
+    id: String(row.id || ''),
+    alertType: String(row.alert_type || 'trading_alert'),
+    severity,
+    title: String(row.title || 'Client trading alert'),
+    clientId: String(row.client_id || ''),
+    clientName: identity?.clientName || 'Orion client',
+    maskedAccountNumber: identity?.maskedAccountNumber || null,
+    triggeredAt: String(row.triggered_at || ''),
+    resolvedAt: typeof row.resolved_at === 'string' ? row.resolved_at : null,
+  };
+}
+
+function mapAlertRun(row: Record<string, unknown>): AdminTradingAlertRun {
+  const number = (value: unknown) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? Math.max(0, Math.trunc(parsed)) : 0;
+  };
+  return {
+    id: String(row.id || ''),
+    status: row.status === 'Failed' ? 'Failed' : row.status === 'Running' ? 'Running' : 'Succeeded',
+    startedAt: String(row.started_at || ''),
+    completedAt: typeof row.completed_at === 'string' ? row.completed_at : null,
+    scopesEvaluated: number(row.scopes_evaluated),
+    dealsEvaluated: number(row.deals_evaluated),
+    alertsCreated: number(row.alerts_created),
+    notificationsCreated: number(row.notifications_created),
+    statesOpened: number(row.states_opened),
+    statesResolved: number(row.states_resolved),
+    errorCode: typeof row.error_code === 'string' ? row.error_code : null,
+  };
 }
 
 export async function POST(request: Request) {

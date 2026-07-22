@@ -42,6 +42,7 @@ import {
   type TradingEquityPoint,
   type TradingPosition,
 } from '@/lib/trading-analytics';
+import ClientTradingAlertCenter from './client-trading-alert-center';
 import styles from './client-trading-dashboard.module.css';
 
 const rangeLabels: Record<TradingAnalyticsRange, string> = {
@@ -236,6 +237,7 @@ function ReadyDashboard({ snapshot, loadingMore, loadMore }: { snapshot: Trading
   const currency = snapshot.account?.currency || 'USD';
   const offline = snapshot.connection.state === 'offline' || snapshot.connection.state === 'delayed';
   const activity = snapshot.activity || emptyExecutionActivity;
+  const selectedConnection = snapshot.connections.find((connection) => connection.id === snapshot.selectedConnectionId) || snapshot.connections[0];
   return <div className={styles.dashboard}>
     {offline && <div className={styles.offlineNotice} role="status"><WifiOff size={19} aria-hidden="true" /><p><strong>{snapshot.connection.state === 'offline' ? 'EA offline' : 'EA update delayed'}</strong><span>Positions and account values shown are from {snapshot.dataAsOf ? formatDateTime(snapshot.dataAsOf, snapshot.period.timeZone) : 'the last recorded sync'} and may have changed in MetaTrader.</span></p></div>}
     {snapshot.dataQuality.nettingReversalsExcluded && <div className={styles.offlineNotice} role="status"><CircleAlert size={19} aria-hidden="true" /><p><strong>Netting reversals excluded</strong><span>MT5 InOut reversal cycles are not included in closed-trade totals because they cannot be split reliably from broker deal data. Live account values and open positions remain available.</span></p></div>}
@@ -272,6 +274,12 @@ function ReadyDashboard({ snapshot, loadingMore, loadMore }: { snapshot: Trading
       </div>
     </section>}
 
+    {snapshot.selectedConnectionId && <ClientTradingAlertCenter
+      connectionId={snapshot.selectedConnectionId}
+      plan={snapshot.access.plan}
+      currency={currency}
+      connectionLabel={selectedConnection ? `${selectedConnection.platform} ${selectedConnection.accountType} ${selectedConnection.maskedAccountNumber}` : 'Selected Orion connection'}
+    />}
     <OpenPositions positions={snapshot.openPositions} currency={currency} timeZone={snapshot.period.timeZone} stale={offline} />
     <TradeHistoryWorkspace
       activity={activity}
