@@ -75,6 +75,7 @@ export default function ClientTradingDashboard() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState('');
   const requestRunning = useRef(false);
+  const skipBootstrapSelectionReload = useRef(false);
   const snapshotRef = useRef<TradingAnalyticsSnapshot | null>(null);
 
   snapshotRef.current = snapshot;
@@ -110,7 +111,10 @@ export default function ClientTradingDashboard() {
             },
           }
         : payload);
-      if (!connectionId && payload.selectedConnectionId) setConnectionId(payload.selectedConnectionId);
+      if (!connectionId && payload.selectedConnectionId) {
+        skipBootstrapSelectionReload.current = true;
+        setConnectionId(payload.selectedConnectionId);
+      }
       if (isTradingAnalyticsRange(payload.period.range) && payload.period.range !== range) setRange(payload.period.range);
       setError('');
     } catch (reason) {
@@ -125,6 +129,11 @@ export default function ClientTradingDashboard() {
   }, [connectionId, range]);
 
   useEffect(() => {
+    if (skipBootstrapSelectionReload.current) {
+      skipBootstrapSelectionReload.current = false;
+      return;
+    }
+
     const controller = new AbortController();
     void load({ signal: controller.signal });
     return () => controller.abort();
