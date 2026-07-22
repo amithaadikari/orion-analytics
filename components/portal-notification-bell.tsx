@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
+  Activity,
   Bell,
   Check,
   CheckCheck,
@@ -154,12 +155,13 @@ function NotificationCopy({ notification }: { notification: PortalNotification }
 }
 
 function KindIcon({ tone }: { tone: ReturnType<typeof kindTone> }) {
-  const Icon = tone === 'license' ? KeyRound : tone === 'billing' ? CreditCard : tone === 'support' ? Headphones : tone === 'security' ? ShieldCheck : Sparkles;
+  const Icon = tone === 'trading' ? Activity : tone === 'license' ? KeyRound : tone === 'billing' ? CreditCard : tone === 'support' ? Headphones : tone === 'security' ? ShieldCheck : Sparkles;
   return <span className={styles.kind} data-kind={tone} aria-hidden="true"><Icon size={15} /></span>;
 }
 
 function kindTone(kind: string) {
   const value = kind.toLowerCase();
+  if (value.includes('trading') || value.includes('trade alert')) return 'trading' as const;
   if (value.includes('license')) return 'license' as const;
   if (value.includes('payment') || value.includes('billing')) return 'billing' as const;
   if (value.includes('support') || value.includes('ticket')) return 'support' as const;

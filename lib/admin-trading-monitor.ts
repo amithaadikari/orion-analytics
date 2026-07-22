@@ -33,6 +33,7 @@ export type AdminTradingMonitorSnapshot = {
   };
   items: AdminTradingMonitorItem[];
   reliability?: AdminTradingReliabilitySnapshot;
+  alerting?: AdminTradingAlertingSnapshot;
 };
 
 export const CURRENT_ORION_EA_VERSION = '5.2.0';
@@ -98,6 +99,42 @@ export type AdminTradingReliabilitySnapshot = {
   openIncidentCount: number;
   openIncidentOverflow: boolean;
   runs: AdminTradingReliabilityRun[];
+};
+
+export type AdminTradingAlertEvent = {
+  id: string;
+  alertType: string;
+  severity: 'info' | 'warning' | 'critical';
+  title: string;
+  clientId: string;
+  clientName: string;
+  maskedAccountNumber: string | null;
+  triggeredAt: string;
+  resolvedAt: string | null;
+};
+
+export type AdminTradingAlertRun = {
+  id: string;
+  status: 'Running' | 'Succeeded' | 'Failed';
+  startedAt: string;
+  completedAt: string | null;
+  scopesEvaluated: number;
+  dealsEvaluated: number;
+  alertsCreated: number;
+  notificationsCreated: number;
+  statesOpened: number;
+  statesResolved: number;
+  errorCode: string | null;
+};
+
+export type AdminTradingAlertingSnapshot = {
+  available: boolean;
+  unavailableReason: 'migration_pending' | 'temporarily_unavailable' | null;
+  enabledConnections: number;
+  activeBreaches: number;
+  triggered24h: number;
+  recentEvents: AdminTradingAlertEvent[];
+  runs: AdminTradingAlertRun[];
 };
 
 export function buildEaVersionAdoption(
