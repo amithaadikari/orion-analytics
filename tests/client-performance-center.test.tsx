@@ -54,6 +54,34 @@ describe('client Performance Center entitlements and accessibility', () => {
     expect(profitDay.getAttribute('data-tone')).toBe('positive');
     expect(profitDay.querySelector('strong')?.textContent).toMatch(/^\+.+40\.00$/);
     expect(profitDay.querySelector('small')?.textContent).toBe('1 trade');
+    expect(profitDay.getAttribute('title')).toBe(profitDay.getAttribute('aria-label'));
+    expect(screen.getByRole('group', { name: 'July 2026 calendar days' }).getAttribute('tabindex')).toBe('0');
+  });
+
+  it('keeps a long exact currency amount in the visible calendar value and accessible label', async () => {
+    const longValue = 1_234_567.89;
+    const report = performanceReport({ realizedNet: longValue, closedTrades: 1 });
+    report.calendar = [{
+      date: '2026-07-24',
+      netProfit: longValue,
+      closedTrades: 1,
+      wins: 1,
+      losses: 0,
+      breakeven: 0,
+    }];
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(performanceSnapshot('Basic', {
+      account: { currency: 'USDT' },
+      performance: report,
+    }))));
+
+    render(<ClientPerformanceCenter />);
+
+    const profitDay = await screen.findByRole('listitem', {
+      name: /: profit USDT\s+1,234,567\.89, 1 closed trade$/i,
+    });
+    expect(profitDay.querySelector('strong')?.textContent?.replace(/[\u00a0\u202f]/g, ' '))
+      .toBe('+USDT 1,234,567.89');
+    expect(profitDay.getAttribute('title')).toBe(profitDay.getAttribute('aria-label'));
   });
 
   it('shows Premium metrics, secure CSV access, and a complete roving-tab keyboard model', async () => {
