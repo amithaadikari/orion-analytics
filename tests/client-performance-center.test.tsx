@@ -47,6 +47,13 @@ describe('client Performance Center entitlements and accessibility', () => {
     expect(calendarLabels.some((label) => /: loss .+20\.00, 1 closed trade$/i.test(label))).toBe(true);
     expect(calendarLabels.some((label) => /: flat result .+0\.00, 1 closed trade$/i.test(label))).toBe(true);
     expect(calendarLabels.some((label) => /: no closed trades$/i.test(label))).toBe(true);
+
+    const profitDay = screen.getByRole('listitem', {
+      name: /: profit .+40\.00, 1 closed trade$/i,
+    });
+    expect(profitDay.getAttribute('data-tone')).toBe('positive');
+    expect(profitDay.querySelector('strong')?.textContent).toMatch(/^\+.+40\.00$/);
+    expect(profitDay.querySelector('small')?.textContent).toBe('1 trade');
   });
 
   it('shows Premium metrics, secure CSV access, and a complete roving-tab keyboard model', async () => {
