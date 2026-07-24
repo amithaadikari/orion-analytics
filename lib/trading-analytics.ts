@@ -8,6 +8,9 @@ export type TradingAnalyticsEntitlement = {
   allowedRanges: readonly TradingAnalyticsRange[];
   maxRange: TradingAnalyticsRange | null;
   advancedMetrics: boolean;
+  performanceCalendar: boolean;
+  performanceBreakdowns: boolean;
+  performanceCsvExport: boolean;
   historyPagination: boolean;
   historyPageSize: number;
   allHistory: boolean;
@@ -163,6 +166,9 @@ const entitlementByPlan: Record<TradingAnalyticsPlan, TradingAnalyticsEntitlemen
     allowedRanges: [],
     maxRange: null,
     advancedMetrics: false,
+    performanceCalendar: false,
+    performanceBreakdowns: false,
+    performanceCsvExport: false,
     historyPagination: false,
     historyPageSize: 0,
     allHistory: false,
@@ -172,6 +178,9 @@ const entitlementByPlan: Record<TradingAnalyticsPlan, TradingAnalyticsEntitlemen
     allowedRanges: ['7d'],
     maxRange: '7d',
     advancedMetrics: false,
+    performanceCalendar: true,
+    performanceBreakdowns: false,
+    performanceCsvExport: false,
     historyPagination: false,
     historyPageSize: 20,
     allHistory: false,
@@ -181,6 +190,9 @@ const entitlementByPlan: Record<TradingAnalyticsPlan, TradingAnalyticsEntitlemen
     allowedRanges: ['7d', '30d', '90d'],
     maxRange: '90d',
     advancedMetrics: true,
+    performanceCalendar: true,
+    performanceBreakdowns: true,
+    performanceCsvExport: true,
     historyPagination: true,
     historyPageSize: 50,
     allHistory: false,
@@ -190,6 +202,9 @@ const entitlementByPlan: Record<TradingAnalyticsPlan, TradingAnalyticsEntitlemen
     allowedRanges: tradingAnalyticsRanges,
     maxRange: 'all',
     advancedMetrics: true,
+    performanceCalendar: true,
+    performanceBreakdowns: true,
+    performanceCsvExport: true,
     historyPagination: true,
     historyPageSize: 50,
     allHistory: true,
