@@ -646,6 +646,7 @@ begin
       'weekdayBasis', 'FINAL_CLOSE_UTC',
       'sessionBasis', 'ENTRY_TIME_UTC_FIXED_WINDOWS'
     )
+  )
   into v_result
   from overview
   cross join drawdown
