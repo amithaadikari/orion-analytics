@@ -11,6 +11,7 @@ describe('client plan handoff', () => {
   it('keeps authentication redirects on approved portal paths', () => {
     expect(safeAuthNext('/checkout?plan=basic')).toBe('/checkout?plan=basic');
     expect(safeAuthNext('/portal/trading')).toBe('/portal/trading');
+    expect(safeAuthNext('/portal/performance')).toBe('/portal/performance');
     expect(safeAuthNext('/portal/profile')).toBe('/portal/profile');
     expect(safeAuthNext('/portal/settings')).toBe('/portal/settings');
     expect(safeAuthNext('/reset-password')).toBe('/reset-password');
@@ -24,6 +25,7 @@ describe('client plan handoff', () => {
     expect(safeAuthNext('/dashboard')).toBe('/portal');
     expect(safeMfaNext('/dashboard')).toBe('/dashboard');
     expect(safeMfaNext('/dashboard?section=payments')).toBe('/dashboard?section=payments');
+    expect(safeMfaNext('/portal/performance')).toBe('/portal/performance');
     expect(safeMfaNext('/portal/settings')).toBe('/portal/settings');
     expect(safeMfaNext('//evil.example')).toBe('/portal');
   });
