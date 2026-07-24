@@ -143,7 +143,7 @@ describe('EA fleet monitor', () => {
 
     render(<AdminTradingMonitor />);
     expect(await screen.findByRole('heading', { name: 'Trading alert operations' })).toBeTruthy();
-    expect(screen.getByText('Daily loss guardrail reached')).toBeTruthy();
+    expect(await screen.findByText('Daily loss guardrail reached')).toBeTruthy();
     expect(screen.getByText('Client One · ••••4321')).toBeTruthy();
     expect(screen.getByText('3 connections · 1 delivered')).toBeTruthy();
     expect(screen.getByText('Threshold review required')).toBeTruthy();
