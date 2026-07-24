@@ -510,29 +510,31 @@ function CalendarMonth({ month, currency }: { month: CalendarMonthView; currency
   return (
     <section className={styles.calendarMonth} aria-labelledby={`performance-month-${month.key}`}>
       <h3 id={`performance-month-${month.key}`}>{month.label}</h3>
-      <div className={styles.weekdayRow} aria-hidden="true">
-        {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
+      <div className={styles.calendarViewport} role="group" aria-label={`${month.label} calendar days`} tabIndex={0}>
+        <div className={styles.weekdayRow} aria-hidden="true">
+          {weekdayLabels.map((label) => <span key={label}>{label}</span>)}
+        </div>
+        <ol className={styles.calendarGrid} aria-label={`${month.label} daily trading results`}>
+          {Array.from({ length: month.leadingBlanks }, (_, index) => (
+            <li className={styles.calendarBlank} aria-hidden="true" key={`blank-${index}`} />
+          ))}
+          {month.slots.map((slot) => {
+            const tone = calendarTone(slot.result);
+            const label = calendarAriaLabel(slot, currency);
+            return (
+              <li className={styles.calendarDay} data-tone={tone} aria-label={label} title={label} key={slot.date}>
+                <time dateTime={slot.date}>{slot.dayNumber}</time>
+                <strong>{slot.result ? formatSignedMoney(slot.result.netProfit, currency) : '—'}</strong>
+                <small>
+                  {slot.result
+                    ? `${slot.result.closedTrades} trade${slot.result.closedTrades === 1 ? '' : 's'}`
+                    : 'No trades'}
+                </small>
+              </li>
+            );
+          })}
+        </ol>
       </div>
-      <ol className={styles.calendarGrid} aria-label={`${month.label} daily trading results`}>
-        {Array.from({ length: month.leadingBlanks }, (_, index) => (
-          <li className={styles.calendarBlank} aria-hidden="true" key={`blank-${index}`} />
-        ))}
-        {month.slots.map((slot) => {
-          const tone = calendarTone(slot.result);
-          const label = calendarAriaLabel(slot, currency);
-          return (
-            <li className={styles.calendarDay} data-tone={tone} aria-label={label} key={slot.date}>
-              <time dateTime={slot.date}>{slot.dayNumber}</time>
-              <strong>{slot.result ? formatSignedMoney(slot.result.netProfit, currency) : '—'}</strong>
-              <small>
-                {slot.result
-                  ? `${slot.result.closedTrades} trade${slot.result.closedTrades === 1 ? '' : 's'}`
-                  : 'No trades'}
-              </small>
-            </li>
-          );
-        })}
-      </ol>
     </section>
   );
 }
